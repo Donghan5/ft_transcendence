@@ -1,0 +1,17 @@
+{
+  "dependencies": {
+    "@fastify/type-provider-typebox": "^5.1.0",
+    "fastify": "^5.4.0",
+    "fastify-autoload": "^3.13.0"
+  },
+  "name": "donghank",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
+}
