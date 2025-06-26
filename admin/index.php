@@ -6,7 +6,8 @@ class TournamentManager {
         $this->db = new PDO('sqlite:../database/app.db');
         $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     }
-    
+    // this is an example to prevent SQL injection (using prepared statements)
+    // In short terms, prepared statements --> place holder
     public function createTournament($data) {
         $stmt = $this->db->prepare("
             INSERT INTO tournaments (name, description, max_participants, entry_fee, prize_pool, starts_at) 
@@ -72,7 +73,45 @@ class TournamentManager {
         ");
         
         $stmt->execute([$tournamentId]);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        return $stmt->fetchAll(PDO:발 도구)로 만들지 않고 왜 Terminal에서 동작하게 만들었나요?
+
+        A : 일단 개발자들마다 좋아하는 IDE가 제각각인데, Terminal은 모두의 공통분모인 것이 첫번째 이유고,
+        
+        * 두번째 이유로는 모델의 발전 속도가 너무 빠른데, "연말에는" 사람들이 IDE를 더이상 사용하지 않을 것이라고 보기 때문이라고 합니다...!:FETCH_ASSOC);
+    }
+    
+    public function exportGameHistoryCSV() {
+        header('Content-Type: text/csv');
+        header('Content-Disposition: attachment; filename="game_history.csv"');
+        
+        $stmt = $this->db->query("
+            SELECT 
+                g.id as game_id,
+                u1.username as player1,
+                u2.username as player2,
+                CASE 
+                    WHEN g.player1_score > g.player2_score THEN u1.username
+                    WHEN g.player2_score > g.player1_score THEN u2.username
+                    ELSE 'Draw'
+                END as winner,
+                g.player1_score,
+                g.player2_score,
+                g.finished_at
+            FROM games g
+            JOIN users u1 ON g.player1_id = u1.id
+            JOIN users u2 ON g.player2_id = u2.id
+            WHERE g.finished_at IS NOT NULL
+            ORDER BY g.finished_at DESC
+        ");
+        
+        $output = fopen('php://output', 'w');
+        fputcsv($output, ['Game ID', 'Player 1', 'Player 2', 'Winner', 'Score 1', 'Score 2', 'Date']);
+        
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            fputcsv($output, $row);
+        }
+        
+        fclose($output);
     }
 }
 
@@ -97,6 +136,13 @@ if ($_SERVER['REQUEST_URI'] === '/metrics') {
     echo "php_tournaments_open {$stats['open_tournaments']}\n";
     echo "php_tournaments_active {$stats['active_tournaments']}\n";
     echo "php_participants_total {$stats['total_participants']}\n";
+    exit;
+}
+
+// CSV export endpoint
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && $_GET['action'] === 'export_csv') {
+    $manager = new TournamentManager();
+    $manager->exportGameHistoryCSV();
     exit;
 }
 ?>
@@ -153,6 +199,15 @@ if ($_SERVER['REQUEST_URI'] === '/metrics') {
                 </button>
             </form>
         </div>
+        
+        <!-- export section -->
+        <div class="bg-white p-6 rounded-lg shadow">
+            <h2 class="text-xl font-bold mb-4">Export Data</h2>
+            <a href="?action=export_csv" 
+               class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 inline-block">
+                Export Game History (CSV)
+            </a>
+        </div>
     </div>
 
     <script>
@@ -171,7 +226,10 @@ if ($_SERVER['REQUEST_URI'] === '/metrics') {
             fetch('?action=stats')
                 .then(response => response.json())
                 .then(data => {
-                    // update stats logic
+                    document.getElementById('total-tournaments').textContent = data.tournament_stats.total_tournaments;
+                    document.getElementById('active-tournaments').textContent = data.tournament_stats.active_tournaments;
+                    document.getElementById('total-participants').textContent = data.tournament_stats.total_participants;
+                    document.getElementById('total-prize').textContent = '$' + parseFloat(data.tournament_stats.total_prize_pool).toFixed(2);
                 });
         }, 5000);
     </script>
