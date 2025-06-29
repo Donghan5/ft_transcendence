@@ -1,5 +1,5 @@
 export interface GameConnectionEvents {
-	'gameState': (gameState: any) => void
+	'gameState': (gameState: any) => void     // => is return type | like lambda ?
 	'playerJoined': (playerId: string) => void
 	'playerLeft': (playerId: string) => void
 	'updateScore': (scores: { player1: number, player2: number }) => void
@@ -18,12 +18,29 @@ export class GameConnection {
 	private reconnectDelay: number = 1000
 	private isConnected = false
 	private heartbeatInterval: NodeJS.Timeout | null = null
+	
+	private eventListeners: Map<keyof GameConnectionEvents, Function[]> = new Map()
 
 	constructor(gameId: string, playerId: string) {
 		this.gameId = gameId
 		this.playerId = playerId
 
 		console.log(`🔌 Player ${this.playerId} connected to game ${this.gameId}`)
+	}
+
+	on<K extends keyof GameConnectionEvents>(event: K, callback: GameConnectionEvents[K]): void {
+		if (!this.eventListeners.has(event)) {
+			this.eventListeners.set(event, [])
+		}
+		this.eventListeners.get(event)?.push(callback)
+	}
+
+	private emit<K extends keyof GameConnectionEvents>(
+		event: K, 
+		...args: Parameters<GameConnectionEvents[K]>
+	): void {
+		const listeners = this.eventListeners.get(event) || []
+		listeners.forEach(listener => listener(...args))
 	}
 
 	async connect(): Promise<void> {
@@ -59,7 +76,7 @@ export class GameConnection {
 					}
 				}
 
-				this.ws.onclose = () => {
+				this.ws.onclose = (event) => {
 					console.log(`🔌 WebSocket connection closed for player ${this.playerId}`)
 					this.isConnected = false
 					this.stopHeartbeat()
@@ -72,7 +89,7 @@ export class GameConnection {
 
 				this.ws.onerror = (error) => {
 					console.error(`❌ WebSocket error for player ${this.playerId}:`, error)
-					this.emit('error', error)
+					this.emit('error', 'WebSocket connection error')
 					reject(new Error('WebSocket connection failed'))
 				}
 			})
@@ -81,15 +98,87 @@ export class GameConnection {
 			throw error
 		}
 	}
-}
 
-private startHeartbeat(): void {
-	this.heartbeatInterval = setInterval(() => {
-		if (this.isConnected && this.ws.readyState === WebSocket.OPEN) {
-			this.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }))
+	private handleMessage(data: any): void {
+		switch (data.type) {
+			case 'gameState':
+				this.emit('gameState', data.payload)
+				break
+			case 'playerJoined':
+				this.emit('playerJoined', data.playerId)
+				break
+			case 'playerLeft':
+				this.emit('playerLeft', data.playerId)
+				break
+			case 'updateScore':
+				this.emit('updateScore', data.scores)
+				break
+			case 'gameEnd':
+				this.emit('gameEnd', data.winner)
+				break
+			case 'pong':
+				console.log('💓 Heartbeat response received')
+				break
+			default:
+				console.log('📨 Unknown message type:', data.type)
 		}
-	}, 3000)
-}
+	}
 
-private stopHeartbeat(): void {
+	private send(message: string): void {
+		if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+			this.ws.send(message)
+		}
+	}
+
+	private attemptReconnect(): void {
+		if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+			console.error('❌ Max reconnection attempts reached')
+			this.emit('error', 'Failed to reconnect after maximum attempts')
+			return
+		}
+
+		this.reconnectAttempts++
+		console.log(`🔄 Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`)
+
+		setTimeout(() => {
+			this.connect().catch(error => {
+				console.error('❌ Reconnection failed:', error)
+				this.attemptReconnect()
+			})
+		}, this.reconnectDelay * this.reconnectAttempts)
+	}
+
+	private startHeartbeat(): void {
+		this.heartbeatInterval = setInterval(() => {
+			if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+				this.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }))
+			}
+		}, 30000)
+	}
+
+	private stopHeartbeat(): void {
+		if (this.heartbeatInterval) {
+			clearInterval(this.heartbeatInterval)
+			this.heartbeatInterval = null
+		}
+	}
+
+	disconnect(): void {
+		this.isConnected = false
+		this.stopHeartbeat()
+		
+		if (this.ws) {
+			this.ws.close()
+			this.ws = null
+		}
+	}
+
+	sendGameAction(action: string, data?: any): void {
+		this.send(JSON.stringify({
+			type: 'gameAction',
+			action,
+			data,
+			playerId: this.playerId
+		}))
+	}
 }
