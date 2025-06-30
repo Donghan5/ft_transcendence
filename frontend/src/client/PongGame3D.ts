@@ -37,8 +37,7 @@ export class PongGame3D {
 	private localPlayer: 'player1' | 'player2' = 'player1'
 	private particleSystem: any | null = null
 
-	// 로컬 게임 로직 추가
-	private isLocalMode: boolean = true
+	private isLocalMode: boolean = true    // local game mode
 	private ballVelocity: any = { x: 0.2, y: 0, z: 0.15 }
 	private gameRunning: boolean = false
 
@@ -70,25 +69,23 @@ export class PongGame3D {
 	}
 
 	private startLocalGame(): void {
-		console.log('🎮 로컬 게임 모드 시작!')
+		console.log('Start local game mode!')
 		this.gameRunning = true
 		this.isLocalMode = true
-		
-		// 초기 공 속도 설정
-		this.ballVelocity = { 
-			x: (Math.random() > 0.5 ? 1 : -1) * 0.2, 
-			y: 0, 
-			z: (Math.random() > 0.5 ? 1 : -1) * 0.15 
+
+		this.ballVelocity = {
+			x: (Math.random() > 0.5 ? 1 : -1) * 0.2,
+			y: 0,
+			z: (Math.random() > 0.5 ? 1 : -1) * 0.15
 		}
-		
-		// 게임 루프 시작
+
 		this.startGameLoop()
 	}
 
 	private startGameLoop(): void {
 		const gameLoop = () => {
 			if (!this.gameRunning || !this.isLocalMode) return
-			
+
 			this.updateLocalGame()
 			requestAnimationFrame(gameLoop)
 		}
@@ -96,26 +93,21 @@ export class PongGame3D {
 	}
 
 	private updateLocalGame(): void {
-		// 공 위치 업데이트
 		this.ball.position.x += this.ballVelocity.x
 		this.ball.position.z += this.ballVelocity.z
 
-		// 벽 충돌 처리 (위아래 벽)
 		if (this.ball.position.z > 14 || this.ball.position.z < -14) {
 			this.ballVelocity.z *= -1
 		}
 
-		// 패들 충돌 처리
 		this.checkPaddleCollision()
 
-		// 골 처리 (좌우)
 		if (this.ball.position.x > 10) {
 			this.onGoal('player1')
 		} else if (this.ball.position.x < -10) {
 			this.onGoal('player2')
 		}
 
-		// 간단한 AI (Player 2)
 		this.updateAI()
 	}
 
@@ -124,23 +116,20 @@ export class PongGame3D {
 		const paddle1Pos = this.player1Paddle.position
 		const paddle2Pos = this.player2Paddle.position
 
-		// Player 1 패들 충돌
-		if (ballPos.x < -7 && ballPos.x > -9 && 
+		if (ballPos.x < -7 && ballPos.x > -9 &&
 			Math.abs(ballPos.z - paddle1Pos.z) < 2) {
 			this.ballVelocity.x = Math.abs(this.ballVelocity.x)
-			console.log('Player 1 패들 충돌!')
+			console.log('Player 1 Paddle collision!')
 		}
 
-		// Player 2 패들 충돌  
-		if (ballPos.x > 7 && ballPos.x < 9 && 
+		if (ballPos.x > 7 && ballPos.x < 9 &&
 			Math.abs(ballPos.z - paddle2Pos.z) < 2) {
 			this.ballVelocity.x = -Math.abs(this.ballVelocity.x)
-			console.log('Player 2 패들 충돌!')
+			console.log('Player 2 Paddle collision!')
 		}
 	}
 
 	private updateAI(): void {
-		// 간단한 AI: 공을 따라가기
 		const ballZ = this.ball.position.z
 		const paddleZ = this.player2Paddle.position.z
 		const diff = ballZ - paddleZ
@@ -148,37 +137,32 @@ export class PongGame3D {
 		if (Math.abs(diff) > 0.5) {
 			const moveSpeed = 0.1
 			this.player2Paddle.position.z += diff > 0 ? moveSpeed : -moveSpeed
-			
-			// 패들 이동 범위 제한
+
 			if (this.player2Paddle.position.z > 13) this.player2Paddle.position.z = 13
 			if (this.player2Paddle.position.z < -13) this.player2Paddle.position.z = -13
 		}
 	}
 
 	private onGoal(scorer: string): void {
-		console.log(`🥅 ${scorer} 득점!`)
-		
-		// 공 위치 리셋
+		console.log(`${scorer} Score!`)
+
 		this.ball.position.x = 0
 		this.ball.position.z = 0
-		
-		// 공 속도 리셋 (반대 방향으로)
+
 		this.ballVelocity.x *= -1
 		this.ballVelocity.z = (Math.random() > 0.5 ? 1 : -1) * 0.15
-		
-		// 점수 업데이트
+
 		if (scorer === 'player1') {
 			this.gameState.player1.score++
 		} else {
 			this.gameState.player2.score++
 		}
-		
+
 		this.updateScoreDisplay(
-			this.gameState.player1.score, 
+			this.gameState.player1.score,
 			this.gameState.player2.score
 		)
-		
-		// 파티클 이펙트
+
 		if (this.particleSystem) {
 			this.particleSystem.start()
 			setTimeout(() => this.particleSystem?.stop(), 1000)
@@ -195,70 +179,134 @@ export class PongGame3D {
 	}
 
 	private createArena(): void {
-		// arena neon style
 		const arenaSize = { width: 20, height: 12, depth: 30 }
 
-		// ground
-		const ground = BABYLON.MeshBuilder.CreateGround('ground', 
-			{ width: arenaSize.width, height: arenaSize.depth },
+		this.createImprovedGround(arenaSize)
+
+		this.createNeonBorder(arenaSize)
+
+		const centerLine = BABYLON.MeshBuilder.CreateBox('centerLine',
+			{ width: 0.15, height: 0.02, depth: arenaSize.depth },
+			this.scene
+		)
+		centerLine.position.y = 0.01
+
+		const centerLineMat = new BABYLON.StandardMaterial('centerLineMat', this.scene)
+		centerLineMat.emissiveColor = new BABYLON.Color3(0.8, 0.8, 1)
+		centerLineMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.5)
+		centerLine.material = centerLineMat
+	}
+
+	private createImprovedGround(arenaSize: { width: number, height: number, depth: number }): void {
+		const ground = BABYLON.MeshBuilder.CreateGround('ground',
+			{ width: arenaSize.width, height: arenaSize.depth, subdivisions: 20 },
 			this.scene
 		)
 
 		const groundMat = new BABYLON.StandardMaterial('groundMat', this.scene)
-		groundMat.diffuseColor = new BABYLON.Color3(0.1, 0.1, 0.15)
-		groundMat.specularColor = new BABYLON.Color3(0.05, 0.05, 0.1)
-		groundMat.emissiveColor = new BABYLON.Color3(0.05, 0.05, 0.1)
+		groundMat.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.1)
+		groundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.2)
+		groundMat.emissiveColor = new BABYLON.Color3(0.02, 0.02, 0.05)
 		ground.material = groundMat
 
-		// walls neon style
-		this.createNeonBorder(arenaSize)
+		this.createGridLines(arenaSize)
+	}
 
-		// central line
-		const centerLine = BABYLON.MeshBuilder.CreateBox('centerLine', 
-			{ width: 0.1, height: 0.1, depth: arenaSize.depth }, 
-			this.scene
-		)
-		centerLine.position.y = 0.05
+	private createGridLines(arenaSize: { width: number, height: number, depth: number }): void {
+		const gridMat = new BABYLON.StandardMaterial('gridMat', this.scene)
+		gridMat.emissiveColor = new BABYLON.Color3(0, 0.3, 0.5)
+		gridMat.alpha = 0.6
 
-		const centerLineMat = new BABYLON.StandardMaterial('centerLineMat', this.scene)
-		centerLineMat.emissiveColor = new BABYLON.Color3(0.5, 0.5, 1)
-		centerLine.material = centerLineMat
+		for (let i = -4; i <= 4; i++) {
+			if (i === 0) continue
+			const line = BABYLON.MeshBuilder.CreateBox(`gridV${i}`,
+				{ width: 0.05, height: 0.01, depth: arenaSize.depth },
+				this.scene
+			)
+			line.position.x = i * 2.5
+			line.position.y = 0.005
+			line.material = gridMat
+		}
+
+		for (let i = -7; i <= 7; i++) {
+			const line = BABYLON.MeshBuilder.CreateBox(`gridH${i}`,
+				{ width: arenaSize.width, height: 0.01, depth: 0.05 },
+				this.scene
+			)
+			line.position.z = i * 2
+			line.position.y = 0.005
+			line.material = gridMat
+		}
 	}
 
 	private createNeonBorder(arenaSize: { width: number, height: number, depth: number }): void {
 		const borderMat = new BABYLON.StandardMaterial('borderMat', this.scene)
 		borderMat.emissiveColor = new BABYLON.Color3(0, 0.8, 1)
+		borderMat.diffuseColor = new BABYLON.Color3(0, 0.4, 0.6)
 
-		// top wall
-		const topWall = BABYLON.MeshBuilder.CreateBox('topWall', 
-			{ width: arenaSize.width, height: 2, depth: 0.2 }, 
+		const wallHeight = 0.8
+		const wallThickness = 0.2
+
+		const topWall = BABYLON.MeshBuilder.CreateBox('topWall',
+			{ width: arenaSize.width, height: wallHeight, depth: wallThickness },
 			this.scene
 		)
-		topWall.position.z = arenaSize.depth / 2 + 0.1
-		topWall.position.y = 1
+		topWall.position.z = arenaSize.depth / 2 + wallThickness/2
+		topWall.position.y = wallHeight/2
 		topWall.material = borderMat
 
-		// bottom wall
-		const bottomWall = topWall.clone('bottomWall')
-		bottomWall.position.z = -arenaSize.depth / 2 - 0.1
-
-		// side walls
-		const leftWall = BABYLON.MeshBuilder.CreateBox('leftWall',
-			{ width: 0.2, height: 2, depth: arenaSize.depth },
+		const bottomWall = BABYLON.MeshBuilder.CreateBox('bottomWall',
+			{ width: arenaSize.width, height: wallHeight, depth: wallThickness },
 			this.scene
 		)
-		leftWall.position.x = -arenaSize.width / 2 - 0.1
-		leftWall.position.y = 1
+		bottomWall.position.z = -arenaSize.depth / 2 - wallThickness/2
+		bottomWall.position.y = wallHeight/2
+		bottomWall.material = borderMat
+
+		const leftWall = BABYLON.MeshBuilder.CreateBox('leftWall',
+			{ width: wallThickness + 1, height: wallHeight, depth: arenaSize.depth },
+			this.scene
+		)
+		leftWall.position.x = -arenaSize.width / 2 - wallThickness/2
+		leftWall.position.y = wallHeight/2
 		leftWall.material = borderMat
 
-		const rightWall = leftWall.clone('rightWall')
-		rightWall.position.x = arenaSize.width / 2 + 0.1
+		const rightWall = BABYLON.MeshBuilder.CreateBox('rightWall',
+			{ width: wallThickness + 1, height: wallHeight, depth: arenaSize.depth },
+			this.scene
+		)
+		rightWall.position.x = arenaSize.width / 2 + wallThickness/2
+		rightWall.position.y = wallHeight/2
+		rightWall.material = borderMat
+
+		this.createCornerConnectors(arenaSize, borderMat, wallHeight, wallThickness)
+	}
+
+	private createCornerConnectors(arenaSize: { width: number, height: number, depth: number }, borderMat: any, wallHeight: number, wallThickness: number): void {
+		const cornerSize = wallThickness * 1.5
+
+		const corners = [
+			{ x: -arenaSize.width/2, z: arenaSize.depth/2 },
+			{ x: arenaSize.width/2, z: arenaSize.depth/2 },
+			{ x: -arenaSize.width/2, z: -arenaSize.depth/2 },
+			{ x: arenaSize.width/2, z: -arenaSize.depth/2 }
+		]
+
+		corners.forEach((corner, index) => {
+			const connector = BABYLON.MeshBuilder.CreateBox(`corner${index}`,
+				{ width: cornerSize, height: wallHeight, depth: cornerSize },
+				this.scene
+			)
+			connector.position.x = corner.x
+			connector.position.z = corner.z
+			connector.position.y = wallHeight/2
+			connector.material = borderMat
+		})
 	}
 
 	private createGameObjects(): void {
-		// Player 1 paddle
-		this.player1Paddle = BABYLON.MeshBuilder.CreateBox('player1Paddle', 
-			{ width: 3, height: 3, depth: 0.5 }, 
+		this.player1Paddle = BABYLON.MeshBuilder.CreateBox('player1Paddle',
+			{ width: 0.5, height: 0.5, depth: 7 },
 			this.scene
 		)
 		this.player1Paddle.position = new BABYLON.Vector3(-8, 1.5, 0)
@@ -269,7 +317,6 @@ export class PongGame3D {
 		p1Mat.specularPower = 64
 		this.player1Paddle.material = p1Mat
 
-		// Player 2 paddle
 		this.player2Paddle = this.player1Paddle.clone('player2Paddle')
 		this.player2Paddle.position = new BABYLON.Vector3(8, 1.5, 0)
 
@@ -279,7 +326,6 @@ export class PongGame3D {
 		p2Mat.specularPower = 64
 		this.player2Paddle.material = p2Mat
 
-		// ball
 		this.ball = BABYLON.MeshBuilder.CreateSphere('ball', { diameter: 1 }, this.scene)
 		this.ball.position = new BABYLON.Vector3(0, 1, 0)
 
@@ -294,7 +340,6 @@ export class PongGame3D {
 	}
 
 	private createBallTrail(): void {
-		// TrailMesh는 지원 안될 수 있어서 체크
 		if (BABYLON.TrailMesh) {
 			const trail = new BABYLON.TrailMesh('trail', this.ball, this.scene, 0.5, 30, true)
 
@@ -306,10 +351,8 @@ export class PongGame3D {
 	}
 
 	private createParticleEffects(): void {
-		// particle effect
 		this.particleSystem = new BABYLON.ParticleSystem('particles', 2000, this.scene)
-		
-		// 텍스처 없이 기본 파티클 사용
+
 		this.particleSystem.emitter = this.ball
 		this.particleSystem.minEmitBox = new BABYLON.Vector3(-0.5, 0, -0.5)
 		this.particleSystem.maxEmitBox = new BABYLON.Vector3(0.5, 0, 0.5)
@@ -328,39 +371,36 @@ export class PongGame3D {
 	}
 
 	private setupLighting(): void {
-		// ambient light
-		const ambientLight = new BABYLON.HemisphericLight('ambient', 
-			new BABYLON.Vector3(0, 1, 0), 
+		const ambientLight = new BABYLON.HemisphericLight('ambient',
+			new BABYLON.Vector3(0, 1, 0),
 			this.scene
 		)
 		ambientLight.intensity = 0.3
 		ambientLight.diffuse = new BABYLON.Color3(0.5, 0.5, 0.7)
 
-		// point Light
-		const ballLight = new BABYLON.PointLight('ballLight', 
-			this.ball.position, 
+		const ballLight = new BABYLON.PointLight('ballLight',
+			this.ball.position,
 			this.scene
 		)
 		ballLight.intensity = 2
 		ballLight.diffuse = new BABYLON.Color3(1, 1, 0.5)
 		ballLight.parent = this.ball
 
-		// spot light
-		const spot1 = new BABYLON.SpotLight('spot1', 
-			new BABYLON.Vector3(10, 10, 0), 
-			new BABYLON.Vector3(-1, -1, 0), 
-			Math.PI / 3, 
-			2, 
+		const spot1 = new BABYLON.SpotLight('spot1',
+			new BABYLON.Vector3(10, 10, 0),
+			new BABYLON.Vector3(-1, -1, 0),
+			Math.PI / 3,
+			2,
 			this.scene
 		)
 		spot1.intensity = 0.5
 		spot1.diffuse = new BABYLON.Color3(0, 0.5, 1)
 
-		const spot2 = new BABYLON.SpotLight('spot2', 
-			new BABYLON.Vector3(-10, 10, 0), 
-			new BABYLON.Vector3(1, -1, 0), 
-			Math.PI / 3, 
-			2, 
+		const spot2 = new BABYLON.SpotLight('spot2',
+			new BABYLON.Vector3(-10, 10, 0),
+			new BABYLON.Vector3(1, -1, 0),
+			Math.PI / 3,
+			2,
 			this.scene
 		)
 		spot2.intensity = 0.5
@@ -368,23 +408,24 @@ export class PongGame3D {
 	}
 
 	private setupCamera(): void {
-		// game view camera
-		const camera = new BABYLON.UniversalCamera('camera', 
-			new BABYLON.Vector3(0, 15, -20), 
+		const camera = new BABYLON.UniversalCamera('camera',
+			new BABYLON.Vector3(0, 30, 0),
 			this.scene
 		)
 		camera.setTarget(new BABYLON.Vector3(0, 0, 0))
 		camera.attachControl(this.canvas, false)
 
-		// 카메라 인트로 애니메이션
+		camera.rotation.x = Math.PI / 2
+		camera.rotation.y = Math.PI / 2
+
 		BABYLON.Animation.CreateAndStartAnimation(
-			'cameraIntro', 
-			camera, 
-			'position', 
-			30, 
-			60, 
-			camera.position, 
-			new BABYLON.Vector3(0, 12, -18), 
+			'cameraIntro',
+			camera,
+			'position',
+			30,
+			90,
+			new BABYLON.Vector3(0, 35, -5),
+			new BABYLON.Vector3(0, 25, 0),
 			BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
 		)
 	}
@@ -393,7 +434,7 @@ export class PongGame3D {
 		this.scene.onPointerObservable.add((pointerInfo: any) => {
 			if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
 				const pickResult = this.scene.pick(
-					this.scene.pointerX, 
+					this.scene.pointerX,
 					this.scene.pointerY
 				)
 				if (pickResult && pickResult.pickedPoint) {
@@ -404,12 +445,12 @@ export class PongGame3D {
 		})
 
 		this.scene.actionManager = new BABYLON.ActionManager(this.scene)
-		
+
 		this.scene.actionManager.registerAction(
 			new BABYLON.ExecuteCodeAction(
 				BABYLON.ActionManager.OnKeyDownTrigger,
 				(evt: any) => {
-					if (evt.sourceEvent.key === 'w' || evt.sourceEvent.key === 'W') {
+					if (evt.sourceEvent.key === 'a' || evt.sourceEvent.key === 'A') {
 						this.movePaddle(0.5)
 					}
 				}
@@ -420,7 +461,7 @@ export class PongGame3D {
 			new BABYLON.ExecuteCodeAction(
 				BABYLON.ActionManager.OnKeyDownTrigger,
 				(evt: any) => {
-					if (evt.sourceEvent.key === 's' || evt.sourceEvent.key === 'S') {
+					if (evt.sourceEvent.key === 'd' || evt.sourceEvent.key === 'D') {
 						this.movePaddle(-0.5)
 					}
 				}
@@ -431,7 +472,7 @@ export class PongGame3D {
 	private movePaddle(delta: number): void {
 		const paddle = this.localPlayer === 'player1' ? this.player1Paddle : this.player2Paddle
 		const newZ = paddle.position.z + delta
-		
+
 		if (newZ >= -13 && newZ <= 13) {
 			paddle.position.z = newZ
 			this.sendPaddleUpdate(newZ)
@@ -439,10 +480,9 @@ export class PongGame3D {
 	}
 
 	private connectWebSocket(gameId: string): void {
-		console.log('WebSocket 연결 건너뛰기 - 로컬 모드')
-		// 로컬 모드에서는 WebSocket 연결하지 않음
-		
-		// 실제 멀티플레이어가 필요할 때 아래 코드 사용
+		console.log('Skip connection to WebSocket - local mode')
+
+		// implement after (with multiplayer)
 		/*
 		const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
 		const host = window.location.host || 'localhost:3000'
@@ -450,9 +490,9 @@ export class PongGame3D {
 
 		this.ws.onopen = () => {
 			console.log('🎮 WebSocket connected!')
-			this.ws?.send(JSON.stringify({ 
-				type: 'join', 
-				playerId: this.localPlayer 
+			this.ws?.send(JSON.stringify({
+				type: 'join',
+				playerId: this.localPlayer
 			}))
 		}
 
@@ -484,19 +524,19 @@ export class PongGame3D {
 	private updateGameState(update: any): void {
 		if (update.ball) {
 			const targetPos = new BABYLON.Vector3(
-				update.ball.x / 20, 
-				1, 
+				update.ball.x / 20,
+				1,
 				update.ball.y / 20
 			)
-			
+
 			BABYLON.Animation.CreateAndStartAnimation(
-				'ballMove', 
-				this.ball, 
-				'position', 
-				60, 
-				2, 
-				this.ball.position, 
-				targetPos, 
+				'ballMove',
+				this.ball,
+				'position',
+				60,
+				2,
+				this.ball.position,
+				targetPos,
 				BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
 			)
 		}
@@ -507,15 +547,15 @@ export class PongGame3D {
 				this.player1Paddle.position.y,
 				update.player1.y / 20
 			)
-			
+
 			BABYLON.Animation.CreateAndStartAnimation(
-				'player1Move', 
-				this.player1Paddle, 
-				'position', 
-				60, 
-				2, 
-				this.player1Paddle.position, 
-				targetPos, 
+				'player1Move',
+				this.player1Paddle,
+				'position',
+				60,
+				2,
+				this.player1Paddle.position,
+				targetPos,
 				BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
 			)
 		}
@@ -526,38 +566,37 @@ export class PongGame3D {
 				this.player2Paddle.position.y,
 				update.player2.y / 20
 			)
-			
+
 			BABYLON.Animation.CreateAndStartAnimation(
-				'player2Move', 
-				this.player2Paddle, 
-				'position', 
-				60, 
-				2, 
-				this.player2Paddle.position, 
-				targetPos, 
+				'player2Move',
+				this.player2Paddle,
+				'position',
+				60,
+				2,
+				this.player2Paddle.position,
+				targetPos,
 				BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
 			)
 		}
 
 		if (update.player1?.score !== undefined || update.player2?.score !== undefined) {
 			this.updateScoreDisplay(
-				update.player1?.score || this.gameState.player1.score, 
+				update.player1?.score || this.gameState.player1.score,
 				update.player2?.score || this.gameState.player2.score
 			)
 		}
 	}
 
 	private sendPaddleUpdate(zPosition: number): void {
-		// 로컬 모드에서는 WebSocket 대신 로그만 출력
-		console.log(`패들 위치 업데이트: ${zPosition}`)
-		
-		// 실제 멀티플레이어일 때 사용
+		console.log(`update zPosition: ${zPosition}`)
+
+		// use after implement of the multiplayer
 		/*
 		if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-			this.ws.send(JSON.stringify({ 
-				type: 'paddleUpdate', 
-				playerId: this.localPlayer, 
-				paddleZ: zPosition * 20 
+			this.ws.send(JSON.stringify({
+				type: 'paddleUpdate',
+				playerId: this.localPlayer,
+				paddleZ: zPosition * 20
 			}))
 		}
 		*/
@@ -566,7 +605,7 @@ export class PongGame3D {
 	private updateScoreDisplay(player1Score: number, player2Score: number): void {
 		this.gameState.player1.score = player1Score
 		this.gameState.player2.score = player2Score
-		
+
 		const scoreText = document.getElementById('score-display')
 		if (scoreText) {
 			scoreText.textContent = `${player1Score} - ${player2Score}`
@@ -595,7 +634,7 @@ export class PongGame3D {
 }
 
 export function initializeGame(
-	containerId: string, 
+	containerId: string,
 	gameId: string,
 	playerId: string = 'player1'
 ): PongGame3D | null {
@@ -607,41 +646,76 @@ export function initializeGame(
 			<canvas id="game-canvas"></canvas>
 			<div id="score-display" class="score-display">0 - 0</div>
 			<div class="controls">
-				<p>W/S 키로 패들 조작 | AI와 대전</p>
+				<p>Move Paddle with W/S keys</p>
 			</div>
 		</div>
 		<style>
-			.game-container {
-				position: relative;
-				width: 100%;
-				height: 100vh;
-				background-color: black;
-				overflow: hidden;
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
 			}
-			#game-canvas {
+
+			html, body {
 				width: 100%;
 				height: 100%;
+				overflow: hidden;
 			}
+
+			.game-container {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100vw;
+				height: 100vh;
+				background-color: #000;
+				overflow: hidden;
+				z-index: 1000;
+			}
+
+			#game-canvas {
+				display: block;
+				width: 100%;
+				height: 100%;
+				touch-action: none;
+			}
+
 			.score-display {
 				position: absolute;
-				top: 20px;
+				top: 30px;
 				left: 50%;
 				transform: translateX(-50%);
-				font-size: 3rem;
+				font-size: clamp(2rem, 5vw, 4rem);
 				font-weight: bold;
 				color: white;
 				text-shadow: 0 0 20px cyan, 0 0 40px cyan;
-				font-family: 'Orbitron', monospace;
+				font-family: 'Orbitron', 'Courier New', monospace;
+				z-index: 1001;
 			}
+
 			.controls {
 				position: absolute;
-				bottom: 20px;
+				bottom: 30px;
 				left: 50%;
 				transform: translateX(-50%);
 				color: white;
 				text-align: center;
-				font-family: 'Orbitron', monospace;
+				font-family: 'Orbitron', 'Courier New', monospace;
 				text-shadow: 0 0 10px cyan;
+				font-size: clamp(0.8rem, 2vw, 1.2rem);
+				z-index: 1001;
+			}
+
+			@media (max-width: 768px) {
+				.score-display {
+					top: 20px;
+					font-size: 2.5rem;
+				}
+
+				.controls {
+					bottom: 20px;
+					font-size: 0.9rem;
+				}
 			}
 		</style>
 	`
