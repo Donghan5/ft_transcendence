@@ -1,11 +1,9 @@
-import * as BABYLON from 'babylonjs'
-import 'babylonjs/materials'
-import 'babylonjs/loaders'
+declare const BABYLON: any;
 
 interface GameState {
-	player1: { position: BABYLON.Vector3, score: number }
-	player2: { position: BABYLON.Vector3, score: number }
-	ball: { position: BABYLON.Vector3, velocity: BABYLON.Vector3 }
+	player1: { position: any, score: number }
+	player2: { position: any, score: number }
+	ball: { position: any, velocity: any }
 }
 
 interface GameUpdate {
@@ -19,16 +17,16 @@ interface GameUpdate {
 }
 
 export class PongGame3D {
-	private engine: BABYLON.Engine
-	private scene: BABYLON.Scene
+	private engine: any
+	private scene: any
 	private canvas: HTMLCanvasElement
 	private ws: WebSocket | null = null
 
 	// game objects
-	private player1Paddle!: BABYLON.Mesh
-	private player2Paddle!: BABYLON.Mesh
-	private ball!: BABYLON.Mesh
-	private arena!: BABYLON.Mesh
+	private player1Paddle!: any
+	private player2Paddle!: any
+	private ball!: any
+	private arena!: any
 
 	// game state
 	private gameState: GameState = {
@@ -37,7 +35,12 @@ export class PongGame3D {
 		ball: { position: new BABYLON.Vector3(0, 1, 0), velocity: new BABYLON.Vector3(0, 0, 0) }
 	}
 	private localPlayer: 'player1' | 'player2' = 'player1'
-	private particleSystem: BABYLON.ParticleSystem | null = null
+	private particleSystem: any | null = null
+
+	// 로컬 게임 로직 추가
+	private isLocalMode: boolean = true
+	private ballVelocity: any = { x: 0.2, y: 0, z: 0.15 }
+	private gameRunning: boolean = false
 
 	constructor(canvas: HTMLCanvasElement, gameId: string, playerId: string = 'player1') {
 		this.canvas = canvas
@@ -53,6 +56,9 @@ export class PongGame3D {
 		this.setupControls()
 		this.connectWebSocket(gameId)
 
+		// 로컬 게임 시작
+		this.startLocalGame()
+
 		// rendering loop
 		this.engine.runRenderLoop(() => {
 			this.scene.render()
@@ -61,6 +67,122 @@ export class PongGame3D {
 		window.addEventListener('resize', () => {
 			this.engine.resize()
 		})
+	}
+
+	private startLocalGame(): void {
+		console.log('🎮 로컬 게임 모드 시작!')
+		this.gameRunning = true
+		this.isLocalMode = true
+		
+		// 초기 공 속도 설정
+		this.ballVelocity = { 
+			x: (Math.random() > 0.5 ? 1 : -1) * 0.2, 
+			y: 0, 
+			z: (Math.random() > 0.5 ? 1 : -1) * 0.15 
+		}
+		
+		// 게임 루프 시작
+		this.startGameLoop()
+	}
+
+	private startGameLoop(): void {
+		const gameLoop = () => {
+			if (!this.gameRunning || !this.isLocalMode) return
+			
+			this.updateLocalGame()
+			requestAnimationFrame(gameLoop)
+		}
+		requestAnimationFrame(gameLoop)
+	}
+
+	private updateLocalGame(): void {
+		// 공 위치 업데이트
+		this.ball.position.x += this.ballVelocity.x
+		this.ball.position.z += this.ballVelocity.z
+
+		// 벽 충돌 처리 (위아래 벽)
+		if (this.ball.position.z > 14 || this.ball.position.z < -14) {
+			this.ballVelocity.z *= -1
+		}
+
+		// 패들 충돌 처리
+		this.checkPaddleCollision()
+
+		// 골 처리 (좌우)
+		if (this.ball.position.x > 10) {
+			this.onGoal('player1')
+		} else if (this.ball.position.x < -10) {
+			this.onGoal('player2')
+		}
+
+		// 간단한 AI (Player 2)
+		this.updateAI()
+	}
+
+	private checkPaddleCollision(): void {
+		const ballPos = this.ball.position
+		const paddle1Pos = this.player1Paddle.position
+		const paddle2Pos = this.player2Paddle.position
+
+		// Player 1 패들 충돌
+		if (ballPos.x < -7 && ballPos.x > -9 && 
+			Math.abs(ballPos.z - paddle1Pos.z) < 2) {
+			this.ballVelocity.x = Math.abs(this.ballVelocity.x)
+			console.log('Player 1 패들 충돌!')
+		}
+
+		// Player 2 패들 충돌  
+		if (ballPos.x > 7 && ballPos.x < 9 && 
+			Math.abs(ballPos.z - paddle2Pos.z) < 2) {
+			this.ballVelocity.x = -Math.abs(this.ballVelocity.x)
+			console.log('Player 2 패들 충돌!')
+		}
+	}
+
+	private updateAI(): void {
+		// 간단한 AI: 공을 따라가기
+		const ballZ = this.ball.position.z
+		const paddleZ = this.player2Paddle.position.z
+		const diff = ballZ - paddleZ
+
+		if (Math.abs(diff) > 0.5) {
+			const moveSpeed = 0.1
+			this.player2Paddle.position.z += diff > 0 ? moveSpeed : -moveSpeed
+			
+			// 패들 이동 범위 제한
+			if (this.player2Paddle.position.z > 13) this.player2Paddle.position.z = 13
+			if (this.player2Paddle.position.z < -13) this.player2Paddle.position.z = -13
+		}
+	}
+
+	private onGoal(scorer: string): void {
+		console.log(`🥅 ${scorer} 득점!`)
+		
+		// 공 위치 리셋
+		this.ball.position.x = 0
+		this.ball.position.z = 0
+		
+		// 공 속도 리셋 (반대 방향으로)
+		this.ballVelocity.x *= -1
+		this.ballVelocity.z = (Math.random() > 0.5 ? 1 : -1) * 0.15
+		
+		// 점수 업데이트
+		if (scorer === 'player1') {
+			this.gameState.player1.score++
+		} else {
+			this.gameState.player2.score++
+		}
+		
+		this.updateScoreDisplay(
+			this.gameState.player1.score, 
+			this.gameState.player2.score
+		)
+		
+		// 파티클 이펙트
+		if (this.particleSystem) {
+			this.particleSystem.start()
+			setTimeout(() => this.particleSystem?.stop(), 1000)
+		}
 	}
 
 	private setupScene(): void {
@@ -78,7 +200,7 @@ export class PongGame3D {
 
 		// ground
 		const ground = BABYLON.MeshBuilder.CreateGround('ground', 
-			{ width: arenaSize.width, height: arenaSize.depth }, // height는 depth로
+			{ width: arenaSize.width, height: arenaSize.depth },
 			this.scene
 		)
 
@@ -118,7 +240,7 @@ export class PongGame3D {
 
 		// bottom wall
 		const bottomWall = topWall.clone('bottomWall')
-		bottomWall.position.z = -arenaSize.depth / 2 - 0.1 // 수정
+		bottomWall.position.z = -arenaSize.depth / 2 - 0.1
 
 		// side walls
 		const leftWall = BABYLON.MeshBuilder.CreateBox('leftWall',
@@ -203,9 +325,6 @@ export class PongGame3D {
 		this.particleSystem.maxLifeTime = 1.5
 
 		this.particleSystem.emitRate = 100
-
-		// 처음엔 꺼둠
-		// this.particleSystem.start()
 	}
 
 	private setupLighting(): void {
@@ -271,7 +390,7 @@ export class PongGame3D {
 	}
 
 	private setupControls(): void {
-		this.scene.onPointerObservable.add((pointerInfo) => {
+		this.scene.onPointerObservable.add((pointerInfo: any) => {
 			if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERMOVE) {
 				const pickResult = this.scene.pick(
 					this.scene.pointerX, 
@@ -289,7 +408,7 @@ export class PongGame3D {
 		this.scene.actionManager.registerAction(
 			new BABYLON.ExecuteCodeAction(
 				BABYLON.ActionManager.OnKeyDownTrigger,
-				(evt) => {
+				(evt: any) => {
 					if (evt.sourceEvent.key === 'w' || evt.sourceEvent.key === 'W') {
 						this.movePaddle(0.5)
 					}
@@ -300,7 +419,7 @@ export class PongGame3D {
 		this.scene.actionManager.registerAction(
 			new BABYLON.ExecuteCodeAction(
 				BABYLON.ActionManager.OnKeyDownTrigger,
-				(evt) => {
+				(evt: any) => {
 					if (evt.sourceEvent.key === 's' || evt.sourceEvent.key === 'S') {
 						this.movePaddle(-0.5)
 					}
@@ -314,11 +433,17 @@ export class PongGame3D {
 		const newZ = paddle.position.z + delta
 		
 		if (newZ >= -13 && newZ <= 13) {
+			paddle.position.z = newZ
 			this.sendPaddleUpdate(newZ)
 		}
 	}
 
 	private connectWebSocket(gameId: string): void {
+		console.log('WebSocket 연결 건너뛰기 - 로컬 모드')
+		// 로컬 모드에서는 WebSocket 연결하지 않음
+		
+		// 실제 멀티플레이어가 필요할 때 아래 코드 사용
+		/*
 		const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
 		const host = window.location.host || 'localhost:3000'
 		this.ws = new WebSocket(`${protocol}//${host}/game/${gameId}`)
@@ -353,6 +478,7 @@ export class PongGame3D {
 		this.ws.onerror = (error) => {
 			console.error('❌ WebSocket error:', error)
 		}
+		*/
 	}
 
 	private updateGameState(update: any): void {
@@ -422,6 +548,11 @@ export class PongGame3D {
 	}
 
 	private sendPaddleUpdate(zPosition: number): void {
+		// 로컬 모드에서는 WebSocket 대신 로그만 출력
+		console.log(`패들 위치 업데이트: ${zPosition}`)
+		
+		// 실제 멀티플레이어일 때 사용
+		/*
 		if (this.ws && this.ws.readyState === WebSocket.OPEN) {
 			this.ws.send(JSON.stringify({ 
 				type: 'paddleUpdate', 
@@ -429,6 +560,7 @@ export class PongGame3D {
 				paddleZ: zPosition * 20 
 			}))
 		}
+		*/
 	}
 
 	private updateScoreDisplay(player1Score: number, player2Score: number): void {
@@ -455,6 +587,7 @@ export class PongGame3D {
 	}
 
 	public dispose(): void {
+		this.gameRunning = false
 		this.ws?.close()
 		this.scene.dispose()
 		this.engine.dispose()
@@ -474,7 +607,7 @@ export function initializeGame(
 			<canvas id="game-canvas"></canvas>
 			<div id="score-display" class="score-display">0 - 0</div>
 			<div class="controls">
-				<p>W/S 키 또는 마우스로 패들 조작</p>
+				<p>W/S 키로 패들 조작 | AI와 대전</p>
 			</div>
 		</div>
 		<style>

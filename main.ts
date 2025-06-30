@@ -1,4 +1,4 @@
-import { PongGame3D, initializeGame } from './src/client/PongGame3D'
+import { PongGame3D, initializeGame } from './frontend/src/client/PongGame3D.js'
 
 let currentGame: PongGame3D | null = null
 let currentGameId: string | null = null
@@ -7,11 +7,11 @@ let playerName: string = ''
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Start beautiful PONG game!')
 	setupEventListeners()
-	setupMobileMenu()
 })
 
 function setupEventListeners() {
-	const quickPlayButton = document.getElementById('quickPlayButton')
+	// HTML의 실제 ID와 맞춤
+	const quickPlayButton = document.getElementById('quickPlayBtn')  // 수정: quickPlayButton → quickPlayBtn
 	if (quickPlayButton) {
 		quickPlayButton.addEventListener('click', () => {
 			console.log("Quickly play!")
@@ -19,7 +19,7 @@ function setupEventListeners() {
 		})
 	}
 
-	const tournamentButton = document.getElementById('tournamentButton')
+	const tournamentButton = document.getElementById('tournamentBtn')  // 수정: tournamentButton → tournamentBtn
 	if (tournamentButton) {
 		tournamentButton.addEventListener('click', () => {
 			console.log("Tournament play!")
@@ -28,7 +28,7 @@ function setupEventListeners() {
 	}
 
 	// AI play have to think implement
-	const aiPlayButton = document.getElementById('aiPlayButton')
+	const aiPlayButton = document.getElementById('aiPlayBtn')  // 수정: aiPlayButton → aiPlayBtn
 	if (aiPlayButton) {
 		aiPlayButton.addEventListener('click', () => {
 			console.log("AI play!")
@@ -37,7 +37,7 @@ function setupEventListeners() {
 	}
 
 	// login button
-	const loginButton = document.getElementById('loginButton')
+	const loginButton = document.getElementById('loginBtn')  // 수정: loginButton → loginBtn
 	if (loginButton) {
 		loginButton.addEventListener('click', handleLogin)
 	}
@@ -100,10 +100,27 @@ async function handlePlayerSetup(event: Event) {
 	}
 }
 
+// 임시로 서버 API 대신 더미 데이터 사용
 async function createNewGame(gameMode: string) {
 	try {
 		console.log('Requesting new game from server...')
 
+		// 임시로 더미 응답 생성 (서버 API가 없으니까)
+		const dummyResponse = {
+			gameId: 'game_' + Date.now(),
+			player1Id: playerName,
+			player2Id: gameMode === 'ai' ? 'AI' : 'Player2',
+			status: 'created'
+		}
+
+		currentGameId = dummyResponse.gameId
+		console.log('Game created successfully:', dummyResponse)
+
+		showGameScreen()
+		startGame(dummyResponse.gameId)
+
+		// 실제 서버 API가 필요할 때는 아래 코드 사용
+		/*
 		const response = await fetch('/api/games/create', {
 			method: 'POST',
 			headers: {
@@ -122,7 +139,8 @@ async function createNewGame(gameMode: string) {
 		console.log('Game created successfully:', data)
 
 		showGameScreen()
-		startGame(currentGameId)
+		startGame(data.gameId)
+		*/
 	} catch (error) {
 		console.error('Failed to create game:', error)
 		throw error
@@ -139,7 +157,6 @@ function showGameScreen() {
 	if (gameSection) {
 		gameSection.classList.remove('hidden')
 	}
-	currentGame.start()
 
 	console.log('Game screen is shown')
 }
@@ -155,10 +172,10 @@ function startGame(gameId: string) {
 
 	if (currentGame) {
 		console.log('Game initialized successfully')
-		updateConnectionStatus('Connected')
+		updateConnectionStatus('connected')
 	} else {
 		console.error('Failed to initialize game')
-		updateConnectionStatus('Disconnected')
+		updateConnectionStatus('disconnected')
 	}
 }
 
@@ -181,7 +198,7 @@ function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnect
 				break
 		}
 
-		statusText.textContent = text
+		statusText.textContent = status
 	}
 }
 
@@ -195,13 +212,12 @@ function handleLogin() {
 		playerName = username
 		alert(`Welcome, ${playerName}!`)
 
-		const loginButton = document.getElementById('loginButton')
+		const loginButton = document.getElementById('loginBtn')  // 수정: loginButton → loginBtn
 		if (loginButton) {
 			loginButton.textContent = username
 		}
 	}
 }
-
 
 document.addEventListener('keydown', (event) => {
 	if (event.key === 'Escape' && currentGame) {
@@ -213,7 +229,6 @@ document.addEventListener('keydown', (event) => {
 		toggleFullscreen()
 	}
 })
-
 
 function toggleFullscreen() {
 	if (!document.fullscreenElement) {
