@@ -1,9 +1,12 @@
+// SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.19;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-contract PongRewards is ERC20, Ownable {
+// declare the contract and heritage
+contract PongRewards is ERC20, Ownable, ReentrancyGuard {
 	struct Tournament {
 		uint256 id;
 		uint256 prizePool;
@@ -30,14 +33,20 @@ contract PongRewards is ERC20, Ownable {
 	uint256 public tournamentCounter;
 	uint256 public constant WIN_REWARD = 10 * 10 ** 18;  // 10 tokens
 	uint256 public constant TOURNAMENT_WIN_MULTIPLIER = 5;
+	uint256 public exchangeRate;
 
 	event GameCompleted(string gameId, address winner, uint256 reward);
 	event TournamentCreated(uint256 tournamentId, uint256 prizePool);
 	event TournamentJoined(uint256 tournamentId, address participant);
 
 	// constructor (initialize the token (supply 1000000 tokens))
-	constructor() ERC20("PoinCoin", "PONG") {
+	// msg.sender --> the address of call (this contract request)
+	constructor() ERC20("PoinCoin", "PONG") Ownable(msg.sender) {
 		_mint(owner(), 1000000 * 10**18);
+	}
+
+	function setExchangeRate(uint256 _rate) external onlyOwner {
+		exchangeRate = _rate; // set the exchange rate for tokens
 	}
 
 	function recordGameResult(
@@ -89,6 +98,7 @@ contract PongRewards is ERC20, Ownable {
         tournament.participants.push(msg.sender);
         tournament.hasParticipated[msg.sender] = true;
         tournament.currentParticipants++;
+		tournament.prizePool += msg.value; // add entry fee to the prize pool
 
         emit TournamentJoined(tournamentId, msg.sender);
     }
@@ -107,4 +117,43 @@ contract PongRewards is ERC20, Ownable {
     function getPlayerRewards(address player) external view returns (uint256) {
         return balanceOf(player);
     }
+
+	function dividePrizePool(uint256 tournamentId) external onlyOwner {
+		Tournament storage t = tournaments[tournamentId];
+		require(t.isActive, "t is not active");
+		require(t.currentParticipants > 0, "No participants in the tournament");
+
+		uint256 prizePerWinner = t.prizePool / t.currentParticipants;
+
+		for (uint256 i = 0; i < t.participants.length; i++) {
+			(bool success, ) = payable(t.participants[i]).call{value: prizePerWinner}(""); // transfer prize to each participant
+			require(success, "Failed to transfer prize to winner");
+		}
+
+		t.isActive = false; // mark the tournament as inactive
+	}
+
+	function withdraw(uint256 amount) external nonReentrant {  // 1e18 PONG = 0.01 ether
+		// to not connect direct between burn and ether
+		require(balanceOf(msg.sender) >= amount, "Insufficient token balance");
+		uint256 etherAmount = (amount * exchangeRate) / 1e18;
+		require(address(this).balance >= etherAmount, "Insufficient ETH pool");
+
+		_burn(msg.sender, amount); // burn the tokens from the sender
+		(bool success, ) = msg.sender.call{value: etherAmount}(""); // transfer the ether to the sender
+		require(success, "ETH transfer failed");
+	}
+
+	function setWinner(string memory gameId, address winner) external onlyOwner nonReentrant {
+		require(bytes(gameResults[gameId].gameId).length > 0, "Game not found");
+		require(gameResults[gameId].winner == address(0), "Winner already set");
+
+		gameResults[gameId].winner = winner;
+
+		uint256 reward = gameResults[gameId].reward;
+		_mint(winner, reward); // mint tokens to the winner
+		playerStats[winner]++;  // increment player stats
+
+		emit GameCompleted(gameId, winner, reward);
+	}
 }
