@@ -1,4 +1,6 @@
 import fastify from 'fastify'
+import '@fastify/websocket'
+import 'frontend/src/client/PongGame3D.ts'
 import { promisify } from 'util'
 import sqlite3 from 'sqlite3'
 import { WebSocket } from 'ws'
@@ -43,6 +45,10 @@ class Enhanced3DPongEngine {
     console.log('🎮 Enhanced 3D Pong Engine initialized!')
   }
 
+  public listGames() {
+	return Array.from(this.games.entries());
+  }
+
   async createGame(player1Id: string, player2Id: string, gameMode: string): Promise<string> {
     const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
@@ -71,6 +77,7 @@ class Enhanced3DPongEngine {
       status: 'playing',
       lastUpdate: Date.now()
     }
+
 
     this.games.set(gameId, gameState)
     this.prometheus.gamesActive.inc()
@@ -250,7 +257,7 @@ class Enhanced3DPongEngine {
     }
 
     const winner = game.player1.score > game.player2.score ? 'player1' : 'player2'
-    console.log(`🏆 승자: ${winner}`)
+    console.log(`🏆 Winner: ${winner}`)
 
     this.broadcastGameState(gameId, game)
 
@@ -266,12 +273,13 @@ class Enhanced3DPongEngine {
   private async saveGameToDatabase(gameId: string, player1: string, player2: string, gameMode: string): Promise<void> {
     try {
       const db = new sqlite3.Database('./data/games.db')
-      const run = promisify(db.run.bind(db))
+      const run = promisify(db.run.bind(db)) as (sql: string, params: any[]) => Promise<void>
+
 
       await run(`
         INSERT INTO games (game_id, player1_id, player2_id, started_at, game_type, status)
         VALUES (?, ?, ?, datetime('now'), ?, 'playing')
-      `, [gameId, player1, player2, gameMode])
+      `, [gameId, player1, player2, gameMode] )
 
       console.log(`💾 Game ${gameId} database saved successfully`)
       db.close()
@@ -284,7 +292,6 @@ class Enhanced3DPongEngine {
     return this.games.get(gameId)
   }
 
-  // 🔗 플레이어 연결 등록
   addPlayer(playerId: string, ws: WebSocket): void {
     this.connectedPlayers.set(playerId, ws)
     console.log(`👋 Player ${playerId} connected`)

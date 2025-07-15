@@ -1,57 +1,44 @@
-version: '3.8'
+version: "3.8"
 
 services:
-    frontend:
-      build:
-          context: ./frontend
-          dockerfile: Dockerfile
-      ports:
-          - "3001:3001"
-      networks:
-          - transcendence
-      restart: unless-stopped
-    backend:    # have to add env (node, database = sqlite and JWT)
-      build:
-        context: ./backend
-        dockerfile: Dockerfile
-      depends_on:
-        - database
-      ports:
-        - "3000:3000"
-      networks:
-        - transcendence
-      restart: unless-stopped
-    
-    admin:
-      build: ./admin
-      networks:
-        - transcendence
-      ports:
-        - "9000:9000"
-      restart: unless-stopped
+  # ─────────────────── Front
+  frontend:
+    build: ./frontend
+    image: transcendence_frontend
+    ports: ["3001:80"]  # LOCAL TESTING
+    restart: unless-stopped
+    networks: [transcendence]
 
-    nginx:
-      build: ./nginx
-      ports:
-        - "80:80"
-      depends_on:
-        - frontend
-        - backend
-        - admin
-      networks:
-        - transcendence
-      restart: unless-stopped
+  # ─────────────────── Back
+  backend:
+    build: ./backend
+    image: transcendence_backend
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - JWT_SECRET=${JWT_SECRET:?set in .env}
+      - DATABASE_URL=file:/data/db.sqlite
+    volumes: ["db-data:/data"]
+    ports: ["3000:3000"] # DEV CHECK
+    restart: unless-stopped
+    networks: [transcendence]
 
-    database:
-      image: sqlite
-      environment:
-        SQLITE_DB: transcendence
-        SQLITE_USER:  ${DB_USER:-ponguser}
-        SQLITE_PASSWORD: ${DB_PASSWORD:-pongpass}
-      volumes:
-        - db-data:/var/lib/sqlite
-      networks:
-        - transcendence
+  # ─────────────────── Admin (PHP)
+  admin:
+    build: ./admin
+    image: transcendence_admin
+    ports: ["9000:80"]
+    restart: unless-stopped
+    networks: [transcendence]
+
+  # ─────────────────── Nginx Gateway
+  nginx:
+    build: { context: ./nginx }
+    image: transcendence_gateway
+    depends_on: [frontend, backend, admin]
+    ports: ["80:80"]
+    restart: unless-stopped
+    networks: [transcendence]
 
 volumes:
   db-data:

@@ -1,7 +1,7 @@
 <?php
 class TournamentManager {
     private $db;
-    
+
     public function __construct() {
         $this->db = new PDO('sqlite:../database/app.db');
         $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -10,23 +10,23 @@ class TournamentManager {
     // In short terms, prepared statements --> place holder
     public function createTournament($data) {
         $stmt = $this->db->prepare("
-            INSERT INTO tournaments (name, description, max_participants, entry_fee, prize_pool, starts_at) 
+            INSERT INTO tournaments (name, description, max_participants, entry_fee, prize_pool, starts_at)
             VALUES (?, ?, ?, ?, ?, ?)
         ");
-        
+
         return $stmt->execute([
             $data['name'],
-            $data['description'], 
+            $data['description'],
             $data['max_participants'],
             $data['entry_fee'],
             $data['prize_pool'],
             $data['starts_at']
         ]);
     }
-    
+
     public function getTournamentStats() {
         $stmt = $this->db->query("
-            SELECT 
+            SELECT
                 COUNT(*) as total_tournaments,
                 SUM(CASE WHEN status = 'open' THEN 1 ELSE 0 END) as open_tournaments,
                 SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active_tournaments,
@@ -34,28 +34,28 @@ class TournamentManager {
                 SUM(prize_pool) as total_prize_pool
             FROM tournaments
         ");
-        
+
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
-    
+
     public function getGameStatistics() {
         $stmt = $this->db->query("
-            SELECT 
+            SELECT
                 COUNT(*) as total_games,
                 COUNT(CASE WHEN finished_at IS NOT NULL THEN 1 END) as completed_games,
-                AVG(CASE WHEN finished_at IS NOT NULL 
-                    THEN (julianday(finished_at) - julianday(started_at)) * 24 * 60 
+                AVG(CASE WHEN finished_at IS NOT NULL
+                    THEN (julianday(finished_at) - julianday(started_at)) * 24 * 60
                     ELSE NULL END) as avg_game_duration_minutes
             FROM games
             WHERE started_at > datetime('now', '-30 days')
         ");
-        
+
         return $stmt->fetch(PDO::FETCH_ASSOC);
     }
-    
+
     public function exportTournamentData($tournamentId) {
         $stmt = $this->db->prepare("
-            SELECT 
+            SELECT
                 t.name as tournament_name,
                 u.username,
                 u.email,
@@ -71,25 +71,21 @@ class TournamentManager {
             WHERE t.id = ?
             ORDER BY tp.final_rank ASC, tp.joined_at ASC
         ");
-        
-        $stmt->execute([$tournamentId]);
-        return $stmt->fetchAll(PDO:발 도구)로 만들지 않고 왜 Terminal에서 동작하게 만들었나요?
 
-        A : 일단 개발자들마다 좋아하는 IDE가 제각각인데, Terminal은 모두의 공통분모인 것이 첫번째 이유고,
-        
-        * 두번째 이유로는 모델의 발전 속도가 너무 빠른데, "연말에는" 사람들이 IDE를 더이상 사용하지 않을 것이라고 보기 때문이라고 합니다...!:FETCH_ASSOC);
+        $stmt->execute([$tournamentId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    
+
     public function exportGameHistoryCSV() {
         header('Content-Type: text/csv');
         header('Content-Disposition: attachment; filename="game_history.csv"');
-        
+
         $stmt = $this->db->query("
-            SELECT 
+            SELECT
                 g.id as game_id,
                 u1.username as player1,
                 u2.username as player2,
-                CASE 
+                CASE
                     WHEN g.player1_score > g.player2_score THEN u1.username
                     WHEN g.player2_score > g.player1_score THEN u2.username
                     ELSE 'Draw'
@@ -103,14 +99,14 @@ class TournamentManager {
             WHERE g.finished_at IS NOT NULL
             ORDER BY g.finished_at DESC
         ");
-        
+
         $output = fopen('php://output', 'w');
         fputcsv($output, ['Game ID', 'Player 1', 'Player 2', 'Winner', 'Score 1', 'Score 2', 'Date']);
-        
+
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             fputcsv($output, $row);
         }
-        
+
         fclose($output);
     }
 }
@@ -131,7 +127,7 @@ if ($_SERVER['REQUEST_URI'] === '/metrics') {
     header('Content-Type: text/plain');
     $manager = new TournamentManager();
     $stats = $manager->getTournamentStats();
-    
+
     echo "php_tournaments_total {$stats['total_tournaments']}\n";
     echo "php_tournaments_open {$stats['open_tournaments']}\n";
     echo "php_tournaments_active {$stats['active_tournaments']}\n";
@@ -156,7 +152,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $_GET['action'] === 'export_csv') {
 <body class="bg-gray-100">
     <div class="container mx-auto px-4 py-8">
         <h1 class="text-3xl font-bold mb-8">Tournament Management Dashboard</h1>
-        
+
         <!-- stats cards -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             <div class="bg-white p-6 rounded-lg shadow">
@@ -176,34 +172,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && $_GET['action'] === 'export_csv') {
                 <p class="text-2xl font-bold text-purple-600" id="total-prize">-</p>
             </div>
         </div>
-        
+
         <!-- tournament creation form -->
         <div class="bg-white p-6 rounded-lg shadow mb-8">
             <h2 class="text-xl font-bold mb-4">New Tournament</h2>
             <form id="tournament-form" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input type="text" name="name" placeholder="Tournament Name" required 
+                    <input type="text" name="name" placeholder="Tournament Name" required
                            class="border rounded-lg px-3 py-2">
-                    <input type="number" name="max_participants" placeholder="Max Participants" required 
+                    <input type="number" name="max_participants" placeholder="Max Participants" required
                            class="border rounded-lg px-3 py-2">
-                    <input type="number" name="entry_fee" placeholder="Entry Fee" step="0.01" 
+                    <input type="number" name="entry_fee" placeholder="Entry Fee" step="0.01"
                            class="border rounded-lg px-3 py-2">
-                    <input type="datetime-local" name="starts_at" required 
+                    <input type="datetime-local" name="starts_at" required
                            class="border rounded-lg px-3 py-2">
                 </div>
-                <textarea name="description" placeholder="Tournament Description" 
+                <textarea name="description" placeholder="Tournament Description"
                           class="w-full border rounded-lg px-3 py-2"></textarea>
-                <button type="submit" 
+                <button type="submit"
                         class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600">
                     Create Tournament
                 </button>
             </form>
         </div>
-        
+
         <!-- export section -->
         <div class="bg-white p-6 rounded-lg shadow">
             <h2 class="text-xl font-bold mb-4">Export Data</h2>
-            <a href="?action=export_csv" 
+            <a href="?action=export_csv"
                class="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 inline-block">
                 Export Game History (CSV)
             </a>
