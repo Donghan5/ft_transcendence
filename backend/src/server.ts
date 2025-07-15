@@ -31,6 +31,7 @@ interface GameState3D {
   lastUpdate: number
 }
 
+// Main game engine class and logic
 class Enhanced3DPongEngine {
   private games = new Map<string, GameState3D>()
   private gameLoops = new Map<string, NodeJS.Timeout>()
