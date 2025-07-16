@@ -3,7 +3,7 @@ version: "3.8"
 services:
   # ─────────────────── Front
   frontend:
-    build: ./frontend
+    build: ./apps/frontend
     image: transcendence_frontend
     ports: ["3001:80"]  # LOCAL TESTING
     restart: unless-stopped
@@ -11,7 +11,7 @@ services:
 
   # ─────────────────── Back
   backend:
-    build: ./backend
+    build: ./apps/backend
     image: transcendence_backend
     environment:
       - NODE_ENV=production
@@ -23,19 +23,12 @@ services:
     restart: unless-stopped
     networks: [transcendence]
 
-  # ─────────────────── Admin (PHP)
-  admin:
-    build: ./admin
-    image: transcendence_admin
-    ports: ["9000:80"]
-    restart: unless-stopped
-    networks: [transcendence]
 
   # ─────────────────── Nginx Gateway
   nginx:
     build: { context: ./nginx }
     image: transcendence_gateway
-    depends_on: [frontend, backend, admin]
+    depends_on: [frontend, backend]
     ports: ["80:80"]
     restart: unless-stopped
     networks: [transcendence]

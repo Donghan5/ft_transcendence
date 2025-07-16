@@ -1,20 +1,7 @@
+import { GameState } from './state'
+import { GameUpdate } from './update' // fix import path
+
 declare const BABYLON: any;
-
-interface GameState {
-	player1: { position: any, score: number }
-	player2: { position: any, score: number }
-	ball: { position: any, velocity: any }
-}
-
-interface GameUpdate {
-	type: string
-	state?: {
-		ball?: { x: number, y: number, z: number }
-		player1?: { y: number, score: number }
-		player2?: { y: number, score: number }
-	}
-	playerId?: string
-}
 
 export class PongGame3D {
 	private engine: any
@@ -55,7 +42,6 @@ export class PongGame3D {
 		this.setupControls()
 		this.connectWebSocket(gameId)
 
-		// 로컬 게임 시작
 		this.startLocalGame()
 
 		// rendering loop
@@ -129,6 +115,7 @@ export class PongGame3D {
 		}
 	}
 
+	// calling handmade AI logic at the future
 	private updateAI(): void {
 		const ballZ = this.ball.position.z
 		const paddleZ = this.player2Paddle.position.z
