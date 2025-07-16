@@ -1,11 +1,9 @@
 import fastify from 'fastify'
 import '@fastify/websocket'
-import 'frontend/src/client/PongGame3D.ts'
 import { promisify } from 'util'
 import sqlite3 from 'sqlite3'
 import { WebSocket } from 'ws'
 import path from 'path'
-import { fileURLToPath } from 'url'
 
 interface Vector3D {
   x: number
@@ -341,8 +339,10 @@ const gameEngine = new Enhanced3DPongEngine(prometheus)
 
 server.register(async function (fastify) {
   fastify.get('/game/:gameId', { websocket: true }, (connection, req) => {
-    const gameId = req.params.gameId as string
-    const playerId = req.query.playerId as string || `player_${Date.now()}`
+    const { gameId } = req.params as {gameId: string}
+    const playerId =
+    (req.query as Record<string, string>).playerId ?? `player_${Date.now()}`
+
 
     console.log(`🔌 Player ${playerId} connected to game ${gameId}`)
 
@@ -434,16 +434,16 @@ server.post('/api/games/create', async (request, reply) => {
     return reply.send(response)
 
   } catch (error) {
+	const message = error instanceof Error ? error.message : String(error)
     console.error('❌ Game creation error:', error)
     return reply.code(500).send({
-      error: 'Game creation failed',
-      message: error.message
+      error: 'Game creation failed', message
     })
   }
 })
 
 server.get('/api/games/:gameId', async (request, reply) => {
-  const gameId = request.params.gameId as string
+  const { gameId } = request.params as {gameId: string}
   const gameState = gameEngine.getGameState(gameId)
 
   if (!gameState) {

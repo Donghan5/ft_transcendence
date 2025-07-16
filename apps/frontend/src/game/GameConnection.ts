@@ -17,8 +17,8 @@ export class GameConnection {
 	private maxReconnectAttempts: number = 5
 	private reconnectDelay: number = 1000
 	private isConnected = false
-	private heartbeatInterval: NodeJS.Timeout | null = null
-	
+	private heartbeatInterval: ReturnType<typeof setTimeout> | null = null
+
 	private eventListeners: Map<keyof GameConnectionEvents, Function[]> = new Map()
 
 	constructor(gameId: string, playerId: string) {
@@ -36,7 +36,7 @@ export class GameConnection {
 	}
 
 	private emit<K extends keyof GameConnectionEvents>(
-		event: K, 
+		event: K,
 		...args: Parameters<GameConnectionEvents[K]>
 	): void {
 		const listeners = this.eventListeners.get(event) || []
@@ -117,10 +117,10 @@ export class GameConnection {
 				this.emit('gameEnd', data.winner)
 				break
 			case 'pong':
-				console.log('💓 Heartbeat response received')
+				console.log('Heartbeat response received')
 				break
 			default:
-				console.log('📨 Unknown message type:', data.type)
+				console.log('Unknown message type:', data.type)
 		}
 	}
 
@@ -166,7 +166,7 @@ export class GameConnection {
 	disconnect(): void {
 		this.isConnected = false
 		this.stopHeartbeat()
-		
+
 		if (this.ws) {
 			this.ws.close()
 			this.ws = null
