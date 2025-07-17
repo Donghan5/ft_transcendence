@@ -5,7 +5,7 @@ import * as gameLogics from './logic';
 class Enhanced3DPongGame {
 	private games = new Map<string, GameState>();
 	private gameLoops = new Map<string, NodeJS.Timeout>();
-	private connectedPlayers = new Map<string, Map<string, Websocket>>();
+	private connectedPlayers = new Map<string, Map<string, WebSocket>>();
 
 	constructor() {
 		console.log('Enhanced 3D Pong Game Engine Initialized');
@@ -19,7 +19,7 @@ class Enhanced3DPongGame {
 	 */
 	public createGame(player1Id: string, player2Id: string): string {
 		const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-		const initialState = gameLogics.initState();
+		const initialState = gameLogics.initState(gameId);
 
 		const gameState: GameState = {
 			...initialState,
@@ -46,7 +46,7 @@ class Enhanced3DPongGame {
 	 * @param playerId - The ID of the player
 	 * @param ws - The WebSocket connection for the player
 	 */
-	public addPlayer(gameId: string, playerId: string, ws: Websocket): void {
+	public addPlayer(gameId: string, playerId: string, ws: WebSocket): void {
 		const players = this.connectedPlayers.get(gameId);
 		if (players) {
 			players.set(playerId, ws);
@@ -89,10 +89,10 @@ class Enhanced3DPongGame {
 	 * @param game - The current game state
 	 * @return playerKey - The key for the player in the game state
 	 */
-	private getPlayerKey(playerId: string, game: GameState): keyof GameState | null {
+	private getPlayerKey(playerId: string, game: GameState): 'player1' | 'player2' | null {
 		if (game.player1Id === playerId) return 'player1';
 		if (game.player2Id === playerId) return 'player2';
-		return 'player1'; // Default to player1 if not found
+		return null; // Default to player1 if not found
 	}
 
 	/**
@@ -108,7 +108,7 @@ class Enhanced3DPongGame {
 			}
 
 			this.updatePhysics(game);
-			this.broadcastGameState(gameId, game);
+			this.broadcastGameState(gameId);
 
 			this.gameLoops.set(gameId, setTimeout(gameLoop, 1000 / 60)); // 60 FPS
 		};
@@ -131,7 +131,7 @@ class Enhanced3DPongGame {
 		const scorerSide = game.ball.position.x < -200 ? 'right' : game.ball.position.x > 200 ? 'left' : null;
 		if (scorerSide) {
 			const scorerId = scorerSide === 'left' ? game.player1Id : game.player2Id;
-			const updatedState = gameLogics.addPoint(game, scorerSide, scorerId);
+			const updatedState = gameLogics.addPoint(game, scorerId);
 			this.games.set(game.gameId, updatedState);
 			this.resetBall(updatedState);
 

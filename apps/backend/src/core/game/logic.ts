@@ -1,32 +1,63 @@
-// Game logic
+// apps/backend/src/core/game/logic.ts
 import { WIN_SCORE, POINT_PER_GOAL } from "./constant";
-import { GameState, PlayerId } from "./types";
+import { GameState, PlayerState, BallState, initialBallVelocity, GameStatus } from "@trans/common-types"; // 👍 수정된 부분
 
-export function initState(): GameState {
-	return { leftScore: 0, rightScore: 0, winner: null };
+function createInitialPlayerState(): PlayerState {
+    return {
+        position: { x: 0, y: 0, z: 0 },
+        score: 0,
+        paddleZ: 0,
+    };
+}
+
+// 초기 공 상태를 생성하는 헬퍼 함수
+function createInitialBallState(): BallState {
+    return {
+        position: { x: 0, y: 0, z: 0 },
+        velocity: initialBallVelocity,
+    };
+}
+
+export function initState(gameId: string): GameState {
+    return {
+        gameId,
+        player1: createInitialPlayerState(),
+        player2: createInitialPlayerState(),
+		player1Id: '',
+		player2Id: '',
+        ball: createInitialBallState(),
+        status: 'waiting',
+        lastUpdate: Date.now(),
+    };
 }
 
 export function addPoint(
-	state: GameState,
-	side: 'left' | 'right',
-	scorerId: PlayerId,
+    state: GameState,
+    scorerId: string,
 ): GameState {
-	if (state.winner) return state;
+    if (state.status === 'finished') return state;
 
-	const next: GameState = { ...state };
+    const nextState: GameState = {
+        ...state,
+        player1: { ...state.player1 },
+        player2: { ...state.player2 },
+    };
 
-	const scoreKey = side === 'left' ? 'leftScore' : 'rightScore';
-	next[scoreKey] += POINT_PER_GOAL;
+    if (scorerId === state.player1Id) {
+        nextState.player1.score += POINT_PER_GOAL;
+    } else if (scorerId === state.player2Id) {
+        nextState.player2.score += POINT_PER_GOAL;
+    }
 
-	if (next[scoreKey] >= WIN_SCORE) {
-		next.winner = scorerId;
-	}
+    if (nextState.player1.score >= WIN_SCORE || nextState.player2.score >= WIN_SCORE) {
+        nextState.status = 'finished';
+    }
 
-	return next;
+    nextState.lastUpdate = Date.now();
+
+    return nextState;
 }
 
 export function isGameOver(state: GameState): boolean {
-	return state.winner !== null;
+    return state.status === 'finished';
 }
-
-// adding sudden death logic ? -> at the future

@@ -28,7 +28,7 @@ export default async function (app: FastifyInstance) {
 			if (!isOwner) return app.httpErrors.forbidden();
 
 			await app.db
-				.deleteFrom('games')
+				.updateTable('games')
 				.set({ status: 'CANCELLED' satisfies GameStatus})
 				.where('id', '=', gameId)
 				.execute();

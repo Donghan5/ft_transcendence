@@ -1,11 +1,13 @@
-import fastify from 'fastify'
-import cors from '@fastify/cors'
-import '@fastify/websocket'
-import { promisify } from 'util'
-import sqlite3 from 'sqlite3'
-import { WebSocket } from 'ws'
-import path from 'path'
-import { gameEngine } from './core/game/game-engine'
+import fastify from 'fastify';
+import cors from '@fastify/cors';
+import websocket from '@fastify/websocket';
+import staticPlugin from '@fastify/static';
+import sensible from '@fastify/sensible';
+import sqlite from 'fastify-sqlite'; // DB 플러그인
+
+import { WebSocket } from 'ws';
+import path from 'path';
+import { gameEngine } from './core/game/game-engine';
 
 const server = fastify({ logger: true, trustProxy: true })
 
@@ -15,7 +17,7 @@ server.register(staticPlugin, {
 	prefix: '/', // optional: default '/'
 });
 
-server.register(websocket);
+server.register(WebSocket);
 
 
 const promClient = require('prom-client')
