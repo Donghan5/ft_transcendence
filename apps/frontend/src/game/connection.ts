@@ -1,4 +1,4 @@
-export interface GameConnectionEvents {
+export interface ConnectionEvenets {
 	'gameState': (gameState: any) => void     // => is return type | like lambda ?
 	'playerJoined': (playerId: string) => void
 	'playerLeft': (playerId: string) => void
@@ -9,7 +9,7 @@ export interface GameConnectionEvents {
 	'error': (error: string) => void
 }
 
-export class GameConnection {
+export class Connection {
 	private ws: WebSocket | null = null
 	private gameId: string
 	private playerId: string
@@ -19,7 +19,7 @@ export class GameConnection {
 	private isConnected = false
 	private heartbeatInterval: ReturnType<typeof setTimeout> | null = null
 
-	private eventListeners: Map<keyof GameConnectionEvents, Function[]> = new Map()
+	private eventListeners: Map<keyof ConnectionEvenets, Function[]> = new Map()
 
 	constructor(gameId: string, playerId: string) {
 		this.gameId = gameId
@@ -28,16 +28,16 @@ export class GameConnection {
 		console.log(`🔌 Player ${this.playerId} connected to game ${this.gameId}`)
 	}
 
-	on<K extends keyof GameConnectionEvents>(event: K, callback: GameConnectionEvents[K]): void {
+	on<K extends keyof ConnectionEvenets>(event: K, callback: ConnectionEvenets[K]): void {
 		if (!this.eventListeners.has(event)) {
 			this.eventListeners.set(event, [])
 		}
 		this.eventListeners.get(event)?.push(callback)
 	}
 
-	private emit<K extends keyof GameConnectionEvents>(
+	private emit<K extends keyof ConnectionEvenets>(
 		event: K,
-		...args: Parameters<GameConnectionEvents[K]>
+		...args: Parameters<ConnectionEvenets[K]>
 	): void {
 		const listeners = this.eventListeners.get(event) || []
 		listeners.forEach(listener => listener(...args))

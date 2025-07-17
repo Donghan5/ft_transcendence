@@ -1,322 +1,22 @@
 import fastify from 'fastify'
+import cors from '@fastify/cors'
 import '@fastify/websocket'
 import { promisify } from 'util'
 import sqlite3 from 'sqlite3'
 import { WebSocket } from 'ws'
 import path from 'path'
+import { gameEngine } from './core/game/game-engine'
 
-interface Vector3D {
-  x: number
-  y: number
-  z: number
-}
+const server = fastify({ logger: true, trustProxy: true })
 
-interface GameState3D {
-  player1: {
-    position: Vector3D
-    score: number
-    paddleZ: number
-  }
-  player2: {
-    position: Vector3D
-    score: number
-    paddleZ: number
-  }
-  ball: {
-    position: Vector3D
-    velocity: Vector3D
-  }
-  gameId: string
-  status: 'waiting' | 'playing' | 'finished'
-  lastUpdate: number
-}
+server.register(cors, { origin: true, credentials: true })
+server.register(staticPlugin, {
+	root: path.join(process.cwd(), '../frontend/dist'),
+	prefix: '/', // optional: default '/'
+});
 
-// Main game engine class and logic
-class Enhanced3DPongEngine {
-  private games = new Map<string, GameState3D>()
-  private gameLoops = new Map<string, NodeJS.Timeout>()
-  private connectedPlayers = new Map<string, WebSocket>()
-  private prometheus: any
+server.register(websocket);
 
-  constructor(prometheus: any) {
-    this.prometheus = prometheus
-    console.log('🎮 Enhanced 3D Pong Engine initialized!')
-  }
-
-  public listGames() {
-	return Array.from(this.games.entries());
-  }
-
-  async createGame(player1Id: string, player2Id: string, gameMode: string): Promise<string> {
-    const gameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-
-    console.log(`🎲 Create new game: ${gameId} (${player1Id} vs ${player2Id})`)
-
-    const gameState: GameState3D = {
-      player1: {
-        position: { x: -160, y: 30, z: 0 },
-        score: 0,
-        paddleZ: 0
-      },
-      player2: {
-        position: { x: 160, y: 30, z: 0 },
-        score: 0,
-        paddleZ: 0
-      },
-      ball: {
-        position: { x: 0, y: 20, z: 0 },
-        velocity: {
-          x: Math.random() > 0.5 ? 5 : -5,
-          y: 0,
-          z: (Math.random() - 0.5) * 6
-        }
-      },
-      gameId,
-      status: 'playing',
-      lastUpdate: Date.now()
-    }
-
-
-    this.games.set(gameId, gameState)
-    this.prometheus.gamesActive.inc()
-    this.startGameLoop(gameId)
-    await this.saveGameToDatabase(gameId, player1Id, player2Id, gameMode)
-
-    return gameId
-  }
-
-  private startGameLoop(gameId: string): void {
-    const targetFPS = 60
-    const frameTime = 1000 / targetFPS
-
-    const gameLoop = () => {
-      const startTime = performance.now()
-      const game = this.games.get(gameId)
-
-      if (!game || game.status !== 'playing') {
-        console.log(`🛑 Game ${gameId} loop ended`)
-        this.gameLoops.delete(gameId)
-        return
-      }
-
-      this.updatePhysics(game)
-      this.checkCollisions(game)
-      this.checkScoring(game)
-
-      game.lastUpdate = Date.now()
-
-      if (game.player1.score >= 11 || game.player2.score >= 11) {
-        game.status = 'finished'
-        this.endGame(gameId)
-        return
-      }
-
-      this.broadcastGameState(gameId, game)
-
-      const elapsed = performance.now() - startTime
-      const nextFrameDelay = Math.max(0, frameTime - elapsed)
-
-      const timeoutId = setTimeout(gameLoop, nextFrameDelay)
-      this.gameLoops.set(gameId, timeoutId)
-    }
-
-    console.log(`⚡ Game ${gameId} loop started!`)
-    gameLoop()
-  }
-
-  private updatePhysics(game: GameState3D): void {
-    game.ball.position.x += game.ball.velocity.x
-    game.ball.position.z += game.ball.velocity.z
-
-    if (Math.abs(game.ball.position.z) > 140) {
-      game.ball.velocity.z = -game.ball.velocity.z
-      this.createImpactEffect(game.ball.position)
-      console.log(`💥 Wall collision! Position: ${game.ball.position.z}`)
-    }
-
-    game.ball.position.z = Math.max(-140, Math.min(140, game.ball.position.z))
-  }
-
-  private checkCollisions(game: GameState3D): void {
-    const ballX = game.ball.position.x
-    const ballZ = game.ball.position.z
-
-    if (ballX <= -140 && ballX >= -170) {
-      const paddleTop = game.player1.paddleZ + 40
-      const paddleBottom = game.player1.paddleZ - 40
-
-      if (ballZ <= paddleTop && ballZ >= paddleBottom) {
-        console.log('🏓 Player1 hits paddle!')
-
-        game.ball.velocity.x = Math.abs(game.ball.velocity.x)
-
-        const relativeIntersectZ = game.player1.paddleZ - ballZ
-        const normalizedIntersection = relativeIntersectZ / 40
-        game.ball.velocity.z = -normalizedIntersection * 8
-
-        game.ball.velocity.x *= 1.05
-
-        this.createImpactEffect(game.ball.position)
-      }
-    }
-
-    if (ballX >= 140 && ballX <= 170) {
-      const paddleTop = game.player2.paddleZ + 40
-      const paddleBottom = game.player2.paddleZ - 40
-
-      if (ballZ <= paddleTop && ballZ >= paddleBottom) {
-        console.log('🏓 Player2 hits paddle!')
-
-        game.ball.velocity.x = -Math.abs(game.ball.velocity.x)
-
-        const relativeIntersectZ = game.player2.paddleZ - ballZ
-        const normalizedIntersection = relativeIntersectZ / 40
-        game.ball.velocity.z = -normalizedIntersection * 8
-
-        game.ball.velocity.x *= 1.05
-
-        this.createImpactEffect(game.ball.position)
-      }
-    }
-  }
-
-  private checkScoring(game: GameState3D): void {
-    if (game.ball.position.x < -200) {
-      game.player2.score++
-      console.log(`🎯 Player2 scores! ${game.player1.score} - ${game.player2.score}`)
-      this.resetBall(game)
-      this.prometheus.scoreEvents.inc({ player: 'player2' })
-    }
-    else if (game.ball.position.x > 200) {
-      game.player1.score++
-      console.log(`🎯 Player1 scores! ${game.player1.score} - ${game.player2.score}`)
-      this.resetBall(game)
-      this.prometheus.scoreEvents.inc({ player: 'player1' })
-    }
-  }
-
-  private resetBall(game: GameState3D): void {
-    game.ball.position = { x: 0, y: 20, z: 0 }
-    game.ball.velocity = {
-      x: (Math.random() > 0.5 ? 1 : -1) * 6,
-      y: 0,
-      z: (Math.random() - 0.5) * 4
-    }
-    console.log('🔄 Ball reset!')
-  }
-
-  private createImpactEffect(position: Vector3D): void {
-    console.log(`💥 Collision at (${position.x}, ${position.y}, ${position.z})`)
-  }
-
-  private broadcastGameState(gameId: string, game: GameState3D): void {
-    const message = JSON.stringify({
-      type: 'gameState',
-      gameId: gameId,
-      player1: game.player1,
-      player2: game.player2,
-      ball: game.ball,
-      status: game.status,
-      timestamp: game.lastUpdate
-    })
-
-    this.connectedPlayers.forEach((ws, playerId) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(message)
-      }
-    })
-  }
-
-  updatePaddlePosition(gameId: string, playerId: string, paddleZ: number): void {
-    const game = this.games.get(gameId)
-    if (!game) return
-
-    const constrainedZ = Math.max(-120, Math.min(120, paddleZ))
-
-    if (playerId === 'player1') {
-      game.player1.paddleZ = constrainedZ
-    } else if (playerId === 'player2') {
-      game.player2.paddleZ = constrainedZ
-    }
-
-    console.log(`🎮 ${playerId} paddle moved: ${constrainedZ}`)
-  }
-
-  private async endGame(gameId: string): Promise<void> {
-    const game = this.games.get(gameId)
-    if (!game) return
-
-    console.log(`🏁 Game ${gameId} ended!`)
-
-    const timeoutId = this.gameLoops.get(gameId)
-    if (timeoutId) {
-      clearTimeout(timeoutId)
-      this.gameLoops.delete(gameId)
-    }
-
-    const winner = game.player1.score > game.player2.score ? 'player1' : 'player2'
-    console.log(`🏆 Winner: ${winner}`)
-
-    this.broadcastGameState(gameId, game)
-
-    this.prometheus.gamesCompleted.inc()
-    this.prometheus.gamesActive.dec()
-
-    setTimeout(() => {
-      this.games.delete(gameId)
-      console.log(`🧹 Game ${gameId} data cleaned up`)
-    }, 30000)
-  }
-
-  private async saveGameToDatabase(gameId: string, player1: string, player2: string, gameMode: string): Promise<void> {
-    try {
-      const db = new sqlite3.Database('./data/games.db')
-      const run = promisify(db.run.bind(db)) as (sql: string, params: any[]) => Promise<void>
-
-
-      await run(`
-        INSERT INTO games (game_id, player1_id, player2_id, started_at, game_type, status)
-        VALUES (?, ?, ?, datetime('now'), ?, 'playing')
-      `, [gameId, player1, player2, gameMode] )
-
-      console.log(`💾 Game ${gameId} database saved successfully`)
-      db.close()
-    } catch (error) {
-      console.error('❌ Game database save failed:', error)
-    }
-  }
-
-  getGameState(gameId: string): GameState3D | undefined {
-    return this.games.get(gameId)
-  }
-
-  addPlayer(playerId: string, ws: WebSocket): void {
-    this.connectedPlayers.set(playerId, ws)
-    console.log(`👋 Player ${playerId} connected`)
-  }
-
-  removePlayer(playerId: string): void {
-    this.connectedPlayers.delete(playerId)
-    console.log(`👋 Player ${playerId} disconnected`)
-  }
-}
-
-const server = fastify({
-  logger: true,
-  trustProxy: true
-})
-
-server.register(require('@fastify/cors'), {
-  origin: true,
-  credentials: true
-})
-
-server.register(require('@fastify/static'), {
-  root: path.join(process.cwd(), 'frontend'),
-  prefix: '/'
-})
-
-server.register(require('@fastify/websocket'))
 
 const promClient = require('prom-client')
 const prometheus = {
@@ -335,8 +35,6 @@ const prometheus = {
   })
 }
 
-const gameEngine = new Enhanced3DPongEngine(prometheus)
-
 server.register(async function (fastify) {
   fastify.get('/game/:gameId', { websocket: true }, (connection, req) => {
     const { gameId } = req.params as {gameId: string}
@@ -346,10 +44,10 @@ server.register(async function (fastify) {
 
     console.log(`🔌 Player ${playerId} connected to game ${gameId}`)
 
-    gameEngine.addPlayer(playerId, connection.socket)
+    gameEngine.addPlayer(playerId, connection.socket, fastify)
     let stateTimeoutId: NodeJS.Timeout
     const sendGameState = () => {
-      const gameState = gameEngine.getGameState(gameId)
+      const gameState = gameEngine.broadcastGameState(gameId)
       if (gameState && connection.socket.readyState === WebSocket.OPEN) {
         const message = JSON.stringify({
           type: 'gameState',
@@ -554,7 +252,6 @@ server.setErrorHandler(async (error, request, reply) => {
   })
 })
 
-// 🌐 404 핸들러
 server.setNotFoundHandler(async (request, reply) => {
   console.log(`🔍 404: ${request.method} ${request.url}`)
 
@@ -566,7 +263,6 @@ server.setNotFoundHandler(async (request, reply) => {
   })
 })
 
-// 🚀 서버 시작 함수
 async function startServer() {
   try {
     const port = process.env.PORT || 3000

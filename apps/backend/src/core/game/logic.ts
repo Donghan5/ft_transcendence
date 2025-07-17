@@ -15,15 +15,18 @@ export function addPoint(
 
 	const next: GameState = { ...state };
 
-	if (side === 'left') next.leftScore += POINT_PER_GOAL;
-	else next.rightScore += POINT_PER_GOAL;
+	const scoreKey = side === 'left' ? 'leftScore' : 'rightScore';
+	next[scoreKey] += POINT_PER_GOAL;
 
-	if (next.leftScore >= WIN_SCORE) {
-		next.winner = scorerId;
-	} else if (next.rightScore >= WIN_SCORE) {
+	if (next[scoreKey] >= WIN_SCORE) {
 		next.winner = scorerId;
 	}
+
 	return next;
+}
+
+export function isGameOver(state: GameState): boolean {
+	return state.winner !== null;
 }
 
 // adding sudden death logic ? -> at the future
