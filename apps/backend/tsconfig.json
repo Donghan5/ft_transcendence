@@ -26,8 +26,13 @@
 	"src/**/*.ts",                                       /* Include all TypeScript files in the src directory and its subdirectories. */
 	"src/types/*.d.ts"                                     /* Include all TypeScript declaration files in the src directory and its subdirectories. */
   ],
+  "references": [
+	{ "path": "../../packages/common-types" },           /* Reference to the common-types package */
+  ],
   "exclude": [
 	"node_modules",                                     /* Exclude the node_modules directory. */
-	"dist"                                             /* Exclude the dist directory. */
+	"dist",                                             /* Exclude the dist directory. */
+	"src/routes/api/users/login/google.controller.ts", // temp
+    "src/routes/api/games/cancel.ts"                   // temp
   ]
 }

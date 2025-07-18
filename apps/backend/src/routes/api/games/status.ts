@@ -11,7 +11,7 @@ export default async function gameStatusRoutes(fastify: FastifyInstance) {
   // Final path will be GET /api/games
   fastify.get('/', async (request, reply) => {
     const activeGames = [];
-    const games = gameEngine.getAllGames(); // Assumes gameEngine has this method
+    const games = gameEngine.getGames(); // Assumes gameEngine has this method
 
     for (const [gameId, gameState] of games.entries()) {
       activeGames.push({
