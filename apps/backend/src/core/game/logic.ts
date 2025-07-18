@@ -1,6 +1,8 @@
 // apps/backend/src/core/game/logic.ts
 import { WIN_SCORE, POINT_PER_GOAL } from "./constant";
 import { GameState, PlayerState, BallState, initialBallVelocity, GameStatus } from "@trans/common-types"; // 👍 수정된 부분
+import { gameEngine } from "./game-engine"; // Import the games map from game-engine
+import { Vector3D } from "@trans/common-types"; // Import Vector3D type
 
 function createInitialPlayerState(): PlayerState {
     return {
@@ -60,4 +62,78 @@ export function addPoint(
 
 export function isGameOver(state: GameState): boolean {
     return state.status === 'finished';
+}
+
+/**
+ * Update the physics of the game
+ * @param game - The current game state
+ */
+export function updatePhysics(game: GameState): void {
+	// Update ball position
+	game.ball.position.x += game.ball.velocity.x;
+	game.ball.position.y += game.ball.velocity.y;
+	game.ball.position.z += game.ball.velocity.z;
+
+	// Check for collisions with paddles
+	checkPaddleCollisions(game);
+
+	const scorerSide = game.ball.position.x < -200 ? 'right' : game.ball.position.x > 200 ? 'left' : null;
+	if (scorerSide) {
+		const scorerId = scorerSide === 'left' ? game.player1Id : game.player2Id;
+		const updatedState = addPoint(game, scorerId);
+		gameEngine.getGames().set(game.gameId, updatedState);
+		resetBall(updatedState);
+
+		if (isGameOver(updatedState)) {
+			gameEngine.endGame(game.gameId);
+		}
+	}
+}
+
+export function checkPaddleCollisions(game: GameState): void {
+	const { ball, player1, player2 } = game;
+	const check = (paddlePos: Vector3D, paddleZ: number) => {
+		return (
+			Math.abs(ball.position.z - paddleZ) < 40 &&
+			Math.abs(ball.position.x - paddlePos.x) < 10
+		);
+	};
+
+	if (ball.velocity.x < 0 && check(player1.position, player1.paddleZ)) {
+		ball.velocity.x *= -1.05;
+		const relativeIntersect = player1.paddleZ - ball.position.z;
+		ball.velocity.z = -relativeIntersect / 40 * 5; // Adjust
+	}
+	else if (ball.velocity.x > 0 && check(player2.position, player2.paddleZ)) {
+		ball.velocity.x *= -1.05;
+		const relativeIntersect = player2.paddleZ - ball.position.z;
+		ball.velocity.z = -relativeIntersect / 40 * 5; // Adjust
+	}
+}
+
+export function resetBall(game: GameState): void {
+	game.ball.position = { x: 0, y: 20, z: 0 };
+	game.ball.velocity = {
+		x: game.ball.velocity.x > 0 ? -5 : 5,
+		y: 0,
+		z: (Math.random() - 0.5) * 6
+	};
+}
+
+export function broadcastGameState(gameId: string): void {
+	const game = gameEngine.getGames().get(gameId);
+	const players = gameEngine.getConnectedPlayers().get(gameId);
+	if (!game || !players) return;   // Game and players not declared
+
+	const message = JSON.stringify({
+		type: 'gameState',
+		payload: game
+	});
+	players.forEach((ws, playerId) => {
+		if (ws.readyState === WebSocket.OPEN) {
+			ws.send(message);
+		} else {
+			console.warn(`WebSocket for player ${playerId} is not open`);
+		}
+	});
 }

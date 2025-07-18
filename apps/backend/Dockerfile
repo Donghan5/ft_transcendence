@@ -3,6 +3,9 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./
+# install dependencies
+RUN npm install typescript --save-dev
+
 RUN npm ci
 COPY . .
 RUN npx tsc --outDir dist --rootDir src

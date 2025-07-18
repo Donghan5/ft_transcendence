@@ -1,4 +1,4 @@
-import { PongGame3D, initializeGame } from './frontend/src/client/PongGame3D.js'
+import { PongGame3D } from './src/game/render'
 
 let currentGame: PongGame3D | null = null
 let currentGameId: string | null = null
@@ -105,22 +105,21 @@ async function createNewGame(gameMode: string) {
 	try {
 		console.log('Requesting new game from server...')
 
-		// 임시로 더미 응답 생성 (서버 API가 없으니까)
-		const dummyResponse = {
-			gameId: 'game_' + Date.now(),
-			player1Id: playerName,
-			player2Id: gameMode === 'ai' ? 'AI' : 'Player2',
-			status: 'created'
-		}
+		// // 임시로 더미 응답 생성 (서버 API가 없으니까)
+		// const dummyResponse = {
+		// 	gameId: 'game_' + Date.now(),
+		// 	player1Id: playerName,
+		// 	player2Id: gameMode === 'ai' ? 'AI' : 'Player2',
+		// 	status: 'created'
+		// }
 
-		currentGameId = dummyResponse.gameId
-		console.log('Game created successfully:', dummyResponse)
+		// currentGameId = dummyResponse.gameId
+		// console.log('Game created successfully:', dummyResponse)
 
 		showGameScreen()
-		startGame(dummyResponse.gameId)
+		// startGame(dummyResponse.gameId)
 
 		// 실제 서버 API가 필요할 때는 아래 코드 사용
-		/*
 		const response = await fetch('/api/games/create', {
 			method: 'POST',
 			headers: {
@@ -140,7 +139,6 @@ async function createNewGame(gameMode: string) {
 
 		showGameScreen()
 		startGame(data.gameId)
-		*/
 	} catch (error) {
 		console.error('Failed to create game:', error)
 		throw error

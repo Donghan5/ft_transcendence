@@ -1,15 +1,17 @@
 {
   "name": "ft-transcendence-backend",
   "version": "1.0.0",
-  "main": "dist/server.js",
+  "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/server.js",
-    "dev": "ts-node -r tsconfig-paths/register src/server.ts"
+    "start": "node dist/main.js",
+    "dev": "ts-node -r tsconfig-paths/register src/main.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.0.1",
     "@fastify/sensible": "^6.0.3",
+    "@fastify/static": "^8.2.0",
+    "@fastify/websocket": "^11.2.0",
     "fastify": "^5.4.0",
     "fastify-sqlite": "^1.1.0",
     "ws": "^8.18.3"
@@ -17,5 +19,9 @@
   "devDependencies": {
     "@types/ws": "^8.18.1",
     "tsconfig-paths": "^4.2.0"
-  }
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": ""
 }

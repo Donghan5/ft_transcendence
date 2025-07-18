@@ -1,13 +1,13 @@
 {
   "dependencies": {
     "babylonjs": "^8.14.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
+    "ts-node": "^10.9.2"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.0.0",
     "@openzeppelin/contracts": "^5.3.0",
-    "hardhat": "^2.25.0"
+    "hardhat": "^2.25.0",
+    "typescript": "^5.8.3"
   },
   "name": "transcendence",
   "description": "ft_transcendence/ ├── docker-compose.yml ├── .env ├── backend/ │   ├── Dockerfile │   ├── package.json │   ├── tsconfig.json │   └── src/ │       └── server.ts ├── frontend/ │   ├── Dockerfile │   ├── package.json │   ├── index.html │   └── src/ │       └── PongGame3D.ts ├── admin/ │   ├── Dockerfile │   └── index.php ├── blockchain/ │   ├── Dockerfile │   ├── package.json │   ├── hardhat.config.js │   └── contracts/ │       └── PongRewards.sol ├── database/ │   └── schema.sql ├── monitoring/ │   ├── prometheus/ │   │   └── prometheus.yml │   └── grafana/ │       └── provisioning/ └── nginx/     ├── Dockerfile     └── nginx.conf",

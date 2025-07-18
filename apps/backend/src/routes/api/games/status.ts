@@ -1,38 +1,53 @@
-// this file shows the status of the game
 import { FastifyInstance, FastifyRequest } from 'fastify';
-import { GameDTO } from '@trans/common-types';
+import { gameEngine } from '../../../core/game/game-engine';
 
-export default async function (app: FastifyInstance) {
-  app.get(
-    '/api/games/:id',
-    async (req: FastifyRequest<{ Params: { id: string } }>) => {
-      const gameId = Number(req.params.id);
+/**
+ * Registers routes for getting the status of games.
+ * @param fastify The Fastify instance.
+ */
+export default async function gameStatusRoutes(fastify: FastifyInstance) {
 
-      const game = await app.db
-        .selectFrom('games')
-        .select(['id', 'mode', 'status', 'created_at', 'started_at', 'finished_at'])
-        .where('id', '=', gameId)
-        .executeTakeFirst();
+  // Route to get a list of all active games
+  // Final path will be GET /api/games
+  fastify.get('/', async (request, reply) => {
+    const activeGames = [];
+    const games = gameEngine.getAllGames(); // Assumes gameEngine has this method
 
-      if (!game) return app.httpErrors.notFound();
-
-      const players = await app.db
-        .selectFrom('game_players')
-        .select(['user_id as id', 'score'])
-        .where('game_id', '=', gameId)
-        .execute();
-
-      const dto: GameDTO = {
-        id: game.id,
-        mode: game.mode as 'PVP' | 'AI',
-        status: game.status as GameDTO['status'],
-        players,
-        createdAt: game.created_at,
-        startedAt: game.started_at ?? undefined,
-        finishedAt: game.finished_at ?? undefined,
-      };
-
-      return { game: dto };
+    for (const [gameId, gameState] of games.entries()) {
+      activeGames.push({
+        gameId,
+        status: gameState.status,
+        player1Id: gameState.player1Id,
+        player2Id: gameState.player2Id,
+        scores: {
+          player1: gameState.player1.score,
+          player2: gameState.player2.score,
+        },
+        lastUpdate: gameState.lastUpdate,
+      });
     }
-  );
+
+    return reply.send({
+      success: true,
+      totalGames: activeGames.length,
+      activeGames,
+    });
+  });
+
+  // Route to get the status of a specific game by its ID
+  // Final path will be GET /api/games/:gameId
+  fastify.get('/:gameId', async (request, reply) => {
+    const { gameId } = request.params as { gameId: string };
+    const gameState = gameEngine.getGameState(gameId);
+
+    if (!gameState) {
+      return reply.code(404).send({ error: 'Game not found' });
+    }
+
+    return reply.send({
+      success: true,
+      gameId,
+      gameState,
+    });
+  });
 }

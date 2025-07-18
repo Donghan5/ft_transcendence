@@ -22,9 +22,9 @@ export interface GameState {
   player1: PlayerState;
   player2: PlayerState;
   ball: BallState;
+  gameId: string;
   player1Id: string;
   player2Id: string;
-  gameId: string;
   status: 'waiting' | 'playing' | 'finished';
   lastUpdate: number;
 }

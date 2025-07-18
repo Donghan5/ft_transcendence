@@ -11,6 +11,23 @@ class Enhanced3DPongGame {
 		console.log('Enhanced 3D Pong Game Engine Initialized');
 	}
 
+	/***
+	 * Get the current game state by game ID
+	 * @param gameId - The ID of the game
+	 * @return GameState - The current state of the game
+	 */
+	public getGameState(gameId: string): GameState | undefined {
+		return this.games.get(gameId);
+	}
+
+	public getGames(): Map<string, GameState> {
+		return this.games;
+	}
+
+	public getConnectedPlayers(): Map<string, Map<string, WebSocket>> {
+		return this.connectedPlayers;
+	}
+
 	/**
 	 * Create a new game and initialize
 	 * @param player1Id - ID of player 1
@@ -48,9 +65,22 @@ class Enhanced3DPongGame {
 	 */
 	public addPlayer(gameId: string, playerId: string, ws: WebSocket): void {
 		const players = this.connectedPlayers.get(gameId);
-		if (players) {
+		const game = this.games.get(gameId);
+
+		if (players && game) {
 			players.set(playerId, ws);
 			console.log(`Player ${playerId} joined game ${gameId}`);
+
+			if (ws.readyState === WebSocket.OPEN) {
+				const message = JSON.stringify({
+					type: 'gameState',
+					payload: game
+				});
+				ws.send(message);
+			} else {
+				console.warn(`Game ${gameId} not found for player ${playerId}`);
+				ws.close();
+			}
 		}
 	}
 
@@ -99,7 +129,7 @@ class Enhanced3DPongGame {
 	 * Start the game loop for a specific game
 	 * @param gameId - The ID of the game
 	 */
-	private startGameLoop(gameId: string): void {
+	public startGameLoop(gameId: string): void {
 		const gameLoop = () => {
 			const game = this.games.get(gameId);
 			if (!game || game.status !== 'playing') {
@@ -107,89 +137,15 @@ class Enhanced3DPongGame {
 				return;
 			}
 
-			this.updatePhysics(game);
-			this.broadcastGameState(gameId);
+			gameLogics.updatePhysics(game);
+			gameLogics.broadcastGameState(gameId);
 
 			this.gameLoops.set(gameId, setTimeout(gameLoop, 1000 / 60)); // 60 FPS
 		};
 		gameLoop();
 	}
 
-	/**
-	 * Update the physics of the game
-	 * @param game - The current game state
-	 */
-	private updatePhysics(game: GameState): void {
-		// Update ball position
-		game.ball.position.x += game.ball.velocity.x;
-		game.ball.position.y += game.ball.velocity.y;
-		game.ball.position.z += game.ball.velocity.z;
-
-		// Check for collisions with paddles
-		this.checkPaddleCollisions(game);
-
-		const scorerSide = game.ball.position.x < -200 ? 'right' : game.ball.position.x > 200 ? 'left' : null;
-		if (scorerSide) {
-			const scorerId = scorerSide === 'left' ? game.player1Id : game.player2Id;
-			const updatedState = gameLogics.addPoint(game, scorerId);
-			this.games.set(game.gameId, updatedState);
-			this.resetBall(updatedState);
-
-			if (gameLogics.isGameOver(updatedState)) {
-				this.endGame(game.gameId);
-			}
-		}
-	}
-
-	private checkPaddleCollisions(game: GameState): void {
-		const { ball, player1, player2 } = game;
-		const check = (paddlePos: Vector3D, paddleZ: number) => {
-			return (
-				Math.abs(ball.position.z - paddleZ) < 40 &&
-				Math.abs(ball.position.x - paddlePos.x) < 10
-			);
-		};
-
-		if (ball.velocity.x < 0 && check(player1.position, player1.paddleZ)) {
-			ball.velocity.x *= -1.05;
-			const relativeIntersect = player1.paddleZ - ball.position.z;
-			ball.velocity.z = -relativeIntersect / 40 * 5; // Adjust
-		}
-		else if (ball.velocity.x > 0 && check(player2.position, player2.paddleZ)) {
-			ball.velocity.x *= -1.05;
-			const relativeIntersect = player2.paddleZ - ball.position.z;
-			ball.velocity.z = -relativeIntersect / 40 * 5; // Adjust
-		}
-	}
-
-	private resetBall(game: GameState): void {
-		game.ball.position = { x: 0, y: 20, z: 0 };
-		game.ball.velocity = {
-			x: game.ball.velocity.x > 0 ? -5 : 5,
-			y: 0,
-			z: (Math.random() - 0.5) * 6
-		};
-	}
-
-	private broadcastGameState(gameId: string): void {
-		const game = this.games.get(gameId);
-		const players = this.connectedPlayers.get(gameId);
-		if (!game || !players) return;   // Game and players not declared
-
-		const message = JSON.stringify({
-			type: 'gameState',
-			payload: game
-		});
-		players.forEach((ws, playerId) => {
-			if (ws.readyState === WebSocket.OPEN) {
-				ws.send(message);
-			} else {
-				console.warn(`WebSocket for player ${playerId} is not open`);
-			}
-		});
-	}
-
-	private endGame(gameId: string): void {
+	public endGame(gameId: string): void {
 		const loop = this.gameLoops.get(gameId);
 		if (loop) {
 			clearTimeout(loop);
