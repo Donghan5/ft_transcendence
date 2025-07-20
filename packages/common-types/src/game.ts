@@ -55,3 +55,10 @@ export const initialBallVelocity: Vector3D = {
   y: 0,
   z: 0.15,
 };
+
+
+export const initialBallPosition: Vector3D = {
+  x: 0,
+  y: 0,
+  z: 0,
+};

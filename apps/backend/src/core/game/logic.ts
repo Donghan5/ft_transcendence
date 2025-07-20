@@ -12,7 +12,6 @@ function createInitialPlayerState(): PlayerState {
     };
 }
 
-// 초기 공 상태를 생성하는 헬퍼 함수
 function createInitialBallState(): BallState {
     return {
         position: { x: 0, y: 0, z: 0 },
