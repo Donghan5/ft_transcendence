@@ -90,6 +90,11 @@ export function initializeGame(
 		</style>
 	`
 
-	const canvas = document.getElementById('game-canvas') as HTMLCanvasElement
-	return new PongGame3D(canvas, gameId, playerId)
+	const canvasElement = document.getElementById('game-canvas');
+	if (!(canvasElement instanceof HTMLCanvasElement)) {
+		console.error('Canvas element not found or is not an HTMLCanvasElement');
+		return null;
+	}
+	const canvas: HTMLCanvasElement = canvasElement;
+	return new PongGame3D(canvas, gameId, playerId);
 }

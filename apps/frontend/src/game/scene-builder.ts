@@ -199,7 +199,7 @@ function createBallTrail(scene: Scene, ball: any): void {
 	}
 }
 
-function createParticleEffects(scene: Scene, ball: any): void {
+function createParticleEffects(scene: Scene, ball: any): ParticleSystem {
 	const particleSystem = new BABYLON.ParticleSystem('particles', 2000, scene)
 
 	particleSystem.emitter = ball
@@ -217,6 +217,8 @@ function createParticleEffects(scene: Scene, ball: any): void {
 	particleSystem.maxLifeTime = 1.5
 
 	particleSystem.emitRate = 100
+
+	return particleSystem;
 }
 
 function setupLighting(scene: Scene, ball: any): void {

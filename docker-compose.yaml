@@ -1,13 +1,17 @@
+# docker-compose.yaml
+
 version: "3.8"
 
 services:
   # ─────────────────── Front
   frontend:
-    build: ./apps/frontend
+    build:
+      context: .
+      dockerfile: ./apps/frontend/Dockerfile
     image: transcendence_frontend
-    ports: ["3001:80"]  # LOCAL TESTING
+    ports: ["3001:3001"] # vite preview 포트와 일치
     restart: unless-stopped
-    networks: [transcendence]
+    networks: [ts_transcendence]
 
   # ─────────────────── Back
   backend:
@@ -21,23 +25,24 @@ services:
       - JWT_SECRET=${JWT_SECRET:?set in .env}
       - DATABASE_URL=file:/data/db.sqlite
     volumes: ["db-data:/data"]
-    ports: ["3000:3000"] # DEV CHECK
+    ports: ["3000:3000"]
     restart: unless-stopped
-    networks: [transcendence]
-
+    networks: [ts_transcendence]
 
   # ─────────────────── Nginx Gateway
   nginx:
-    build: { context: ./infra/nginx }
+    build:
+      context: .
+      dockerfile: ./infra/nginx/Dockerfile
     image: transcendence_gateway
     depends_on: [frontend, backend]
     ports: ["8080:80"]
     restart: unless-stopped
-    networks: [transcendence]
+    networks: [ts_transcendence]
 
 volumes:
   db-data:
 
 networks:
-  transcendence:
+  ts_transcendence:
     driver: bridge
