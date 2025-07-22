@@ -1,8 +1,8 @@
 // apps/backend/src/core/game/logic.ts
 import { WIN_SCORE, POINT_PER_GOAL } from "./constant";
-import { GameState, PlayerState, BallState, initialBallVelocity, GameStatus } from "@trans/common-types"; // 👍 수정된 부분
+import { GameState, PlayerState, BallState, initialBallVelocity, GameStatus, Vector3D } from "@trans/common-types"; // 👍 수정된 부분
 import { gameEngine } from "./game-engine"; // Import the games map from game-engine
-import { Vector3D } from "@trans/common-types"; // Import Vector3D type
+import { strategy } from "./ai-strategy";
 
 function createInitialPlayerState(): PlayerState {
     return {
@@ -72,6 +72,9 @@ export function updatePhysics(game: GameState): void {
 	game.ball.position.x += game.ball.velocity.x;
 	game.ball.position.y += game.ball.velocity.y;
 	game.ball.position.z += game.ball.velocity.z;
+
+	if (game.player2Id === 'AI')
+			strategy.updateAIPaddle(game);
 
 	// Check for collisions with paddles
 	checkPaddleCollisions(game);

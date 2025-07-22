@@ -11,7 +11,9 @@ services:
 
   # ─────────────────── Back
   backend:
-    build: ./apps/backend
+    build:
+      context: .
+      dockerfile: ./apps/backend/Dockerfile
     image: transcendence_backend
     environment:
       - NODE_ENV=production
@@ -26,10 +28,10 @@ services:
 
   # ─────────────────── Nginx Gateway
   nginx:
-    build: { context: ./nginx }
+    build: { context: ./infra/nginx }
     image: transcendence_gateway
     depends_on: [frontend, backend]
-    ports: ["80:80"]
+    ports: ["8080:80"]
     restart: unless-stopped
     networks: [transcendence]
 

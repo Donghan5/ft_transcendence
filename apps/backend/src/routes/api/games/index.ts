@@ -26,8 +26,8 @@ export default async function gameRoutes(fastify: FastifyInstance) {
 		connection.on('message', (message: Buffer) => {
 			try {
 				const data = JSON.parse(message.toString());
-				if (data.type === 'paddleUpdate') {
-					const { paddleZ } = data.payload;
+				if (data.type === 'gameAction' && data.action === 'updatePaddle') {
+					const { paddleZ } = data.data;
 					gameEngine.updatePaddlePosition(gameId, playerId, paddleZ);
 				}
 			} catch (error) {

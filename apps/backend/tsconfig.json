@@ -1,38 +1,29 @@
 {
   "compilerOptions": {
-    /* Visit https://aka.ms/tsconfig to read more about this file */
-
-    /* Language and Environment */
-    "target": "es2020",                                  /* Set the JavaScript language version for emitted JavaScript and include compatible library declarations. */
-
-    /* Modules */
-    "module": "commonjs",                                /* Specify what module code is generated. */
-    "baseUrl": ".",                                      /* Specify the base directory to resolve non-relative module names. */
+    "target": "es2020",
+    "module": "commonjs",
+    "outDir": "./dist",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "composite": true,
+    // ✅ baseUrl과 paths를 다시 추가하여 모듈 경로를 명시적으로 지정합니다.
+    "baseUrl": ".",
     "paths": {
-      "@trans/*": ["../../packages/*/src"]               /* 경로 별칭 설정: @trans/로 시작하는 경로는 packages/ 폴더를 기준으로 찾도록 함 */
-    },
-
-    /* Interop Constraints */
-    "esModuleInterop": true,                             /* Emit additional JavaScript to ease support for importing CommonJS modules. This enables 'allowSyntheticDefaultImports' for type compatibility. */
-    "forceConsistentCasingInFileNames": true,            /* Ensure that casing is correct in imports. */
-
-    /* Type Checking */
-    "strict": true,                                      /* Enable all strict type-checking options. */
-
-    /* Completeness */
-    "skipLibCheck": true                                 /* Skip type checking all .d.ts files. */
+      "@trans/common-types/*": ["../../packages/common-types/src/*"]
+    }
   },
   "include": [
-	"src/**/*.ts",                                       /* Include all TypeScript files in the src directory and its subdirectories. */
-	"src/types/*.d.ts"                                     /* Include all TypeScript declaration files in the src directory and its subdirectories. */
+    "src/**/*.ts"
   ],
   "references": [
-	{ "path": "../../packages/common-types" },           /* Reference to the common-types package */
+    { "path": "../../packages/common-types" }
   ],
   "exclude": [
-	"node_modules",                                     /* Exclude the node_modules directory. */
-	"dist",                                             /* Exclude the dist directory. */
-	"src/routes/api/users/login/google.controller.ts", // temp
-    "src/routes/api/games/cancel.ts"                   // temp
+    "node_modules",
+    "dist",
+	"src/routes/api/games/cancel.ts",
+	"src/routes/api/users/login/google.controller.ts"
   ]
 }

@@ -40,6 +40,8 @@ class Enhanced3DPongGame {
 
 		const gameState: GameState = {
 			...initialState,
+			player1Id: player1Id,
+			player2Id: player2Id,
 			player1: { ...initialState.player1, position: { x: -160, y: 30, z: 0 }, paddleZ: 0 },
 			player2: { ...initialState.player2, position: { x: 160, y: 30, z: 0 }, paddleZ: 0 },
 			ball: {

@@ -1,4 +1,5 @@
 import { PongGame3D } from './src/game/render'
+import { initializeGame } from './src/game/init'
 
 let currentGame: PongGame3D | null = null
 let currentGameId: string | null = null
@@ -116,8 +117,8 @@ async function createNewGame(gameMode: string) {
 		// currentGameId = dummyResponse.gameId
 		// console.log('Game created successfully:', dummyResponse)
 
-		showGameScreen()
 		// startGame(dummyResponse.gameId)
+		const player2Id = gameMode === 'ai' ? 'AI' : 'Player2_tmp';
 
 		// 실제 서버 API가 필요할 때는 아래 코드 사용
 		const response = await fetch('/api/games/create', {
@@ -138,7 +139,7 @@ async function createNewGame(gameMode: string) {
 		console.log('Game created successfully:', data)
 
 		showGameScreen()
-		startGame(data.gameId)
+		startGame(data.gameId, playerName)
 	} catch (error) {
 		console.error('Failed to create game:', error)
 		throw error
@@ -159,14 +160,14 @@ function showGameScreen() {
 	console.log('Game screen is shown')
 }
 
-function startGame(gameId: string) {
+function startGame(gameId: string, playerId: string) {
 	console.log('Starting initialize game...')
 
 	if (currentGame) {
 		currentGame.dispose()
 	}
 
-	currentGame = initializeGame('gameContainer', gameId)
+	currentGame = initializeGame('gameContainer', gameId, playerId)
 
 	if (currentGame) {
 		console.log('Game initialized successfully')

@@ -1,84 +1,49 @@
-import { GameState } from "@trans/common-types";
-import { PlayerState, BallState } from "@trans/common-types";
+import { GameState, PlayerState, BallState, Vector3D, scaleVector, addVectors } from "@trans/common-types";
 import { POINT_PER_GOAL, WIN_SCORE } from "./constant";
-import { Vector3D } from "@trans/common-types";
-import { Vector3 } from '@babylonjs/core'
 
-export interface AiDecision {
-	easy: boolean;
-	middle: boolean;
-	hard: boolean;
-}
+export const AI_LEVEL = {
+	EASY: { accuracy: 0.6, speed: 0.08 },
+	MIDDLE: { accuracy: 0.8, speed: 0.12 },
+	HARD: { accuracy: 1.0, speed: 0.16 },
+};
 
 /**
  *
- * @param game
- * @returns AiDecision
+ * @param level : input by user choices
+ * @returns level of AI
  * this function is making decisions based on the current game state
  * Suppose that the Player 1 is controlling by the user and Player 2 is controlled by AI
  */
-export function makeDecisions(game: GameState, level: string): AiDecision {
-    const player = game.player1;   // player1 is the local player (not AI)
-    const ball = game.ball;
-
-	// init decision object
-    const decision: AiDecision = {
-        easy: false,
-        middle: false,
-        hard: false,
-    };
+export function selectLevelAI(level: string): string {
 
     // The player chose the level of AI
 	if (level === "easy") {
-		decision.easy = true;
+		const level = AI_LEVEL.EASY;
 	} else if (level === "middle") {
-		decision.middle = true;
+		const level = AI_LEVEL.MIDDLE;
 	} else {
-		decision.hard = true;
+		const level = AI_LEVEL.HARD;
 	}
 
-	return decision;
+	return level;
 }
 
-/**
- * to correct the accuracy to playable.
- * @param newBallPosition 
- * @param currentBallPosition 
- * @param accuarcy 
- * @returns corrected: corrected value
- */
-export function correctVectorPrediction(
-	newBallPosition: Vector3,
-	currentBallPosition: Vector3,
-	accuarcy: number
-): Vector3 {
-	const ratio = 1 - accuarcy;
-	const newBallScale = newBallPosition.scale(accuarcy);
-	const corrected = newBallScale.add(currentBallPosition.scale(ratio));
+export function predictBallPosition(
+	ball: BallState,
+	targetX: number
+): number {
+	let predictedPosition: Vector3D = { ...ball.position };
+	let predictedVelocity: Vector3D = { ...ball.velocity };
 
-	return corrected;
-}
+	while (predictedVelocity.x > 0 && predictedPosition.x < targetX ||
+		predictedVelocity.x < 0 && predictedPosition.x > targetX) {
+		predictedPosition = addVectors(predictedPosition, predictedVelocity);
 
-/**
- * to update the paddle of the AI (player2) - track the ball
- * @param ballPositionZ 
- * @param paddleZ (maybe like player2Paddle.position.z in render.ts)
- * @param correctedAccuracy 
- */
-export function updateAIPaddlePosition(
-	ballPositionZ: number, 
-	paddleZ: number, 
-	correctedAccuracy: number
-): void {
-	const diff = ballPositionZ - paddleZ;
-
-	if (Math.abs(diff) > 0.5) {  // or this conditions (manage game level)?
-		const moveSpeed = 0.2 * correctedAccuracy; // is here manage game level
-		paddleZ += diff > 0 ? moveSpeed : -moveSpeed;
-
-		if (paddleZ > 13) // avoid wall crash
-			paddleZ = 13
-		if (paddleZ < -13)
-			paddleZ = -13
+		if (predictedPosition.z >= 140 || predictedPosition.z <= -140) {
+			predictedVelocity.z *= -1; // bounce off the top or bottom wall
+		}
 	}
+
+	return predictedPosition.z;
+
 }

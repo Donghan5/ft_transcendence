@@ -62,3 +62,11 @@ export const initialBallPosition: Vector3D = {
   y: 20,
   z: 0,
 };
+
+export function scaleVector(vec: Vector3D, scalar: number): Vector3D {
+  return { x: vec.x * scalar, y: vec.y * scalar, z: vec.z * scalar };
+}
+
+export function addVectors(vec1: Vector3D, vec2: Vector3D): Vector3D {
+  return { x: vec1.x + vec2.x, y: vec1.y + vec2.y, z: vec1.z + vec2.z };
+}
