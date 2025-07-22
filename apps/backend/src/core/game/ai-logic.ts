@@ -45,5 +45,4 @@ export function predictBallPosition(
 	}
 
 	return predictedPosition.z;
-
 }
