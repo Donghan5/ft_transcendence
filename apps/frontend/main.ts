@@ -121,7 +121,7 @@ async function createNewGame(gameMode: string) {
 		const player2Id = gameMode === 'ai' ? 'AI' : 'Player2_tmp';
 
 		// 실제 서버 API가 필요할 때는 아래 코드 사용
-		const response = await fetch('/api/games/create', {
+		const response = await fetch('/api/games', {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',

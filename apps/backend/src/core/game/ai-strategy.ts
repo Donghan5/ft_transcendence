@@ -52,4 +52,4 @@ class AiStrategy {
 	}
 }
 
-export const strategy = new AiStrategy(initState('gameId'), 'middle');
+export const strategy = new AiStrategy(initState('dummy-game-id'), 'middle');
