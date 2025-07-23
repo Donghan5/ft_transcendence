@@ -16,7 +16,7 @@ export function initializeGame(
 			<canvas id="game-canvas"></canvas>
 			<div id="score-display" class="score-display">0 - 0</div>
 			<div class="controls">
-				<p>Move Paddle with W/S keys</p>
+				<p>Move Paddle with your mouse</p>
 			</div>
 		</div>
 		<style>

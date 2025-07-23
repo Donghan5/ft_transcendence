@@ -5,8 +5,6 @@ import {
 
 import { GameState } from '@trans/common-types';
 
-declare const BABYLON: any;
-
 export interface SceneObjects {
     player1Paddle: any;
     player2Paddle: any;
@@ -15,7 +13,7 @@ export interface SceneObjects {
 }
 
 export function createSceneAndGameObjects(scene: Scene, canvas: HTMLCanvasElement): SceneObjects {
-    setupScene(scene);
+	setupScene(scene);
     createArena(scene);
 
     const gameObjects = createMovableObjects(scene);
@@ -29,13 +27,13 @@ export function createSceneAndGameObjects(scene: Scene, canvas: HTMLCanvasElemen
 
 
 function setupScene(scene: Scene): void {
-	scene.fogMode = BABYLON.Scene.FOGMODE_EXP
-	scene.fogColor = new BABYLON.Color3(0.02, 0.05, 0.05)
-	scene.fogDensity = 0.01
+	scene.fogMode = Scene.FOGMODE_EXP;
+	scene.fogColor = new Color3(0.02, 0.05, 0.05);
+	scene.fogDensity = 0.01;
 
-	const glowLayer = new BABYLON.GlowLayer('glow', scene)
-		glowLayer.intensity = 0.5
-	}
+	const glowLayer = new GlowLayer('glow', scene);
+	glowLayer.intensity = 0.5;
+}
 
 function createArena(scene: Scene): void {
 	const arenaSize = { width: 20, height: 12, depth: 30 }
@@ -44,41 +42,41 @@ function createArena(scene: Scene): void {
 
 	createNeonBorder(arenaSize, scene)
 
-	const centerLine = BABYLON.MeshBuilder.CreateBox('centerLine',
+	const centerLine = MeshBuilder.CreateBox('centerLine',
 		{ width: 0.15, height: 0.02, depth: arenaSize.depth },
 		scene
 	)
 	centerLine.position.y = 0.01
 
-	const centerLineMat = new BABYLON.StandardMaterial('centerLineMat', scene)
-	centerLineMat.emissiveColor = new BABYLON.Color3(0.8, 0.8, 1)
-	centerLineMat.diffuseColor = new BABYLON.Color3(0.2, 0.2, 0.5)
+	const centerLineMat = new StandardMaterial('centerLineMat', scene)
+	centerLineMat.emissiveColor = new Color3(0.8, 0.8, 1)
+	centerLineMat.diffuseColor = new Color3(0.2, 0.2, 0.5)
 	centerLine.material = centerLineMat
 }
 
 function createImprovedGround(arenaSize: { width: number, height: number, depth: number }, scene: Scene): void {
-	const ground = BABYLON.MeshBuilder.CreateGround('ground',
+	const ground = MeshBuilder.CreateGround('ground',
 		{ width: arenaSize.width, height: arenaSize.depth, subdivisions: 20 },
 		scene
 	)
 
-	const groundMat = new BABYLON.StandardMaterial('groundMat', scene)
-	groundMat.diffuseColor = new BABYLON.Color3(0.05, 0.05, 0.1)
-	groundMat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.2)
-	groundMat.emissiveColor = new BABYLON.Color3(0.02, 0.02, 0.05)
+	const groundMat = new StandardMaterial('groundMat', scene)
+	groundMat.diffuseColor = new Color3(0.05, 0.05, 0.1)
+	groundMat.specularColor = new Color3(0.1, 0.1, 0.2)
+	groundMat.emissiveColor = new Color3(0.02, 0.02, 0.05)
 	ground.material = groundMat
 
 	createGridLines(arenaSize, scene)
 }
 
 function createGridLines(arenaSize: { width: number, height: number, depth: number }, scene: Scene): void {
-	const gridMat = new BABYLON.StandardMaterial('gridMat', scene)
-	gridMat.emissiveColor = new BABYLON.Color3(0, 0.3, 0.5)
-	gridMat.alpha = 0.6
+	const gridMat = new StandardMaterial('gridMat', scene);
+	gridMat.emissiveColor = new Color3(0, 0.3, 0.5);
+	gridMat.alpha = 0.6;
 
 	for (let i = -4; i <= 4; i++) {
 		if (i === 0) continue
-		const line = BABYLON.MeshBuilder.CreateBox(`gridV${i}`,
+		const line = MeshBuilder.CreateBox(`gridV${i}`,
 			{ width: 0.05, height: 0.01, depth: arenaSize.depth },
 			scene
 		)
@@ -88,7 +86,7 @@ function createGridLines(arenaSize: { width: number, height: number, depth: numb
 	}
 
 	for (let i = -7; i <= 7; i++) {
-		const line = BABYLON.MeshBuilder.CreateBox(`gridH${i}`,
+		const line = MeshBuilder.CreateBox(`gridH${i}`,
 			{ width: arenaSize.width, height: 0.01, depth: 0.05 },
 			scene
 		)
@@ -99,14 +97,14 @@ function createGridLines(arenaSize: { width: number, height: number, depth: numb
 }
 
 function createNeonBorder(arenaSize: { width: number, height: number, depth: number }, scene: Scene): void {
-	const borderMat = new BABYLON.StandardMaterial('borderMat', scene)
-	borderMat.emissiveColor = new BABYLON.Color3(0, 0.8, 1)
-	borderMat.diffuseColor = new BABYLON.Color3(0, 0.4, 0.6)
+	const borderMat = new StandardMaterial('borderMat', scene);
+	borderMat.emissiveColor = new Color3(0, 0.8, 1);
+	borderMat.diffuseColor = new Color3(0, 0.4, 0.6);
 
-	const wallHeight = 0.8
-	const wallThickness = 0.2
+	const wallHeight = 0.8;
+	const wallThickness = 0.2;
 
-	const topWall = BABYLON.MeshBuilder.CreateBox('topWall',
+	const topWall = MeshBuilder.CreateBox('topWall',
 		{ width: arenaSize.width, height: wallHeight, depth: wallThickness },
 		scene
 	)
@@ -114,7 +112,7 @@ function createNeonBorder(arenaSize: { width: number, height: number, depth: num
 	topWall.position.y = wallHeight/2
 	topWall.material = borderMat
 
-	const bottomWall = BABYLON.MeshBuilder.CreateBox('bottomWall',
+	const bottomWall = MeshBuilder.CreateBox('bottomWall',
 		{ width: arenaSize.width, height: wallHeight, depth: wallThickness },
 		scene
 	)
@@ -122,7 +120,7 @@ function createNeonBorder(arenaSize: { width: number, height: number, depth: num
 	bottomWall.position.y = wallHeight/2
 	bottomWall.material = borderMat
 
-	const leftWall = BABYLON.MeshBuilder.CreateBox('leftWall',
+	const leftWall = MeshBuilder.CreateBox('leftWall',
 		{ width: wallThickness + 1, height: wallHeight, depth: arenaSize.depth },
 		scene
 	)
@@ -130,7 +128,7 @@ function createNeonBorder(arenaSize: { width: number, height: number, depth: num
 	leftWall.position.y = wallHeight/2
 	leftWall.material = borderMat
 
-	const rightWall = BABYLON.MeshBuilder.CreateBox('rightWall',
+	const rightWall = MeshBuilder.CreateBox('rightWall',
 		{ width: wallThickness + 1, height: wallHeight, depth: arenaSize.depth },
 		scene
 	)
@@ -152,7 +150,7 @@ function createCornerConnectors(arenaSize: { width: number, height: number, dept
 	]
 
 	corners.forEach((corner, index) => {
-		const connector = BABYLON.MeshBuilder.CreateBox(`corner${index}`,
+		const connector = MeshBuilder.CreateBox(`corner${index}`,
 			{ width: cornerSize, height: wallHeight, depth: cornerSize },
 			scene
 		)
@@ -170,14 +168,14 @@ function createMovableObjects(scene: Scene): SceneObjects {
     p1Mat.emissiveColor = new Color3(0, 0.5, 1);
     player1Paddle.material = p1Mat;
 
-    const player2Paddle = player1Paddle.clone('player2Paddle');
+    const player2Paddle = MeshBuilder.CreateBox('player2Paddle', { width: 0.5, height: 0.5, depth: 4 }, scene);
     player2Paddle.position = new Vector3(8, 1.5, 0);
     const p2Mat = new StandardMaterial('p2Mat', scene);
     p2Mat.emissiveColor = new Color3(1, 0, 0.5);
     player2Paddle.material = p2Mat;
 
     const ball = MeshBuilder.CreateSphere('ball', { diameter: 1 }, scene);
-    ball.position = new Vector3(0, 1, 0);
+    ball.position = new Vector3(0, 0, 0);
     const ballMat = new StandardMaterial('ballMat', scene);
     ballMat.emissiveColor = new Color3(1, 1, 0.5);
     ball.material = ballMat;
@@ -189,26 +187,26 @@ function createMovableObjects(scene: Scene): SceneObjects {
 }
 
 function createBallTrail(scene: Scene, ball: any): void {
-	if (BABYLON.TrailMesh) {
-		const trail = new BABYLON.TrailMesh('trail', ball, scene, 0.5, 30, true)
+	if (TrailMesh) {
+		const trail = new TrailMesh('trail', ball, scene, 0.5, 30, true)
 
-		const trailMat = new BABYLON.StandardMaterial('trailMat', scene)
-		trailMat.emissiveColor = new BABYLON.Color3(1, 0.8, 0)
+		const trailMat = new StandardMaterial('trailMat', scene)
+		trailMat.emissiveColor = new Color3(1, 0.8, 0)
 		trailMat.alpha = 0.5
 		trail.material = trailMat
 	}
 }
 
 function createParticleEffects(scene: Scene, ball: any): ParticleSystem {
-	const particleSystem = new BABYLON.ParticleSystem('particles', 2000, scene)
+	const particleSystem = new ParticleSystem('particles', 2000, scene)
 
 	particleSystem.emitter = ball
-	particleSystem.minEmitBox = new BABYLON.Vector3(-0.5, 0, -0.5)
-	particleSystem.maxEmitBox = new BABYLON.Vector3(0.5, 0, 0.5)
+	particleSystem.minEmitBox = new Vector3(-0.5, 0, -0.5)
+	particleSystem.maxEmitBox = new Vector3(0.5, 0, 0.5)
 
-	particleSystem.color1 = new BABYLON.Color4(1, 0.5, 0, 1)
-	particleSystem.color2 = new BABYLON.Color4(1, 0, 0, 1)
-	particleSystem.colorDead = new BABYLON.Color4(0, 0, 0, 0)
+	particleSystem.color1 = new Color4(1, 0.5, 0, 1)
+	particleSystem.color2 = new Color4(1, 0, 0, 1)
+	particleSystem.colorDead = new Color4(0, 0, 0, 0)
 
 	particleSystem.minSize = 0.1
 	particleSystem.maxSize = 0.3
@@ -221,62 +219,61 @@ function createParticleEffects(scene: Scene, ball: any): ParticleSystem {
 	return particleSystem;
 }
 
-function setupLighting(scene: Scene, ball: any): void {
-	const ambientLight = new BABYLON.HemisphericLight('ambient',
-		new BABYLON.Vector3(0, 1, 0),
+function setupLighting(scene: Scene, gameObjects: SceneObjects): void {
+	const ambientLight = new HemisphericLight('ambient',
+		new Vector3(0, 1, 0),
 		scene
 	)
 	ambientLight.intensity = 0.3
-	ambientLight.diffuse = new BABYLON.Color3(0.5, 0.5, 0.7)
+	ambientLight.diffuse = new Color3(0.5, 0.5, 0.7)
 
-	const ballLight = new BABYLON.PointLight('ballLight',
-		ball.position,
+	const ballLight = new PointLight('ballLight',
+		gameObjects.ball.position,
 		scene
 	)
 	ballLight.intensity = 2
-	ballLight.diffuse = new BABYLON.Color3(1, 1, 0.5)
-	ballLight.parent = ball
+	ballLight.diffuse = new Color3(1, 1, 0.5)
+	ballLight.parent = gameObjects.ball
 
-	const spot1 = new BABYLON.SpotLight('spot1',
-		new BABYLON.Vector3(10, 10, 0),
-		new BABYLON.Vector3(-1, -1, 0),
+	const spot1 = new SpotLight('spot1',
+		new Vector3(10, 10, 0),
+		new Vector3(-1, -1, 0),
 		Math.PI / 3,
 		2,
 		scene
 	)
 	spot1.intensity = 0.5
-	spot1.diffuse = new BABYLON.Color3(0, 0.5, 1)
+	spot1.diffuse = new Color3(0, 0.5, 1)
 
-	const spot2 = new BABYLON.SpotLight('spot2',
-		new BABYLON.Vector3(-10, 10, 0),
-		new BABYLON.Vector3(1, -1, 0),
+	const spot2 = new SpotLight('spot2',
+		new Vector3(-10, 10, 0),
+		new Vector3(1, -1, 0),
 		Math.PI / 3,
 		2,
 		scene
 	)
 	spot2.intensity = 0.5
-	spot2.diffuse = new BABYLON.Color3(1, 0, 0.5)
+	spot2.diffuse = new Color3(1, 0, 0.5)
 }
 
 function setupCamera(scene: Scene, canvas: HTMLCanvasElement): void {
-	const camera = new BABYLON.UniversalCamera('camera',
-		new BABYLON.Vector3(0, 30, 0),
+	const camera = new UniversalCamera('camera',
+		new Vector3(0, 20, -40),
 		scene
 	)
-	camera.setTarget(new BABYLON.Vector3(0, 0, 0))
+	camera.setTarget(new Vector3(0, 1.5, 0))
 	camera.attachControl(canvas, false)
 
-	camera.rotation.x = Math.PI / 2
-	camera.rotation.y = Math.PI / 2
-
-	BABYLON.Animation.CreateAndStartAnimation(
+	Animation.CreateAndStartAnimation(
 		'cameraIntro',
 		camera,
 		'position',
 		30,
 		90,
-		new BABYLON.Vector3(0, 35, -5),
-		new BABYLON.Vector3(0, 25, 0),
-		BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT
+		new Vector3(0, 35, -5),
+		new Vector3(0, 25, 0),
+		Animation.ANIMATIONLOOPMODE_CONSTANT
 	)
+
+	console.log('Camera setup complete');
 }

@@ -3,6 +3,7 @@ import { WIN_SCORE, POINT_PER_GOAL } from "./constant";
 import { GameState, PlayerState, BallState, initialBallVelocity, GameStatus, Vector3D } from "@trans/common-types"; // 👍 수정된 부분
 import { gameEngine } from "./game-engine"; // Import the games map from game-engine
 import { strategy } from "./ai-strategy";
+import WebSocket from 'ws'; // Import WebSocket for broadcasting game state
 
 function createInitialPlayerState(): PlayerState {
     return {

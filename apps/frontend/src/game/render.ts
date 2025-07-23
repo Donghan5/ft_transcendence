@@ -4,8 +4,6 @@ import { Connection } from './connection'; // connection.ts import
 import { SceneObjects, createSceneAndGameObjects } from './scene-builder';
 import { initializeGame } from './init';
 
-declare const BABYLON: any;
-
 export class PongGame3D {
     private engine: Engine;
     private scene: Scene;
@@ -20,9 +18,9 @@ export class PongGame3D {
     private localPlayerId: string;
 
     constructor(canvas: HTMLCanvasElement, gameId: string, playerId: string = 'player1') {
-        this.engine = new BABYLON.Engine(canvas, true)
-        this.scene = new BABYLON.Scene(this.engine)
-        this.localPlayerId = playerId
+        this.engine = new Engine(canvas, true);
+        this.scene = new Scene(this.engine);
+        this.localPlayerId = playerId;
 
         const sceneObjects: SceneObjects = createSceneAndGameObjects(this.scene, canvas);
         this.player1Paddle = sceneObjects.player1Paddle;
@@ -36,9 +34,9 @@ export class PongGame3D {
         this.connection.connect().catch(err => console.error('Connection failed:', err));
 
         // rendering loop
-        this.engine.runRenderLoop(() => {
-            this.scene.render()
-        })
+		this.engine.runRenderLoop(() => {
+			this.scene.render();
+		});
 
         window.addEventListener('resize', () => {
             this.engine.resize()
