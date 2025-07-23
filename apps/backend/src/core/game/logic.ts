@@ -97,29 +97,29 @@ export function checkPaddleCollisions(game: GameState): void {
 	const { ball, player1, player2 } = game;
 	const check = (paddlePos: Vector3D, paddleZ: number) => {
 		return (
-			Math.abs(ball.position.z - paddleZ) < 40 &&
-			Math.abs(ball.position.x - paddlePos.x) < 10
+			Math.abs(ball.position.z - paddleZ) < 4 &&
+			Math.abs(ball.position.x - paddlePos.x) < 1
 		);
 	};
 
 	if (ball.velocity.x < 0 && check(player1.position, player1.paddleZ)) {
 		ball.velocity.x *= -1.05;
 		const relativeIntersect = player1.paddleZ - ball.position.z;
-		ball.velocity.z = -relativeIntersect / 40 * 5; // Adjust
+		ball.velocity.z = -relativeIntersect / 4 * 0.5; // Adjust
 	}
 	else if (ball.velocity.x > 0 && check(player2.position, player2.paddleZ)) {
 		ball.velocity.x *= -1.05;
 		const relativeIntersect = player2.paddleZ - ball.position.z;
-		ball.velocity.z = -relativeIntersect / 40 * 5; // Adjust
+		ball.velocity.z = -relativeIntersect / 4 * 0.5; // Adjust
 	}
 }
 
 export function resetBall(game: GameState): void {
-	game.ball.position = { x: 0, y: 20, z: 0 };
+	game.ball.position = { x: 0, y: 1, z: 0 };
 	game.ball.velocity = {
-		x: game.ball.velocity.x > 0 ? -5 : 5,
+		x: game.ball.velocity.x > 0 ? -0.25 : 0.25,
 		y: 0,
-		z: (Math.random() - 0.5) * 6
+		z: (Math.random() - 0.5) * 0.3
 	};
 }
 

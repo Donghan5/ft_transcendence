@@ -1,21 +1,28 @@
-import { Scene, ParticleSystem, Vector3, Engine, SceneLoader, HemisphericLight, UniversalCamera, Animation, GlowLayer, Color3, Color4, MeshBuilder, StandardMaterial, PointerEventTypes, ActionManager, ExecuteCodeAction, TrailMesh, PointLight, SpotLight } from '@babylonjs/core';
+import { Scene, Engine, PointerEventTypes, Mesh, ParticleSystem, KeyboardEventTypes } from '@babylonjs/core';
 import { GameState } from '@trans/common-types';
-import { Connection } from './connection'; // connection.ts import
+import { Connection } from './connection';
 import { SceneObjects, createSceneAndGameObjects } from './scene-builder';
-import { initializeGame } from './init';
 
 export class PongGame3D {
     private engine: Engine;
     private scene: Scene;
     private connection: Connection;
 
-    private player1Paddle: any;
-    private player2Paddle: any;
-    private ball: any;
-    private particleSystem: any;
+    private player1Paddle: Mesh;
+    private player2Paddle: Mesh;
+    private ball: Mesh;
+    private particleSystem: ParticleSystem;
 
     private state: GameState | null = null;
+    private previousState: GameState | null = null;
+    private lastStateTimestamp: number = 0;
     private localPlayerId: string;
+
+    private inputState = {
+        up: false,
+        down: false
+    };
+    private paddleSpeed = 0.5;
 
     constructor(canvas: HTMLCanvasElement, gameId: string, playerId: string = 'player1') {
         this.engine = new Engine(canvas, true);
@@ -33,23 +40,25 @@ export class PongGame3D {
         this.setupConnectionHandlers();
         this.connection.connect().catch(err => console.error('Connection failed:', err));
 
-        // rendering loop
-		this.engine.runRenderLoop(() => {
-			this.scene.render();
-		});
+        this.engine.runRenderLoop(() => {
+            this.updateLocalPaddlePosition();
+            this.interpolatePositions();
+            this.scene.render();
+        });
 
         window.addEventListener('resize', () => {
-            this.engine.resize()
-        })
+            this.engine.resize();
+        });
     }
 
     private setupConnectionHandlers(): void {
-        this.connection.on('gameState', (newstate: GameState) => {
-            const oldstate = this.state;
-            this.state = newstate;
+        this.connection.on('gameState', (newState: GameState) => {
+            this.previousState = this.state ? { ...this.state } : newState;
+            this.state = newState;
+            this.lastStateTimestamp = Date.now();
 
-            this.updateGameObjectsFromState();
-            if (oldstate && (oldstate.player1.score !== newstate.player1.score || oldstate.player2.score !== newstate.player2.score)) {
+            if (this.previousState && (this.previousState.player1.score !== newState.player1.score || this.previousState.player2.score !== newState.player2.score)) {
+                this.updateScoreDisplay();
                 this.onScoreUpdate();
             }
         });
@@ -64,35 +73,78 @@ export class PongGame3D {
         });
     }
 
-    private updateGameObjectsFromState(): void {
-        if (!this.state) return;
+    private interpolatePositions(): void {
+        if (!this.state || !this.previousState) return;
 
-        const frameRate = 60;
-        const animationFrames = 2;
+        const renderLoopTime = 1000 / 60;
+        const timeSinceLastState = Date.now() - this.lastStateTimestamp;
+        let interpolationFactor = timeSinceLastState / renderLoopTime;
+        if (interpolationFactor > 1) interpolationFactor = 1;
 
-        Animation.CreateAndStartAnimation('p1Move', this.player1Paddle, 'position.z', frameRate, animationFrames, this.player1Paddle.position.z, this.state.player1.paddleZ / 20, Animation.ANIMATIONLOOPMODE_CONSTANT);
-        Animation.CreateAndStartAnimation('p2Move', this.player2Paddle, 'position.z', frameRate, animationFrames, this.player2Paddle.position.z, this.state.player2.paddleZ / 20, Animation.ANIMATIONLOOPMODE_CONSTANT);
-        Animation.CreateAndStartAnimation('ballMoveX', this.ball, 'position.x', frameRate, animationFrames, this.ball.position.x, this.state.ball.position.x / 20, Animation.ANIMATIONLOOPMODE_CONSTANT);
-        Animation.CreateAndStartAnimation('ballMoveZ', this.ball, 'position.z', frameRate, animationFrames, this.ball.position.z, this.state.ball.position.z / 20, Animation.ANIMATIONLOOPMODE_CONSTANT);
+        const lerp = (start: number, end: number, t: number) => start * (1 - t) + end * t;
+
+        this.ball.position.x = lerp(this.previousState.ball.position.x, this.state.ball.position.x, interpolationFactor);
+        this.ball.position.z = lerp(this.previousState.ball.position.z, this.state.ball.position.z, interpolationFactor);
+
+        // interpolate paddle positions (opponent's paddle)
+        if (this.localPlayerId === this.state.player1Id) {
+             this.player2Paddle.position.z = lerp(this.previousState.player2.paddleZ, this.state.player2.paddleZ, interpolationFactor);
+        } else {
+             this.player1Paddle.position.z = lerp(this.previousState.player1.paddleZ, this.state.player1.paddleZ, interpolationFactor);
+        }
+
 
         this.updateScoreDisplay();
     }
 
     private setupControls(): void {
-        // Mouse movement
-        this.scene.onPointerObservable.add((pointerInfo) => {
-            if (pointerInfo.type === PointerEventTypes.POINTERMOVE) {
-                const pickResult = this.scene.pick(this.scene.pointerX, this.scene.pointerY);
-                if (pickResult?.pickedPoint) {
-                    const zPosition = pickResult.pickedPoint.z * 20;
-                    this.sendPaddleUpdate(zPosition);
-                }
+        this.scene.onKeyboardObservable.add((kbInfo) => {
+            switch (kbInfo.type) {
+                case KeyboardEventTypes.KEYDOWN:
+                    if (kbInfo.event.key === 'w' || kbInfo.event.key === 'W') {
+                        this.inputState.up = true;
+                    } else if (kbInfo.event.key === 's' || kbInfo.event.key === 'S') {
+                        this.inputState.down = true;
+                    }
+                    break;
+                case KeyboardEventTypes.KEYUP:
+                    if (kbInfo.event.key === 'w' || kbInfo.event.key === 'W') {
+                        this.inputState.up = false;
+                    } else if (kbInfo.event.key === 's' || kbInfo.event.key === 'S') {
+                        this.inputState.down = false;
+                    }
+                    break;
             }
         });
     }
 
+    private updateLocalPaddlePosition(): void {
+        if (!this.state) return;
+
+        const localPlayer = this.localPlayerId === this.state.player1Id ? this.player1Paddle : this.player2Paddle;
+        let moved = false;
+
+        if (this.inputState.down) {
+            localPlayer.position.z -= this.paddleSpeed;
+            moved = true;
+        }
+        if (this.inputState.up) {
+            localPlayer.position.z += this.paddleSpeed;
+            moved = true;
+        }
+
+        const limit = 18;
+        if (localPlayer.position.z > limit) localPlayer.position.z = limit;
+        if (localPlayer.position.z < -limit) localPlayer.position.z = -limit;
+
+        if (moved) {
+            this.sendPaddleUpdate(localPlayer.position.z);
+        }
+    }
+
+
     private sendPaddleUpdate(paddleZ: number): void {
-        this.connection.sendGameAction('paddleUpdate', { paddleZ });
+        this.connection.sendGameAction('updatePaddle', { paddleZ });
     }
 
     private updateScoreDisplay(): void {
@@ -105,20 +157,20 @@ export class PongGame3D {
 
     private onScoreUpdate(): void {
         if (this.particleSystem) {
-            this.particleSystem.start()
+            this.particleSystem.start();
             setTimeout(() => {
-                this.particleSystem?.stop()
-            }, 1000)
+                this.particleSystem?.stop();
+            }, 1000);
         }
     }
 
     private onGameEnd(winner: string): void {
-        console.log(`🏆 Game Over! Winner: ${winner}`)
+        console.log(`🏆 Game Over! Winner: ${winner}`);
     }
 
     public dispose(): void {
-        this.connection.disconnect()
-        this.scene.dispose()
-        this.engine.dispose()
+        this.connection.disconnect();
+        this.scene.dispose();
+        this.engine.dispose();
     }
 }

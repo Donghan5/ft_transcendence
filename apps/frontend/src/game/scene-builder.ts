@@ -1,6 +1,17 @@
 import {
-    Scene, Vector3, HemisphericLight, UniversalCamera, Animation, GlowLayer, Color3,
-    MeshBuilder, StandardMaterial, PointLight, SpotLight, TrailMesh, ParticleSystem, Color4
+    Scene,
+	Vector3,
+	HemisphericLight,
+	ArcRotateCamera,
+	GlowLayer,
+	Color3,
+    MeshBuilder,
+	StandardMaterial,
+	PointLight,
+	SpotLight,
+	TrailMesh,
+	ParticleSystem,
+	Color4
 } from '@babylonjs/core';
 
 import { GameState } from '@trans/common-types';
@@ -36,7 +47,7 @@ function setupScene(scene: Scene): void {
 }
 
 function createArena(scene: Scene): void {
-	const arenaSize = { width: 20, height: 12, depth: 30 }
+	const arenaSize = { width: 30, height: 12, depth: 30 }
 
 	createImprovedGround(arenaSize, scene)
 
@@ -257,23 +268,15 @@ function setupLighting(scene: Scene, gameObjects: SceneObjects): void {
 }
 
 function setupCamera(scene: Scene, canvas: HTMLCanvasElement): void {
-	const camera = new UniversalCamera('camera',
-		new Vector3(0, 20, -40),
-		scene
-	)
-	camera.setTarget(new Vector3(0, 1.5, 0))
-	camera.attachControl(canvas, false)
-
-	Animation.CreateAndStartAnimation(
-		'cameraIntro',
-		camera,
-		'position',
-		30,
-		90,
-		new Vector3(0, 35, -5),
-		new Vector3(0, 25, 0),
-		Animation.ANIMATIONLOOPMODE_CONSTANT
-	)
-
-	console.log('Camera setup complete');
+    const camera = new ArcRotateCamera('camera',
+        -Math.PI / 2,
+        Math.PI / 3,
+        60,
+        new Vector3(0, 0, 0),
+        scene
+    );
+    camera.attachControl(canvas, true);
+    camera.lowerRadiusLimit = 30;
+    camera.upperRadiusLimit = 100;
+    camera.upperBetaLimit = Math.PI / 2.2;
 }

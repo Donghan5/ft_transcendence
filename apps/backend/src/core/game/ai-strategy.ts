@@ -1,5 +1,5 @@
 import { AI_LEVEL, selectLevelAI, predictBallPosition } from "./ai-logic";
-import { BallState, GameState, PlayerState,initialBallPosition, initialBallVelocity, Vector3D } from "@trans/common-types";
+import { GameState } from "@trans/common-types";
 import { initState } from "./logic";
 
 class AiStrategy {
