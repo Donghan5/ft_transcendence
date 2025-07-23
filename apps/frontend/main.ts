@@ -126,7 +126,9 @@ async function createNewGame(gameMode: string) {
 			headers: {
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify({ player1Id: playerName, player2Id: gameMode === 'ai' ? 'AI' : 'Player2' }),
+			body: JSON.stringify({ player1Id: playerName,
+				player2Id: gameMode === 'ai' ? 'AI' : 'Player2',
+				gameMode: gameMode === 'ai' ? 'AI' : 'PVP' }),
 		})
 
 		if (!response.ok) {
