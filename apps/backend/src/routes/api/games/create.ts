@@ -8,7 +8,8 @@ const createGameBodySchema = {
   properties: {
     player1Id: { type: 'string', minLength: 1 },
     player2Id: { type: 'string' },
-    gameMode: { type: 'string', enum: ['PVP', 'AI'] },
+    gameMode: { type: 'string', enum: ['PVP', 'AI', 'LOCAL_PVP'] },
+	aiLevel: { type: 'string', enum: ['EASY', 'MIDDLE', 'HARD'] },
   },
 };
 
@@ -23,11 +24,28 @@ export default async function createGameRoute(fastify: FastifyInstance) {
     { schema: { body: createGameBodySchema } },
     async (request, reply) => {
       try {
-        const { player1Id, player2Id, gameMode } = request.body as any;
+        const { player1Id, player2Id, gameMode, aiLevel } = request.body as any;
+
+		let gameId: string;
+
+		switch (gameMode) {
+			case 'LOCAL_PVP':
+			case 'AI':
+				gameId = gameEngine.createGame(player1Id, player2Id || 'AI' /*, aiLevel*/);
+				break;
+			case 'PVP':
+				// TODO : Real matchmaking logic will be implemented later
+				gameId = gameEngine.createGame(player1Id, 'WaitingForPlayer');
+				break;
+			default:
+				return reply.code(400).send({
+					error: 'Invalid game mode',
+					message: 'Please select a valid game mode (PVP, AI, LOCAL_PVP)',
+				});
+		}
 
         fastify.log.info(`🕹️ Creating game: ${player1Id} vs ${player2Id || 'AI'} (Mode: ${gameMode})`);
 
-        const gameId = gameEngine.createGame(player1Id, player2Id || 'AI');
         const gameState = gameEngine.getGameState(gameId);
 
         if (!gameState) {

@@ -34,7 +34,7 @@ class Enhanced3DPongGame {
 	 * @param player2Id - ID of player 2
 	 * @return gameId - ID of the created game
 	 */
-	public createGame(player1Id: string, player2Id: string): string {
+	public createGame(player1Id: string, player2Id: string/*, aiLevel: string*/): string {
 		const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 		const initialState = gameLogics.initState(gameId);
 

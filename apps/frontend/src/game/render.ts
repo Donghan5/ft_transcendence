@@ -7,6 +7,7 @@ export class PongGame3D {
     private engine: Engine;
     private scene: Scene;
     private connection: Connection;
+	private gameMode: string;
 
     private player1Paddle: Mesh;
     private player2Paddle: Mesh;
@@ -18,16 +19,23 @@ export class PongGame3D {
     private lastStateTimestamp: number = 0;
     private localPlayerId: string;
 
-    private inputState = {
+    private inputStatePlayer1 = {
         up: false,
         down: false
     };
+
+	private inputStatePlayer2 = {
+		up: false,
+		down: false
+	};
+
     private paddleSpeed = 0.5;
 
-    constructor(canvas: HTMLCanvasElement, gameId: string, playerId: string = 'player1') {
+    constructor(canvas: HTMLCanvasElement, gameId: string, playerId: string = 'player1', gameMode: string = 'PVP') {
         this.engine = new Engine(canvas, true);
         this.scene = new Scene(this.engine);
         this.localPlayerId = playerId;
+        this.gameMode = gameMode;
 
         const sceneObjects: SceneObjects = createSceneAndGameObjects(this.scene, canvas);
         this.player1Paddle = sceneObjects.player1Paddle;
@@ -41,8 +49,12 @@ export class PongGame3D {
         this.connection.connect().catch(err => console.error('Connection failed:', err));
 
         this.engine.runRenderLoop(() => {
-            this.updateLocalPaddlePosition();
-            this.interpolatePositions();
+			if (this.gameMode === 'quick') {
+				this.updateMultiPlayerPaddlePosition();
+			} else {
+				this.updateSinglePlayerPaddlePosition();
+			}
+			this.interpolatePositions();
             this.scene.render();
         });
 
@@ -86,12 +98,15 @@ export class PongGame3D {
         this.ball.position.x = lerp(this.previousState.ball.position.x, this.state.ball.position.x, interpolationFactor);
         this.ball.position.z = lerp(this.previousState.ball.position.z, this.state.ball.position.z, interpolationFactor);
 
+
         // interpolate paddle positions (opponent's paddle)
-        if (this.localPlayerId === this.state.player1Id) {
-             this.player2Paddle.position.z = lerp(this.previousState.player2.paddleZ, this.state.player2.paddleZ, interpolationFactor);
-        } else {
-             this.player1Paddle.position.z = lerp(this.previousState.player1.paddleZ, this.state.player1.paddleZ, interpolationFactor);
-        }
+		if (this.gameMode !== 'quick') {
+        	if (this.localPlayerId === this.state.player1Id) {
+        	     this.player2Paddle.position.z = lerp(this.previousState.player2.paddleZ, this.state.player2.paddleZ, interpolationFactor);
+        	} else {
+        	     this.player1Paddle.position.z = lerp(this.previousState.player1.paddleZ, this.state.player1.paddleZ, interpolationFactor);
+        	}
+		}
 
 
         this.updateScoreDisplay();
@@ -102,33 +117,43 @@ export class PongGame3D {
             switch (kbInfo.type) {
                 case KeyboardEventTypes.KEYDOWN:
                     if (kbInfo.event.key === 'w' || kbInfo.event.key === 'W') {
-                        this.inputState.up = true;
+                        this.inputStatePlayer1.up = true;
                     } else if (kbInfo.event.key === 's' || kbInfo.event.key === 'S') {
-                        this.inputState.down = true;
+                        this.inputStatePlayer1.down = true;
                     }
+					else if (kbInfo.event.key === 'ArrowUp') {
+						this.inputStatePlayer2.up = true;
+					} else if (kbInfo.event.key === 'ArrowDown') {
+						this.inputStatePlayer2.down = true;
+					}
                     break;
                 case KeyboardEventTypes.KEYUP:
                     if (kbInfo.event.key === 'w' || kbInfo.event.key === 'W') {
-                        this.inputState.up = false;
+                        this.inputStatePlayer1.up = false;
                     } else if (kbInfo.event.key === 's' || kbInfo.event.key === 'S') {
-                        this.inputState.down = false;
+                        this.inputStatePlayer1.down = false;
                     }
+					else if (kbInfo.event.key === 'ArrowUp') {
+						this.inputStatePlayer2.up = false;
+					} else if (kbInfo.event.key === 'ArrowDown') {
+						this.inputStatePlayer2.down = false;
+					}
                     break;
             }
         });
     }
 
-    private updateLocalPaddlePosition(): void {
+    private updateSinglePlayerPaddlePosition(): void {
         if (!this.state) return;
 
         const localPlayer = this.localPlayerId === this.state.player1Id ? this.player1Paddle : this.player2Paddle;
         let moved = false;
 
-        if (this.inputState.down) {
+        if (this.inputStatePlayer1.down) {
             localPlayer.position.z -= this.paddleSpeed;
             moved = true;
         }
-        if (this.inputState.up) {
+        if (this.inputStatePlayer1.up) {
             localPlayer.position.z += this.paddleSpeed;
             moved = true;
         }
@@ -138,13 +163,58 @@ export class PongGame3D {
         if (localPlayer.position.z < -limit) localPlayer.position.z = -limit;
 
         if (moved) {
-            this.sendPaddleUpdate(localPlayer.position.z);
+            this.sendPaddleUpdate(this.localPlayerId, localPlayer.position.z);
         }
     }
 
+	private updateMultiPlayerPaddlePosition(): void {
+		if (!this.state) return;
 
-    private sendPaddleUpdate(paddleZ: number): void {
-        this.connection.sendGameAction('updatePaddle', { paddleZ });
+		let p1moved = false;
+		let p2moved = false;
+
+		// Player 1 controls
+		if (this.inputStatePlayer1.down) {
+			this.player1Paddle.position.z -= this.paddleSpeed;
+			p1moved = true;
+		}
+		if (this.inputStatePlayer1.up) {
+			this.player1Paddle.position.z += this.paddleSpeed;
+			p1moved = true;
+		}
+
+		// Player 2 controls
+		if (this.inputStatePlayer2.down) {
+			this.player2Paddle.position.z -= this.paddleSpeed;
+			p2moved = true;
+		}
+		if (this.inputStatePlayer2.up) {
+			this.player2Paddle.position.z += this.paddleSpeed;
+			p2moved = true;
+		}
+
+		const limit = 12;
+
+		if (this.player1Paddle.position.z > limit)
+			this.player1Paddle.position.z = limit;
+		if (this.player1Paddle.position.z < -limit)
+			this.player1Paddle.position.z = -limit;
+
+		if (this.player2Paddle.position.z > limit)
+			this.player2Paddle.position.z = limit;
+		if (this.player2Paddle.position.z < -limit)
+			this.player2Paddle.position.z = -limit;
+
+		if (p1moved) {
+			this.sendPaddleUpdate(this.state.player1Id, this.player1Paddle.position.z);
+		}
+		if (p2moved) {
+			this.sendPaddleUpdate(this.state.player2Id, this.player2Paddle.position.z);
+		}
+	}
+
+    private sendPaddleUpdate(playerId: string, paddleZ: number): void {
+        this.connection.sendGameAction('updatePaddle', { playerId, paddleZ });
     }
 
     private updateScoreDisplay(): void {

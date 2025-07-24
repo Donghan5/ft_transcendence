@@ -6,7 +6,8 @@ import { initialBallVelocity } from '@trans/common-types'
 export function initializeGame(
 	containerId: string,
 	gameId: string,
-	playerId: string = 'player1'
+	playerId: string = 'player1',
+	gameMode: string // default to player vs player
 ): PongGame3D | null {
 	const container = document.getElementById(containerId)
 	if (!container) return null
@@ -96,5 +97,5 @@ export function initializeGame(
 		return null;
 	}
 	const canvas: HTMLCanvasElement = canvasElement;
-	return new PongGame3D(canvas, gameId, playerId);
+	return new PongGame3D(canvas, gameId, playerId, gameMode);
 }

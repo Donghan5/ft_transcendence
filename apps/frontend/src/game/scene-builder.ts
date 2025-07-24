@@ -276,6 +276,9 @@ function setupCamera(scene: Scene, canvas: HTMLCanvasElement): void {
         scene
     );
     camera.attachControl(canvas, true);
+
+	camera.inputs.remove(camera.inputs.attached.keyboard);
+
     camera.lowerRadiusLimit = 30;
     camera.upperRadiusLimit = 100;
     camera.upperBetaLimit = Math.PI / 2.2;

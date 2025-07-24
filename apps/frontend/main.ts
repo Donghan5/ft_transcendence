@@ -124,6 +124,37 @@ async function createNewGame(gameMode: string) {
 
 		// startGame(dummyResponse.gameId)
 		const player2Id = gameMode === 'ai' ? 'AI' : 'Player2_tmp';
+		let requestBody: any;
+
+		// switching based on game mode
+		switch (gameMode) {
+			case 'quick':
+				requestBody = {
+					player1Id: playerName,
+					player2Id: 'Player2',
+					gameMode: 'LOCAL_PVP'
+				};
+				break;
+			case 'ai':
+				// TODO: SELECT AI LEVEL (INPUT OF SELECT UI)
+				const selectedAiLevel = 'MIDDLE'; // temp set
+				requestBody = {
+					player1Id: playerName,
+					player2Id: 'AI',
+					gameMode: 'AI',
+					aiLevel: selectedAiLevel
+				};
+				break;
+			case 'tournament':
+				// TODO: After implementing login logic, use real player ID (in DB)
+				requestBody = {
+					player1Id: playerName,
+					gameMode: 'PVP',
+				};
+				break;
+			default:
+				throw new Error('Invalid game mode selected');
+		}
 
 		// 실제 서버 API가 필요할 때는 아래 코드 사용
 		const response = await fetch('/api/games', {
@@ -131,9 +162,7 @@ async function createNewGame(gameMode: string) {
 			headers: {
 				'Content-Type': 'application/json',
 			},
-			body: JSON.stringify({ player1Id: playerName,
-				player2Id: gameMode === 'ai' ? 'AI' : 'Player2',
-				gameMode: gameMode === 'ai' ? 'AI' : 'PVP' }),
+			body: JSON.stringify(requestBody),
 		})
 
 		if (!response.ok) {
@@ -146,7 +175,7 @@ async function createNewGame(gameMode: string) {
 		console.log('Game created successfully:', data)
 
 		showGameScreen()
-		startGame(data.gameId, playerName)
+		startGame(data.gameId, playerName, gameMode)
 	} catch (error) {
 		console.error('Failed to create game:', error)
 		throw error
@@ -167,14 +196,14 @@ function showGameScreen() {
 	console.log('Game screen is shown')
 }
 
-function startGame(gameId: string, playerId: string) {
+function startGame(gameId: string, playerId: string, gameMode: string) {
 	console.log('Starting initialize game...')
 
 	if (currentGame) {
 		currentGame.dispose()
 	}
 
-	currentGame = initializeGame('gameContainer', gameId, playerId)
+	currentGame = initializeGame('gameContainer', gameId, playerId, gameMode)
 
 	if (currentGame) {
 		console.log('Game initialized successfully')
@@ -183,6 +212,7 @@ function startGame(gameId: string, playerId: string) {
 		console.error('Failed to initialize game')
 		updateConnectionStatus('disconnected')
 	}
+	console.log(`Start game with game mode: ${gameMode}`);
 }
 
 function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnected') {
