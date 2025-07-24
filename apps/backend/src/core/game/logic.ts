@@ -74,13 +74,22 @@ export function updatePhysics(game: GameState): void {
 	game.ball.position.y += game.ball.velocity.y;
 	game.ball.position.z += game.ball.velocity.z;
 
+	// I don't know why I didn't put this before...
+	const ballRadius = 0.5; // Assuming ball diameter is 1, radius is 0.5
+	const arenaDepth = 30;
+	const wallZ = arenaDepth / 2 - ballRadius;
+
+	if (game.ball.position.z > wallZ || game.ball.position.z < -wallZ) {
+		game.ball.velocity.z *= -1; // Bounce off walls
+	}
+
 	if (game.player2Id === 'AI')
 			strategy.updateAIPaddle(game);
 
 	// Check for collisions with paddles
 	checkPaddleCollisions(game);
 
-	const scorerSide = game.ball.position.x < -200 ? 'right' : game.ball.position.x > 200 ? 'left' : null;
+	const scorerSide = game.ball.position.x < -16 ? 'right' : game.ball.position.x > 16 ? 'left' : null;
 	if (scorerSide) {
 		const scorerId = scorerSide === 'left' ? game.player1Id : game.player2Id;
 		const updatedState = addPoint(game, scorerId);

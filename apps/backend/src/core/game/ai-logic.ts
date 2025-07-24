@@ -2,9 +2,9 @@ import { GameState, PlayerState, BallState, Vector3D, scaleVector, addVectors } 
 import { POINT_PER_GOAL, WIN_SCORE } from "./constant";
 
 export const AI_LEVEL = {
-	EASY: { accuracy: 0.6, speed: 0.08 },
-	MIDDLE: { accuracy: 0.8, speed: 0.12 },
-	HARD: { accuracy: 1.0, speed: 0.16 },
+	EASY: { accuracy: 0.45, speed: 0.08 },
+	MIDDLE: { accuracy: 0.65, speed: 0.12 },
+	HARD: { accuracy: 0.85, speed: 0.16 },
 };
 
 /**
@@ -39,7 +39,8 @@ export function predictBallPosition(
 		predictedVelocity.x < 0 && predictedPosition.x > targetX) {
 		predictedPosition = addVectors(predictedPosition, predictedVelocity);
 
-		if (predictedPosition.z >= 140 || predictedPosition.z <= -140) {
+		// before value was 140, -140. chaneged to 13, -13 to test
+		if (predictedPosition.z >= 13 || predictedPosition.z <= -13) {
 			predictedVelocity.z *= -1; // bounce off the top or bottom wall
 		}
 	}

@@ -32,7 +32,7 @@ class AiStrategy {
 	if (ball.velocity.x > 0) {
 		let targetZ = predictBallPosition(ball, aiPlayer.position.x);
 
-		const errorMargin = (1 - level.accuracy) * 280;
+		const errorMargin = (1 - level.accuracy) * 30;
 		targetZ += (Math.random() - 0.5) * errorMargin;
 
 		const diff = targetZ - aiPlayer.paddleZ;
@@ -44,7 +44,7 @@ class AiStrategy {
 		aiPlayer.paddleZ += diff * 0.02;
 	}
 
-	const paddleLimit = 120;
+	const paddleLimit = 12;
 	if (aiPlayer.paddleZ > paddleLimit)
 		aiPlayer.paddleZ = paddleLimit;
 	if (aiPlayer.paddleZ < -paddleLimit)

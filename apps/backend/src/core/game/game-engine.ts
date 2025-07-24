@@ -42,8 +42,8 @@ class Enhanced3DPongGame {
 			...initialState,
 			player1Id: player1Id,
 			player2Id: player2Id,
-			player1: { ...initialState.player1, position: { x: -16, y: 1.5, z: 0 }, paddleZ: 0 },
-			player2: { ...initialState.player2, position: { x: 16, y: 1.5, z: 0 }, paddleZ: 0 },
+			player1: { ...initialState.player1, position: { x: -12, y: 1.5, z: 0 }, paddleZ: 0 },
+			player2: { ...initialState.player2, position: { x: 12, y: 1.5, z: 0 }, paddleZ: 0 },
 			ball: {
 				position: { x: 0, y: 1, z: 0 },
 				velocity: { x: 0.5, y: 0, z: (Math.random() - 0.5) * 0.3 },
@@ -111,7 +111,7 @@ class Enhanced3DPongGame {
 
 		const playerKey = this.getPlayerKey(playerId, game);
 		if (playerKey) {
-			game[playerKey].paddleZ = Math.max(-18, Math.min(18, paddleZ));
+			game[playerKey].paddleZ = Math.max(-13, Math.min(13, paddleZ));
 		}
 	}
 

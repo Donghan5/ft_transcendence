@@ -37,6 +37,11 @@ function setupEventListeners() {
 		})
 	}
 
+	const returnToMenuButton = document.getElementById('returnToMenuBtn')
+	if (returnToMenuButton) {
+		returnToMenuButton.addEventListener('click', returnToMainMenu);
+	}
+
 	// login button
 	const loginButton = document.getElementById('loginBtn')  // 수정: loginButton → loginBtn
 	if (loginButton) {
@@ -149,7 +154,7 @@ async function createNewGame(gameMode: string) {
 }
 
 function showGameScreen() {
-	const heroSection = document.querySelector('section')
+	const heroSection = document.getElementById('heroSection')
 	if (heroSection) {
 		heroSection.style.display = 'none'
 	}
@@ -239,6 +244,30 @@ function toggleFullscreen() {
 		document.exitFullscreen()
 		console.log("Window mode")
 	}
+}
+
+function returnToMainMenu() {
+	const heroSection = document.getElementById('heroSection')
+	if (heroSection) {
+		heroSection.style.display = 'block'
+	}
+
+	const gameSection = document.getElementById('gameSection')
+	if (gameSection) {
+		gameSection.classList.add('hidden')
+	}
+
+	const gameOverModal = document.getElementById('gameOverModal')
+	if (gameOverModal) {
+		gameOverModal.classList.add('hidden')
+	}
+
+	if (currentGame) {
+		currentGame.dispose()
+		currentGame = null
+	}
+
+	console.log('Returned to main menu')
 }
 
 window.addEventListener('beforeunload', () => {

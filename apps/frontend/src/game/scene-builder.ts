@@ -174,13 +174,13 @@ function createCornerConnectors(arenaSize: { width: number, height: number, dept
 
 function createMovableObjects(scene: Scene): SceneObjects {
     const player1Paddle = MeshBuilder.CreateBox('player1Paddle', { width: 0.5, height: 0.5, depth: 4 }, scene);
-    player1Paddle.position = new Vector3(-8, 1.5, 0);
+    player1Paddle.position = new Vector3(-12, 1.5, 0);
     const p1Mat = new StandardMaterial('p1Mat', scene);
     p1Mat.emissiveColor = new Color3(0, 0.5, 1);
     player1Paddle.material = p1Mat;
 
     const player2Paddle = MeshBuilder.CreateBox('player2Paddle', { width: 0.5, height: 0.5, depth: 4 }, scene);
-    player2Paddle.position = new Vector3(8, 1.5, 0);
+    player2Paddle.position = new Vector3(12, 1.5, 0);
     const p2Mat = new StandardMaterial('p2Mat', scene);
     p2Mat.emissiveColor = new Color3(1, 0, 0.5);
     player2Paddle.material = p2Mat;

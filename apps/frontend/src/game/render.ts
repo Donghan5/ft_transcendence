@@ -133,7 +133,7 @@ export class PongGame3D {
             moved = true;
         }
 
-        const limit = 18;
+        const limit = 12;
         if (localPlayer.position.z > limit) localPlayer.position.z = limit;
         if (localPlayer.position.z < -limit) localPlayer.position.z = -limit;
 
@@ -165,7 +165,18 @@ export class PongGame3D {
     }
 
     private onGameEnd(winner: string): void {
-        console.log(`🏆 Game Over! Winner: ${winner}`);
+		console.log(`[DEBUG] onGameEnd called with winner: ${winner}`);
+
+		const modal = document.getElementById('gameOverModal');
+		console.log(`[DEBUG] Modal element: ${modal}`);
+
+		const winnerMessage = document.getElementById('winnerMessage');
+
+		if (modal && winnerMessage) {
+			const winnerName = winner === 'AI' ? 'AI' : winner;
+			winnerMessage.textContent = `🏆 Game Over! Congratulations Winner: ${winnerName}`;
+			modal.classList.remove('hidden');
+		}
     }
 
     public dispose(): void {
