@@ -16,7 +16,7 @@
   },
   "include": [
     "src/**/*.ts"
-  ],
+, "src/auth/google.service.ts"  ],
   "references": [
     { "path": "../../packages/common-types" }
   ],
@@ -24,6 +24,5 @@
     "node_modules",
     "dist",
 	"src/routes/api/games/cancel.ts",
-	"src/routes/api/users/login/google.controller.ts"
   ]
 }

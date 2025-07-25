@@ -1,5 +1,6 @@
 import { PongGame3D } from './src/game/render'
 import { initializeGame } from './src/game/init'
+import { redirectGoogleLogin } from './auth/login/google'
 
 let currentGame: PongGame3D | null = null
 let currentGameId: string | null = null
@@ -241,18 +242,7 @@ function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnect
 function handleLogin() {
 	console.log('Login button clicked')
 
-	// simplified login process (have to enhance in project future)
-	const username = prompt('Please enter your username:')
-
-	if (username) {
-		playerName = username
-		alert(`Welcome, ${playerName}!`)
-
-		const loginButton = document.getElementById('loginBtn')  // 수정: loginButton → loginBtn
-		if (loginButton) {
-			loginButton.textContent = username
-		}
-	}
+	redirectGoogleLogin();
 }
 
 document.addEventListener('keydown', (event) => {

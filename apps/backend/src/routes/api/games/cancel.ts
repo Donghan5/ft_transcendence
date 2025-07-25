@@ -1,4 +1,4 @@
-// this file is to cancel the game
+// this file is to cancel the game -- not fully implemented yet (I don't know how to use this API)
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { GameStatus } from '@trans/common-types';
 
