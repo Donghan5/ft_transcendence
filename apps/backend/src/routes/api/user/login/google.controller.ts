@@ -3,7 +3,7 @@ import { FastifyInstance } from 'fastify';
 import GoogleService from '../../../../auth/google.service';
 
 export default async function (fastify: FastifyInstance) {
-	fastify.get('/api/users/login/google/callback', async (request: any, reply: any) => {
+	fastify.get('/callback', async (request: any, reply: any) => {
 		try {
 			const { token } = await (fastify as any).googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(request);
 
@@ -15,7 +15,7 @@ export default async function (fastify: FastifyInstance) {
 				path: '/',
 			});
 
-			return reply.redirect('http://localhost:5173/dashboard'); // Redirect to the dashboard or any other page
+			return reply.redirect('http://localhost:8080/'); // Redirect to the dashboard or any other page
 		} catch (error) {
 			console.error('Error during Google login callback:', error);
 			reply.status(500).send({ message: 'Internal Server Error' });

@@ -11,4 +11,6 @@ COPY . .
 
 RUN npm run build --workspace=ft-transcendence-backend
 
+RUN cp -r /usr/src/app/apps/backend/src/database/migrations /usr/src/app/apps/backend/dist/src/database/
+
 CMD ["node", "apps/backend/dist/src/main.js"]

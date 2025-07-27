@@ -4,8 +4,12 @@ import websocketPlugin from '@fastify/websocket';
 import staticPlugin from '@fastify/static';
 import sensible from '@fastify/sensible';
 import path from 'path';
+import fastifyOAuth2 from '@fastify/oauth2';
+import * as dotenv from 'dotenv';
+dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 
 import gameRoute from './routes/api/games';
+import googleController from './routes/api/user/login/google.controller';
 // import utilityRoute from './routes/api/utilities'; // add after, not implemented yet
 
 /**
@@ -19,13 +23,29 @@ async function buildServer(): Promise<FastifyInstance> {
 	server.register(cors, {origin: true, credentials: true});
 	server.register(websocketPlugin);
 	server.register(sensible);
-	server.register(staticPlugin, {
-		root: path.join(process.cwd(), '../../apps/frontend/dist'),
-		prefix: '/',
-	});
+	// server.register(staticPlugin, {
+	// 	root: path.join(process.cwd(), '../../apps/frontend/dist'),
+	// 	prefix: '/',
+	// });
 
 	server.register(gameRoute, { prefix: '/api/games' });
 	// server.register(utilityRoute); // add after, it includes likes prometheus and health check
+
+	server.register<any>(fastifyOAuth2, {
+		name: 'googleOAuth2',
+		scope: ['profile', 'email'],
+		credentials: {
+			client: {
+				id: process.env.VITE_GOOGLE_CLIENT_ID,
+				secret: process.env.GOOGLE_CLIENT_SECRET,
+			},
+			auth: fastifyOAuth2.GOOGLE_CONFIGURATION,
+		},
+		startRedirectPath: '/login/google',
+		callbackUri: 'http://localhost:3000/api/users/login/google/callback'
+	});
+
+	server.register(googleController);
 
 	server.setErrorHandler((error, request, reply) => {
 		request.log.error(error);
