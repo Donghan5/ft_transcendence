@@ -7,6 +7,8 @@ let currentGameId: string | null = null
 let playerName: string = ''
 
 document.addEventListener('DOMContentLoaded', () => {
+	updateLoginStatus();
+
     console.log('Start beautiful PONG game!')
 	setupEventListeners()
 })
@@ -240,9 +242,14 @@ function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnect
 }
 
 function handleLogin() {
-	console.log('Login button clicked')
-
-	redirectGoogleLogin();
+    const loginButton = document.getElementById('loginBtn');
+    if (loginButton && loginButton.textContent === 'Logout') {
+        window.location.href = '/api/auth/logout';
+        console.log('Logout action needed');
+    } else {
+        console.log('Login button clicked');
+        redirectGoogleLogin();
+    }
 }
 
 document.addEventListener('keydown', (event) => {
@@ -290,6 +297,30 @@ function returnToMainMenu() {
 	console.log('Returned to main menu')
 }
 
+/**
+ * Check login status and update UI accordingly
+ * And handle user login
+ */
+async function updateLoginStatus() {
+	try {
+		const response = await fetch('/api/auth/me', { credentials: 'include' });     // create /api/auth/me endpoint in backend
+		console.log('Checking login status...');
+		if (!response.ok) {
+			console.error('Not logged in or session expired');
+			throw new Error('Not logged in');
+		}
+		console.log('User is logged in');
+		const user = await response.json();
+		console.log('User data:', user);
+
+		const loginButton = document.getElementById('loginBtn');
+		console.log('User login status:', user);
+		if (loginButton) loginButton.textContent = 'Logout';
+	} catch (error) {
+		window.location.replace('/login.html');
+	}
+}
+
 window.addEventListener('beforeunload', () => {
 	if (currentGame) {
 		currentGame.dispose()
@@ -303,4 +334,4 @@ window.addEventListener('resize', () => {
 	}
 })
 
-console.log('Main.ts loaded! Welcome to PONG game!')
+console.log('Frontend main.ts loaded successfully')

@@ -26,21 +26,25 @@ class GoogleService {
 	public static async handleGoogleLogin(token: any): Promise<string> {
 		const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
 			headers: {
-				Authorization: `Bearer ${token.token.access_token}`,
+				Authorization: `Bearer ${token.access_token}`,
 			},
 		});
 		const googleUser = await response.json();
 
 		// Getting user from the database
-		let user: User | undefined = await dbGet('SELECT * FROM "user" WHERE email = ?', [googleUser.email]);
+		let user: User | undefined = await dbGet('SELECT * FROM "users" WHERE email = ?', [googleUser.email]);
 
 		if (!user) {     // If user does not exist, create a new user
 			console.log('Creating new user in the database:', googleUser.email);
 			const result = await dbRun(
-				'INSERT INTO "user" (google_id, email, name, token) VALUES (?, ?, ?, ?)',
-				[googleUser.email, googleUser.name, googleUser.id, token.token.access_token]
+				'INSERT INTO "users" (google_id, email, name, token) VALUES (?, ?, ?, ?)',
+				[googleUser.id, googleUser.email, googleUser.name, token.access_token]
 			);
-			user = await dbGet('SELECT * FROM "user" WHERE id = ?', [result.lastID]);
+			user = await dbGet('SELECT * FROM "users" WHERE id = ?', [result.lastID]);
+		} else {
+			await dbRun('UPDATE "users" SET token = ?, google_id = ? WHERE id = ?', [token.access_token, googleUser.id, user.id]);
+
+			user = await dbGet('SELECT * FROM "users" WHERE id = ?', [user.id]);
 		}
 
 		if (!user) {

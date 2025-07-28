@@ -1,7 +1,9 @@
 node_modules
 .env
 
-backend_build.log
+backend.log
+frontend.log
+nginx.log
 
 # Hardhat files
 /cache

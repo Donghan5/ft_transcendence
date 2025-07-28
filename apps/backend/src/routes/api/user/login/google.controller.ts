@@ -13,6 +13,7 @@ export default async function (fastify: FastifyInstance) {
 				httpOnly: true,
 				secure: true,
 				path: '/',
+				sameSite: 'lax'
 			});
 
 			return reply.redirect('http://localhost:8080/'); // Redirect to the dashboard or any other page
