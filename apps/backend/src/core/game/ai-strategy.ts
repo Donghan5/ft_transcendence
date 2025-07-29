@@ -24,10 +24,16 @@ class AiStrategy {
 	 * to update the game state with AI decisions
 	 */
 	public updateAIPaddle(game: GameState): void {
-	const level = AI_LEVEL.MIDDLE;   // if logic implemented, this level will be set by user input
+	const levelKey = (game.aiLevel?.toUpperCase() || 'MIDDLE') as keyof typeof AI_LEVEL;
+	const level = AI_LEVEL[levelKey] || AI_LEVEL.MIDDLE;   // if logic implemented, this level will be set by user input
 
 	const aiPlayer = game.player2;
 	const ball = game.ball;
+
+	// Drop out intended
+	if (Math.random() < level.mistakeChance) {
+        return;
+    }
 
 	if (ball.velocity.x > 0) {
 		let targetZ = predictBallPosition(ball, aiPlayer.position.x);

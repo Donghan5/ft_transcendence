@@ -238,6 +238,7 @@ export class PongGame3D {
 		console.log(`[DEBUG] onGameEnd called with winner: ${winner}`);
 
 		const modal = document.getElementById('gameOverModal');
+		const returnBtn = document.getElementById('gameOverReturnBtn');
 		console.log(`[DEBUG] Modal element: ${modal}`);
 
 		const winnerMessage = document.getElementById('winnerMessage');
@@ -246,6 +247,31 @@ export class PongGame3D {
 			const winnerName = winner === 'AI' ? 'AI' : winner;
 			winnerMessage.textContent = `🏆 Game Over! Congratulations Winner: ${winnerName}`;
 			modal.classList.remove('hidden');
+
+			const returnToMenuHandler = () => {
+				const heroSection = document.getElementById('heroSection');
+				if (heroSection) {
+					heroSection.style.display = 'block';
+				}
+
+				const gameSection = document.getElementById('gameSection');
+				if (gameSection) {
+					gameSection.style.display = 'none';
+				}
+
+				const appSection = document.getElementById('appSection');
+				if (appSection) {
+					appSection.style.display = 'block';
+				}
+
+				modal.classList.add('hidden');
+				if (this) {
+					this.dispose();
+				}
+				console.log('Returned to main menu from game over modal');
+			};
+
+			returnBtn?.addEventListener('click', returnToMenuHandler, { once: true });
 		}
     }
 

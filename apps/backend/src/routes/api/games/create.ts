@@ -31,7 +31,7 @@ export default async function createGameRoute(fastify: FastifyInstance) {
 		switch (gameMode) {
 			case 'LOCAL_PVP':
 			case 'AI':
-				gameId = gameEngine.createGame(player1Id, player2Id || 'AI' /*, aiLevel*/);
+				gameId = gameEngine.createGame(player1Id, player2Id || 'AI' , aiLevel);
 				break;
 			case 'PVP':
 				// TODO : Real matchmaking logic will be implemented later

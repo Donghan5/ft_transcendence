@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import { GameState, Vector3D } from '@trans/common-types';
+import { GameState } from '@trans/common-types';
 import * as gameLogics from './logic';
 
 class Enhanced3DPongGame {
@@ -34,7 +34,7 @@ class Enhanced3DPongGame {
 	 * @param player2Id - ID of player 2
 	 * @return gameId - ID of the created game
 	 */
-	public createGame(player1Id: string, player2Id: string/*, aiLevel: string*/): string {
+	public createGame(player1Id: string, player2Id: string, aiLevel?: 'EASY' | 'MIDDLE' | 'HARD'): string {
 		const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 		const initialState = gameLogics.initState(gameId);
 
@@ -51,7 +51,8 @@ class Enhanced3DPongGame {
 			gameId,
 			status: 'playing',
 			lastUpdate: Date.now(),
-		}
+			aiLevel: aiLevel
+		};
 
 		this.games.set(gameId, gameState);
 		this.connectedPlayers.set(gameId, new Map());

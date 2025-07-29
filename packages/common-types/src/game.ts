@@ -27,6 +27,7 @@ export interface GameState {
   player2Id: string;
   status: 'waiting' | 'playing' | 'finished';
   lastUpdate: number;
+  aiLevel?: 'EASY' | 'MIDDLE' | 'HARD';
 }
 
 export interface GameDTO {

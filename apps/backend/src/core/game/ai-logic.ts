@@ -1,10 +1,15 @@
 import { GameState, PlayerState, BallState, Vector3D, scaleVector, addVectors } from "@trans/common-types";
 import { POINT_PER_GOAL, WIN_SCORE } from "./constant";
 
+/**
+ * @elements accuracy: how accurate the AI is in predicting the ball's position
+ * @elements speed: how fast the AI can move its paddle
+ * @elements mistakeChance: the chance that the AI will make a mistake (Drop out intended)
+ */
 export const AI_LEVEL = {
-	EASY: { accuracy: 0.45, speed: 0.08 },
-	MIDDLE: { accuracy: 0.65, speed: 0.12 },
-	HARD: { accuracy: 0.85, speed: 0.16 },
+	EASY: { accuracy: 0.3, speed: 0.045, mistakeChance: 0.7 },
+	MIDDLE: { accuracy: 0.5, speed: 0.05, mistakeChance: 0.5 },
+	HARD: { accuracy: 0.85, speed: 0.55, mistakeChance: 0.3 },
 };
 
 /**

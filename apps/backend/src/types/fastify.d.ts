@@ -17,4 +17,8 @@ declare module 'fastify' {
       handler: WebsocketHandler
     ): FastifyInstance;
   }
+
+  export interface FastifyRequest {
+    user?: { userId: number; [key: string]: any };
+  }
 }

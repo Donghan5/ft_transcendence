@@ -2,24 +2,27 @@ import { PongGame3D } from './src/game/render'
 import { initializeGame } from './src/game/init'
 import { redirectGoogleLogin } from './auth/login/google'
 
-let currentGame: PongGame3D | null = null
-let currentGameId: string | null = null
-let playerName: string = ''
+let currentGame: PongGame3D | null = null;
+let currentGameId: string | null = null;
+let currentUser: any | null = null;
 
 document.addEventListener('DOMContentLoaded', () => {
 	updateLoginStatus();
 
-    console.log('Start beautiful PONG game!')
-	setupEventListeners()
+    console.log('Start beautiful PONG game!');
+	setupEventListeners();
+})
+
+document.addEventListener('DOMContentLoaded', () => {
+	updateLoginStatus();
 })
 
 function setupEventListeners() {
-	// HTML의 실제 ID와 맞춤
 	const quickPlayButton = document.getElementById('quickPlayBtn')  // 수정: quickPlayButton → quickPlayBtn
 	if (quickPlayButton) {
 		quickPlayButton.addEventListener('click', () => {
 			console.log("Quickly play!")
-			showPlayerSetupModal('quick')
+			handleGameStart('quick')
 		})
 	}
 
@@ -27,7 +30,7 @@ function setupEventListeners() {
 	if (tournamentButton) {
 		tournamentButton.addEventListener('click', () => {
 			console.log("Tournament play!")
-			showPlayerSetupModal('tournament')
+			handleGameStart('tournament')
 		})
 	}
 
@@ -36,94 +39,229 @@ function setupEventListeners() {
 	if (aiPlayButton) {
 		aiPlayButton.addEventListener('click', () => {
 			console.log("AI play!")
-			showPlayerSetupModal('ai')
+			handleGameStart('ai')
 		})
 	}
 
-	const returnToMenuButton = document.getElementById('returnToMenuBtn')
+
+	const profileButton = document.getElementById('profileBtn');
+    if (profileButton) {
+        profileButton.addEventListener('click', showProfileScreen);
+    }
+
+	const returnToMenuButton = document.getElementById('profileReturnBtn')
 	if (returnToMenuButton) {
 		returnToMenuButton.addEventListener('click', returnToMainMenu);
 	}
 
-	// login button
-	const loginButton = document.getElementById('loginBtn')  // 수정: loginButton → loginBtn
+	const logoutButton = document.getElementById('logoutBtn')
+	if (logoutButton) {
+		logoutButton.addEventListener('click', () => {
+			window.location.href = '/api/auth/logout'
+			console.log('Logout action needed')
+		})
+	}
+
+}
+
+/**
+ * @param sectionId - The ID of the section to show
+ * @description Show a specific section by ID and hide others
+ */
+function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login') {
+    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection'];
+    sections.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    if (sectionId === 'login') {
+         document.getElementById('loginSection')!.style.display = 'flex';
+    } else {
+         document.getElementById('appSection')!.style.display = 'block';
+         document.getElementById(`${sectionId}Section`)!.style.display = 'block';
+    }
+}
+
+/**
+ * showing login screen
+ */
+function showLoginScreen(){
+	showSection('login');
+	document.getElementById('loginSection')?.classList.remove('hidden');
+	document.getElementById('appSection')?.classList.add('hidden');
+
+	const loginButton = document.getElementById('loginBtn');
 	if (loginButton) {
-		loginButton.addEventListener('click', handleLogin)
-	}
-
-	const playerSetupForm = document.getElementById('playerSetupForm')
-	if (playerSetupForm) {
-		playerSetupForm.addEventListener('submit', handlePlayerSetup)
-	}
-
-	const cancelSetup = document.getElementById('cancelSetup')
-	if (cancelSetup) {
-		cancelSetup.addEventListener('click', hidePlayerSetupModal)
+		loginButton.addEventListener('click', () => {
+			console.log('Login button clicked');
+			redirectGoogleLogin();
+		});
 	}
 }
 
-function showPlayerSetupModal(gameMode: 'quick' | 'tournament' | 'ai') {
-	const modal = document.getElementById('playerSetupModal')
-	if (modal) {
-		modal.classList.remove('hidden')
-		modal.setAttribute('data-game-mode', gameMode)
+/**
+ * showing app screen
+ * @param user - User object containing user information
+ */
+function showAppScreen(user: any) {
+	showSection('hero');
+	currentUser = user;
+	document.getElementById('loginSection')?.classList.add('hidden');
+	document.getElementById('appSection')?.classList.remove('hidden');
 
-		const nameInput = document.getElementById('playerName') as HTMLInputElement
-		if (nameInput) {
-			nameInput.focus()
-		}
+	console.log('User logged in:', user);
+		setupEventListeners();
+
+	// ???
+	const logoutButton = document.getElementById('logoutBtn');
+	if (logoutButton) {
+		logoutButton.addEventListener('click', () => {
+			window.location.href = '/api/auth/logout';
+			console.log('Logout action needed');
+		});
 	}
 }
 
-function hidePlayerSetupModal() {
-	const modal = document.getElementById('playerSetupModal')
-	if (modal) {
-		modal.classList.add('hidden')
-	}
-}
+/**
+ * @description Show the profile screen
+ */
+async function showProfileScreen() {
+	showSection('profile');
 
-async function handlePlayerSetup(event: Event) {
-	event.preventDefault()
+	const profileContent = document.getElementById('profileContent');
+	if (!profileContent) return;
 
-	const form = event.target as HTMLFormElement
-	const formData = new FormData(form)
-	playerName = formData.get('playerName') as string
-
-	if (!playerName.trim()) {
-		alert('Please enter a player name')
-		return
-	}
-
-	const modal = document.getElementById('playerSetupModal')
-	const gameMode = modal?.getAttribute('data-game-mode')
-
-	console.log(`Player ${playerName} is playing in ${gameMode} mode`)
-
-	hidePlayerSetupModal()
+	profileContent.innerHTML = '<p>Loading profile...</p>';
 
 	try {
-		await createNewGame(gameMode as string)
+		const response = await fetch('/api/user/profile', {
+			credentials: 'include'
+		});
+		if (!response.ok) {
+			throw new Error('Failed to fetch profile');
+		}
+
+		const data = await response.json();
+
+		profileContent.innerHTML = `
+            <h2 class="text-3xl font-bold text-neon-pink mb-4">${data.user.name}</h2>
+            <p class="text-gray-400 mb-6">${data.user.email}</p>
+
+            <div class="grid md:grid-cols-2 gap-6">
+                <div>
+                    <h3 class="text-xl font-semibold text-neon-cyan mb-3">Game History</h3>
+                    <ul class="space-y-2">
+                        ${data.gameHistory.map((game: any) => `
+                            <li class="bg-gray-800 p-2 rounded">
+                                Game ${game.id}: ${game.player1_score} - ${game.player2_score}
+                                <span class="font-bold ${game.winner_id === data.user.id ? 'text-green-400' : 'text-red-400'}">
+                                    ${game.winner_id === data.user.id ? 'Win' : 'Loss'}
+                                </span>
+                            </li>
+                        `).join('') || '<li>No games played yet.</li>'}
+                    </ul>
+                </div>
+                <div>
+                    <h3 class="text-xl font-semibold text-neon-cyan mb-3">Friends</h3>
+                     <ul class="space-y-2">
+                        ${data.friends.map((friend: any) => `
+                            <li class="bg-gray-800 p-2 rounded">${friend.name}</li>
+                        `).join('') || '<li>No friends yet.</li>'}
+                    </ul>
+                </div>
+            </div>
+       	`;
 	} catch (error) {
-		console.error('Failed to create game:', error)
-		alert('Failed to create game. Please try again later.')
+		profileContent.innerHTML = `
+			<p class="text-red-500">Failed to load profile. Please try it later</p>`;
+		console.error('Error loading profile:', error);
 	}
 }
 
-// 임시로 서버 API 대신 더미 데이터 사용
-async function createNewGame(gameMode: string) {
+/**
+ * @param gameMode - The game mode to start
+ * @description Handles the game start logic based on the selected game mode
+ * @throws Error if the user is not logged in or game mode is invalid
+ * @returns
+ */
+async function handleGameStart(gameMode: string) {
+    if (!currentUser || !currentUser.name) {
+        alert('Please login to play.');
+        return;
+    }
+
+    console.log(`Player ${currentUser.name} is starting a ${gameMode} game.`);
+
+    try {
+        await createNewGame(gameMode, currentUser.name);
+    } catch (error) {
+        console.error('Failed to create game:', error);
+        alert('Failed to create game. Please try again later.');
+    }
+}
+
+/**
+ * @description Showing a select UI
+ * @returns {Promise<string | null>} - The selected AI level or null if cancelled
+ */
+function showAiLevelSelectionUI(): Promise<string | null> {
+	return new Promise((resolve) => {
+		const modal = document.getElementById('aiLevelModal');
+		const cancelBtn = document.getElementById('cancelAiSelect');
+
+		if (!modal || !cancelBtn) {
+			console.error('AI Level Modal not found');
+			resolve(null);
+			return;
+		}
+		modal.classList.remove('hidden');
+
+		const handleClick = (event: MouseEvent) => {
+			const target = event.target as HTMLElement;
+
+			if (target.matches('.ai-level-btn')) {
+				cleanup();
+				resolve(target.getAttribute('data-level'));
+			} else if (target === cancelBtn) {
+				cleanup();
+				resolve(null);
+			}
+		}
+
+		const cleanup = () => {
+			modal.classList.add('hidden');
+			modal.removeEventListener('click', handleClick);
+		};
+
+		modal.addEventListener('click', handleClick);
+	});
+}
+
+/**
+ * @description selecting AI level for the game, came from UI
+ * @returns {Promise<string | null>} - The selected AI level or null if cancelled
+ * @throws Error if the AI level selection fails
+ */
+async function selectingAiLevel(): Promise<string | null> {
+	const aiLevel = await showAiLevelSelectionUI();
+	if (!aiLevel) {
+		throw new Error('AI level selection failed');
+	}
+
+	return aiLevel;
+}
+
+
+/**
+ *
+ * @param gameMode: string - The game mode to create (e.g., 'quick', 'ai', 'tournament')
+ * @param playerName: string - The name of the player starting the game
+ * @description Creates a new game by sending a request to the server and initializes the game
+ */
+async function createNewGame(gameMode: string, playerName: string) {
 	try {
 		console.log('Requesting new game from server...')
-
-		// // 임시로 더미 응답 생성 (서버 API가 없으니까)
-		// const dummyResponse = {
-		// 	gameId: 'game_' + Date.now(),
-		// 	player1Id: playerName,
-		// 	player2Id: gameMode === 'ai' ? 'AI' : 'Player2',
-		// 	status: 'created'
-		// }
-
-		// currentGameId = dummyResponse.gameId
-		// console.log('Game created successfully:', dummyResponse)
 
 		// startGame(dummyResponse.gameId)
 		const player2Id = gameMode === 'ai' ? 'AI' : 'Player2_tmp';
@@ -140,7 +278,13 @@ async function createNewGame(gameMode: string) {
 				break;
 			case 'ai':
 				// TODO: SELECT AI LEVEL (INPUT OF SELECT UI)
-				const selectedAiLevel = 'MIDDLE'; // temp set
+				const selectedAiLevel = await selectingAiLevel(); // temp set
+
+				if (!selectedAiLevel) {
+					console.log('AI level selection cancelled');
+					return;
+				}
+
 				requestBody = {
 					player1Id: playerName,
 					player2Id: 'AI',
@@ -159,7 +303,6 @@ async function createNewGame(gameMode: string) {
 				throw new Error('Invalid game mode selected');
 		}
 
-		// 실제 서버 API가 필요할 때는 아래 코드 사용
 		const response = await fetch('/api/games', {
 			method: 'POST',
 			headers: {
@@ -186,17 +329,8 @@ async function createNewGame(gameMode: string) {
 }
 
 function showGameScreen() {
-	const heroSection = document.getElementById('heroSection')
-	if (heroSection) {
-		heroSection.style.display = 'none'
-	}
-
-	const gameSection = document.getElementById('gameSection')
-	if (gameSection) {
-		gameSection.classList.remove('hidden')
-	}
-
-	console.log('Game screen is shown')
+	showSection('game');
+	console.log('Game screen is shown');
 }
 
 function startGame(gameId: string, playerId: string, gameMode: string) {
@@ -241,17 +375,6 @@ function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnect
 	}
 }
 
-function handleLogin() {
-    const loginButton = document.getElementById('loginBtn');
-    if (loginButton && loginButton.textContent === 'Logout') {
-        window.location.href = '/api/auth/logout';
-        console.log('Logout action needed');
-    } else {
-        console.log('Login button clicked');
-        redirectGoogleLogin();
-    }
-}
-
 document.addEventListener('keydown', (event) => {
 	if (event.key === 'Escape' && currentGame) {
 		console.log("ESC game")
@@ -274,15 +397,7 @@ function toggleFullscreen() {
 }
 
 function returnToMainMenu() {
-	const heroSection = document.getElementById('heroSection')
-	if (heroSection) {
-		heroSection.style.display = 'block'
-	}
-
-	const gameSection = document.getElementById('gameSection')
-	if (gameSection) {
-		gameSection.classList.add('hidden')
-	}
+	showSection('hero');
 
 	const gameOverModal = document.getElementById('gameOverModal')
 	if (gameOverModal) {
@@ -313,11 +428,10 @@ async function updateLoginStatus() {
 		const user = await response.json();
 		console.log('User data:', user);
 
-		const loginButton = document.getElementById('loginBtn');
-		console.log('User login status:', user);
-		if (loginButton) loginButton.textContent = 'Logout';
+		showAppScreen(user);
 	} catch (error) {
-		window.location.replace('/login.html');
+		console.error('Not logged in or session expired');
+		showLoginScreen();
 	}
 }
 

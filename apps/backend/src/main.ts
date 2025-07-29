@@ -8,6 +8,8 @@ import cookie from '@fastify/cookie';
 import * as dotenv from 'dotenv';
 import { initializeDatabase } from './database/db';
 
+import profileRoute from './routes/api/user/profile.controller';
+
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env')});
 
 import gameRoute from './routes/api/games';
@@ -41,17 +43,7 @@ async function buildServer(): Promise<FastifyInstance> {
     server.register(gameRoute, { prefix: '/api/games' });
     server.register(googleLoginRoute, { prefix: '/api/users/login/google' });
     server.register(authStatusRoute, { prefix: '/api/auth' });
-	// server.get('/api/auth/me', async (request, reply) => {
-	// 	try {
-	// 		const users = request.users;
-	// 		if (!users) {
-	// 			return reply.status(401).send({ error: 'Unauthorized' });
-	// 		}
-	// 		reply.send(users);
-	// 	} catch (error) {
-	// 		reply.status(500).send({ error: 'Internal Server Error' });
-	// 	}
-	// });
+	server.register(profileRoute, { prefix: '/api/user' });
 
     server.setErrorHandler((error, request, reply) => {
         request.log.error(error);
