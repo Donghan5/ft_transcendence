@@ -118,6 +118,29 @@
 					<button id="profileReturnBtn" class="mb-6 text-neon-cyan hover:underline">&lt; Return to Main Menu</button>
 					<div id="profileContent">
 						</div>
+					<div id="avatarSection" class="flex items-center space-x-4 mb-6">
+						<img id="avatarImage" src="public/default-avatar.png" alt="User Avatar" class="w-24 h-24 rounded-full border-2 border-neon-cyan shadow-lg">
+						<div>
+							<h3 class="text-xl font-bold text-neon-cyan">Avatar</h3>
+							<p class="text-gray-300">Upload a new avatar image</p>
+							<input type="file" id="avatarUpload" accept="image/*" class="mt-2">
+						</div>
+					</div>
+				</div>
+			</section>
+
+			<section id="nicknameSetupSection" class="hidden items-center justify-center py-20">
+				<div class="bg-gray-900 border border-neon-cyan rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl shadow-neon-cyan/30">
+					<h3 class="text-2xl font-bold mb-6 text-center text-neon-cyan">Welcome! Please set your nickname.</h3>
+					<form id="nicknameForm" class="space-y-4">
+						<div>
+							<label for="nicknameInput" class="block text-sm font-medium mb-2 text-gray-300">Nickname</label>
+							<input type="text" id="nicknameInput" name="nickname" required class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan text-white">
+						</div>
+						<div class="pt-4">
+							<button type="submit" class="w-full py-2 px-4 bg-gradient-to-r from-neon-cyan to-neon-blue rounded-md hover:shadow-lg hover:shadow-neon-cyan/50 transition-all duration-300">Save and Continue</button>
+						</div>
+					</form>
 				</div>
 			</section>
 

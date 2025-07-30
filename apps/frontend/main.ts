@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
 })
 
 function setupEventListeners() {
-	const quickPlayButton = document.getElementById('quickPlayBtn')  // 수정: quickPlayButton → quickPlayBtn
+	const quickPlayButton = document.getElementById('quickPlayBtn')
 	if (quickPlayButton) {
 		quickPlayButton.addEventListener('click', () => {
 			console.log("Quickly play!")
@@ -26,7 +26,7 @@ function setupEventListeners() {
 		})
 	}
 
-	const tournamentButton = document.getElementById('tournamentBtn')  // 수정: tournamentButton → tournamentBtn
+	const tournamentButton = document.getElementById('tournamentBtn')
 	if (tournamentButton) {
 		tournamentButton.addEventListener('click', () => {
 			console.log("Tournament play!")
@@ -35,14 +35,13 @@ function setupEventListeners() {
 	}
 
 	// AI play have to think implement
-	const aiPlayButton = document.getElementById('aiPlayBtn')  // 수정: aiPlayButton → aiPlayBtn
+	const aiPlayButton = document.getElementById('aiPlayBtn')
 	if (aiPlayButton) {
 		aiPlayButton.addEventListener('click', () => {
 			console.log("AI play!")
 			handleGameStart('ai')
 		})
 	}
-
 
 	const profileButton = document.getElementById('profileBtn');
     if (profileButton) {
@@ -68,18 +67,35 @@ function setupEventListeners() {
  * @param sectionId - The ID of the section to show
  * @description Show a specific section by ID and hide others
  */
-function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login') {
-    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection'];
+function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup') {
+    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection'];
     sections.forEach(id => {
         const el = document.getElementById(id);
-        if (el) el.style.display = 'none';
+        if (el) {
+			if ('loginSection' === id || 'nicknameSetupSection' === id) {
+				el.style.display = 'none';
+			} else {
+				el.classList.add('hidden');
+			}
+		}
     });
 
-    if (sectionId === 'login') {
-         document.getElementById('loginSection')!.style.display = 'flex';
-    } else {
-         document.getElementById('appSection')!.style.display = 'block';
-         document.getElementById(`${sectionId}Section`)!.style.display = 'block';
+    const targetSection = document.getElementById(`${sectionId}Section`);
+    if (targetSection) {
+        if (sectionId === 'login' || sectionId === 'nicknameSetup') {
+            targetSection.style.display = 'flex'; // flex로 보여주기
+        } else {
+            targetSection.classList.remove('hidden');
+        }
+    }
+
+    const appContainer = document.getElementById('appSection');
+    if (appContainer) {
+        if (sectionId === 'login') {
+            appContainer.classList.add('hidden');
+        } else {
+            appContainer.classList.remove('hidden');
+        }
     }
 }
 
@@ -105,22 +121,22 @@ function showLoginScreen(){
  * @param user - User object containing user information
  */
 function showAppScreen(user: any) {
-	showSection('hero');
 	currentUser = user;
-	document.getElementById('loginSection')?.classList.add('hidden');
-	document.getElementById('appSection')?.classList.remove('hidden');
+	showSection('hero');
+	// document.getElementById('loginSection')?.classList.add('hidden');
+	// document.getElementById('appSection')?.classList.remove('hidden');
 
-	console.log('User logged in:', user);
-		setupEventListeners();
+	// console.log('User logged in:', user);
+	// 	setupEventListeners();
 
-	// ???
-	const logoutButton = document.getElementById('logoutBtn');
-	if (logoutButton) {
-		logoutButton.addEventListener('click', () => {
-			window.location.href = '/api/auth/logout';
-			console.log('Logout action needed');
-		});
-	}
+	// // ???
+	// const logoutButton = document.getElementById('logoutBtn');
+	// if (logoutButton) {
+	// 	logoutButton.addEventListener('click', () => {
+	// 		window.location.href = '/api/auth/logout';
+	// 		console.log('Logout action needed');
+	// 	});
+	// }
 }
 
 /**
@@ -148,6 +164,7 @@ async function showProfileScreen() {
             <h2 class="text-3xl font-bold text-neon-pink mb-4">${data.user.name}</h2>
             <p class="text-gray-400 mb-6">${data.user.email}</p>
 
+			<img id="profileAvatar" src="${data.user.avatarUrl || '/public/default-avatar.png'}" alt="User Avatar" class="w-24 h-24 rounded-full mb-4">
             <div class="grid md:grid-cols-2 gap-6">
                 <div>
                     <h3 class="text-xl font-semibold text-neon-cyan mb-3">Game History</h3>
@@ -172,6 +189,9 @@ async function showProfileScreen() {
                 </div>
             </div>
        	`;
+
+		attachAvatarFromListener();
+
 	} catch (error) {
 		profileContent.innerHTML = `
 			<p class="text-red-500">Failed to load profile. Please try it later</p>`;
@@ -179,6 +199,48 @@ async function showProfileScreen() {
 	}
 }
 
+/**
+ * @description Attach Avatar images
+ */
+function attachAvatarFromListener() {
+	const avatarForm = document.getElementById('avatarForm');
+		if (avatarForm) {
+			avatarForm.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			const avatarInput = document.getElementById('avatarUpload') as HTMLInputElement;
+			const avatarFiles = avatarInput.files;
+			if (!avatarFiles || avatarFiles.length === 0) {
+				// using default avatar
+				console.error('No avatar file selected. Showing default avatar.');
+				return;
+			}
+
+			const formData = new FormData();
+			formData.append('avatar', avatarFiles[0]);
+
+			try {
+				const uploadResponse = await fetch('/api/user/avatar', {
+					method: 'POST',
+					body: formData,
+					credentials: 'include'
+				});
+				const result = await uploadResponse.json();
+
+				if (uploadResponse.ok) {
+					console.log('Avatar uploaded successfully:', result);
+					const profileAvatar = document.getElementById('avatarImage') as HTMLImageElement;
+					if (profileAvatar) {
+						profileAvatar.src = result.avatarUrl; // Assuming the response contains the URL of the uploaded avatar
+					}
+				} else {
+					throw new Error(result.error || 'Failed to upload avatar');
+				}
+			} catch (error) {
+				console.error('Error uploading avatar:', error);
+			}
+			});
+		}
+}
 /**
  * @param gameMode - The game mode to start
  * @description Handles the game start logic based on the selected game mode
@@ -421,18 +483,73 @@ async function updateLoginStatus() {
 		const response = await fetch('/api/auth/me', { credentials: 'include' });     // create /api/auth/me endpoint in backend
 		console.log('Checking login status...');
 		if (!response.ok) {
-			console.error('Not logged in or session expired');
 			throw new Error('Not logged in');
 		}
 		console.log('User is logged in');
 		const user = await response.json();
 		console.log('User data:', user);
 
-		showAppScreen(user);
+		currentUser = user;
+		if (!user.profileComplete) {
+			showNicknameSetupScreen();
+		}
+
+		if (user.profileComplete) {
+			showAppScreen(user);
+		}
 	} catch (error) {
-		console.error('Not logged in or session expired');
+		console.error('Not logged in or session expired2');
 		showLoginScreen();
 	}
+}
+
+/**
+ * @description Show nickname setup screen if user profile is not complete
+ */
+function showNicknameSetupScreen() {
+	showSection('nicknameSetup');
+	const nicknameForm = document.getElementById('nicknameForm');
+	if (!nicknameForm) {
+		console.error('Nickname form not found');
+		return;
+	}
+	nicknameForm.addEventListener('submit', async (event) => {
+		event.preventDefault();
+		const nicknameInput = document.getElementById('nicknameInput') as HTMLInputElement;
+		const nickname = nicknameInput.value.trim();
+
+		if (!nickname) {
+			alert('Nickname cannot be empty');
+			return;
+		}
+
+		try {
+			const response = await fetch('/api/user/setup', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ nickname }),
+				credentials: 'include'
+			});
+
+			console.log(`response: ${response.status} ${response.statusText}`);
+
+			if (!response.ok) {
+				throw new Error('Failed to set nickname');
+			}
+
+			const data = await response.json();
+			console.log('Nickname set successfully:', data);
+
+			window.location.reload();
+
+			// updateLoginStatus();
+		} catch (error) {
+			console.error('Error setting nickname:', error);
+			alert('Failed to set nickname. Please try again later.');
+		}
+	});
 }
 
 window.addEventListener('beforeunload', () => {

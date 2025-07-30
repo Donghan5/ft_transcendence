@@ -16,7 +16,7 @@ export default async function (fastify: FastifyInstance) {
 				sameSite: 'lax'
 			});
 
-			return reply.redirect('http://localhost:8080/'); // Redirect to the dashboard or any other page
+			return reply.redirect('https://localhost:8443/'); // Redirect to the dashboard or any other page
 		} catch (error) {
 			console.error('Error during Google login callback:', error);
 			reply.status(500).send({ message: 'Internal Server Error' });

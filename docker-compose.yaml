@@ -24,7 +24,9 @@ services:
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET:?set in .env}
       - DATABASE_URL=file:/data/db.sqlite
-    volumes: ["db-data:/data"]
+    volumes:
+      - db-data:/data
+      - uploads-data:/usr/src/app/uploads
     ports: ["3000:3000"]
     restart: unless-stopped
     networks: [ts_transcendence]
@@ -36,12 +38,17 @@ services:
       dockerfile: ./infra/nginx/Dockerfile
     image: transcendence_gateway
     depends_on: [frontend, backend]
-    ports: ["8080:80"]
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - uploads-data:/usr/src/app/uploads
     restart: unless-stopped
     networks: [ts_transcendence]
 
 volumes:
   db-data:
+  uploads-data:
 
 networks:
   ts_transcendence:

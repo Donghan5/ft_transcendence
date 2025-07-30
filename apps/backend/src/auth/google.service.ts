@@ -56,7 +56,13 @@ class GoogleService {
 			throw new Error('JWT secret is not defined');
 		}
 
-		const ourJwtToken = jwt.sign({ userId: user.id }, secret, { expiresIn: '1h' });
+		// Add profile(nickname) setup check
+		const jwtPayload = {
+			userId: user.id,
+			profileComplete: user.profile_setup_complete || false,
+		};
+
+		const ourJwtToken = jwt.sign(jwtPayload, secret, { expiresIn: '1h' });
 		return ourJwtToken;
 	}
 }

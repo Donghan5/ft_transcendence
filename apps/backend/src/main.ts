@@ -7,6 +7,7 @@ import fastifyOAuth2 from '@fastify/oauth2';
 import cookie from '@fastify/cookie';
 import * as dotenv from 'dotenv';
 import { initializeDatabase } from './database/db';
+import multipart from '@fastify/multipart';
 
 import profileRoute from './routes/api/user/profile.controller';
 
@@ -22,6 +23,7 @@ async function buildServer(): Promise<FastifyInstance> {
     server.register(cors, {origin: "http://localhost:8080", credentials: true});
     server.register(websocketPlugin);
     server.register(sensible);
+	server.register(multipart);
     await server.register(cookie);
 
     // Google OAuth2
@@ -36,7 +38,7 @@ async function buildServer(): Promise<FastifyInstance> {
             auth: fastifyOAuth2.GOOGLE_CONFIGURATION
         },
         startRedirectPath: '/api/users/login/google',
-        callbackUri: `http://localhost:8080/api/users/login/google/callback`
+        callbackUri: `https://localhost:8443/api/users/login/google/callback`
     });
 
     // register Routes API

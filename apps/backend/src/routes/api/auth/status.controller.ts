@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { db } from '../../../database/db';
+import { User } from '@trans/common-types';
 
 async function verifyJwt(request: any, reply: any) {
     try {
@@ -23,7 +24,7 @@ export default async function authStatusRoute(fastify: FastifyInstance) {
 
         try {
             const user = await new Promise((resolve, reject) => {
-                db.get('SELECT id, name, email FROM users WHERE id = ?', [userId], (err, row) => {
+                db.get('SELECT id, name, email, profile_setup_complete FROM users WHERE id = ?', [userId], (err, row: User) => {
                     if (err) {
                         return reject(err);
                     }
@@ -32,11 +33,16 @@ export default async function authStatusRoute(fastify: FastifyInstance) {
                         error.statusCode = 404;
                         return reject(error);
                     }
-                    resolve(row);
+                    const userProfile = {
+						id: row.id,
+						name: row.name,
+						email: row.email,
+						profileComplete: !!row.profile_setup_complete
+					};
+					return reply.send(userProfile);
                 });
             });
 
-            return reply.send(user);
 
         } catch (error: any) {
             fastify.log.error(error);

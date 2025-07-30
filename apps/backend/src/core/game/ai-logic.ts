@@ -19,18 +19,16 @@ export const AI_LEVEL = {
  * this function is making decisions based on the current game state
  * Suppose that the Player 1 is controlling by the user and Player 2 is controlled by AI
  */
-export function selectLevelAI(level: string): string {
+export function selectLevelAI(level: string): { accuracy: number, speed: number, mistakeChance: number} {
 
     // The player chose the level of AI
 	if (level === "easy") {
-		const level = AI_LEVEL.EASY;
+		return AI_LEVEL.EASY;
 	} else if (level === "middle") {
-		const level = AI_LEVEL.MIDDLE;
+		return AI_LEVEL.MIDDLE;
 	} else {
-		const level = AI_LEVEL.HARD;
+		return AI_LEVEL.HARD;
 	}
-
-	return level;
 }
 
 export function predictBallPosition(
