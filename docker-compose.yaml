@@ -23,7 +23,7 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - JWT_SECRET=${JWT_SECRET:?set in .env}
-      - DATABASE_URL=file:/data/db.sqlite
+      - DATABASE_URL=file:/data/user.db
     volumes:
       - db-data:/data
       - uploads-data:/usr/src/app/uploads
