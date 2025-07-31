@@ -1,5 +1,4 @@
-# --- 1. 빌드 스테이지 ---
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 WORKDIR /usr/src/app
 
 COPY package*.json ./
@@ -8,11 +7,13 @@ COPY packages/common-types/package*.json ./packages/common-types/
 
 RUN npm install
 
-COPY . .
+COPY apps/frontend/ ./apps/frontend/
+COPY packages/common-types/src/ ./packages/common-types/src/
+COPY tsconfig.json ./
+COPY packages/common-types/tsconfig.json ./packages/common-types/tsconfig.json
 
 RUN npm run build --workspace=ft-transcendence-frontend
 
-# --- 2. 최종 실행 스테이지 ---
 FROM node:18-alpine
 WORKDIR /app
 

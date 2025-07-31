@@ -13,9 +13,6 @@ document.addEventListener('DOMContentLoaded', () => {
 	setupEventListeners();
 })
 
-document.addEventListener('DOMContentLoaded', () => {
-	updateLoginStatus();
-})
 
 function setupEventListeners() {
 	const quickPlayButton = document.getElementById('quickPlayBtn')
@@ -161,36 +158,49 @@ async function showProfileScreen() {
 		const data = await response.json();
 
 		profileContent.innerHTML = `
-            <h2 class="text-3xl font-bold text-neon-pink mb-4">${data.user.name}</h2>
-            <p class="text-gray-400 mb-6">${data.user.email}</p>
+        <h2 class="text-3xl font-bold text-neon-pink mb-4">${data.user.name} | ${data.user.nickname}</h2>
+        <p class="text-gray-400 mb-6">${data.user.email}</p>
 
-			<img id="profileAvatar" src="${data.user.avatarUrl || '/public/default-avatar.png'}" alt="User Avatar" class="w-24 h-24 rounded-full mb-4">
-            <div class="grid md:grid-cols-2 gap-6">
-                <div>
-                    <h3 class="text-xl font-semibold text-neon-cyan mb-3">Game History</h3>
-                    <ul class="space-y-2">
-                        ${data.gameHistory.map((game: any) => `
-                            <li class="bg-gray-800 p-2 rounded">
-                                Game ${game.id}: ${game.player1_score} - ${game.player2_score}
-                                <span class="font-bold ${game.winner_id === data.user.id ? 'text-green-400' : 'text-red-400'}">
-                                    ${game.winner_id === data.user.id ? 'Win' : 'Loss'}
-                                </span>
-                            </li>
-                        `).join('') || '<li>No games played yet.</li>'}
-                    </ul>
-                </div>
-                <div>
-                    <h3 class="text-xl font-semibold text-neon-cyan mb-3">Friends</h3>
-                     <ul class="space-y-2">
-                        ${data.friends.map((friend: any) => `
-                            <li class="bg-gray-800 p-2 rounded">${friend.name}</li>
-                        `).join('') || '<li>No friends yet.</li>'}
-                    </ul>
-                </div>
+        <div id="avatarSection" class="flex items-center space-x-4 mb-6">
+            <img id="profileAvatar" src="${data.user.avatarUrl || '/default-avatar.png'}" alt="User Avatar" class="w-24 h-24 rounded-full border-2 border-neon-cyan shadow-lg">
+            <div>
+                <h3 class="text-xl font-bold text-neon-cyan">Avatar</h3>
+                <p class="text-gray-300">Upload a new avatar image.</p>
+                <form id="avatarForm">
+                    <input type="file" id="avatarUpload" accept="image/*" class="mt-2 block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-neon-cyan/20 file:text-neon-cyan hover:file:bg-neon-cyan/30">
+                    <button type="submit" class="mt-2 bg-gradient-to-r from-neon-cyan to-neon-blue px-4 py-2 rounded-md text-sm font-medium hover:shadow-lg hover:shadow-neon-cyan/50 transition-all duration-300">
+                        Save Avatar
+                    </button>
+                </form>
             </div>
-       	`;
+        </div>
 
-		attachAvatarFromListener();
+        <div class="grid md:grid-cols-2 gap-6">
+            <div>
+                <h3 class="text-xl font-semibold text-neon-cyan mb-3">Game History</h3>
+                <ul class="space-y-2">
+                    ${data.gameHistory.map((game: any) => `
+                        <li class="bg-gray-800 p-2 rounded">
+                            Game ${game.id}: ${game.player1_score} - ${game.player2_score}
+                            <span class="font-bold ${game.winner_id === data.user.id ? 'text-green-400' : 'text-red-400'}">
+                                ${game.winner_id === data.user.id ? 'Win' : 'Loss'}
+                            </span>
+                        </li>
+                    `).join('') || '<li>No games played yet.</li>'}
+                </ul>
+            </div>
+            <div>
+                <h3 class="text-xl font-semibold text-neon-cyan mb-3">Friends</h3>
+                 <ul class="space-y-2">
+                    ${data.friends.map((friend: any) => `
+                        <li class="bg-gray-800 p-2 rounded">${friend.name}</li>
+                    `).join('') || '<li>No friends yet.</li>'}
+                </ul>
+            </div>
+        </div>
+    	`;
+
+		attachAvatarFormListener();
 
 	} catch (error) {
 		profileContent.innerHTML = `
@@ -202,7 +212,7 @@ async function showProfileScreen() {
 /**
  * @description Attach Avatar images
  */
-function attachAvatarFromListener() {
+function attachAvatarFormListener() {
 	const avatarForm = document.getElementById('avatarForm');
 		if (avatarForm) {
 			avatarForm.addEventListener('submit', async (event) => {
@@ -230,7 +240,7 @@ function attachAvatarFromListener() {
 					console.log('Avatar uploaded successfully:', result);
 					const profileAvatar = document.getElementById('avatarImage') as HTMLImageElement;
 					if (profileAvatar) {
-						profileAvatar.src = result.avatarUrl; // Assuming the response contains the URL of the uploaded avatar
+						profileAvatar.src = result.avatarUrl + '?t=' + new Date().getTime(); // Assuming the response contains the URL of the uploaded avatar
 					}
 				} else {
 					throw new Error(result.error || 'Failed to upload avatar');

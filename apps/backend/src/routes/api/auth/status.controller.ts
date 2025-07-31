@@ -1,49 +1,52 @@
-import { FastifyInstance } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { db } from '../../../database/db';
 import { User } from '@trans/common-types';
 
-async function verifyJwt(request: any, reply: any) {
+function dbGet(query: string, params: any[]): Promise<any> {
+    return new Promise((resolve, reject) => {
+        db.get(query, params, (err, row) => {
+            if (err) return reject(err);
+            resolve(row);
+        });
+    });
+}
+
+async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
     try {
-        const token = request.cookies.auth_token;
+        const token = (request.cookies as any).auth_token; // Type assertion to access cookies
         if (!token) {
-            return reply.code(401).send({ error: 'Unauthorized' });
+            return reply.code(401).send({ error: 'Unauthorized1' });
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET!);
+        const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: number };
         request.user = decoded;
 
     } catch (err) {
-        return reply.code(401).send({ error: 'Unauthorized' });
+        return reply.code(401).send({ error: 'Unauthorized2' });
     }
 }
+
 
 export default async function authStatusRoute(fastify: FastifyInstance) {
     fastify.get('/me', { preHandler: [verifyJwt] }, async (request: any, reply: any) => {
         const userId = request.user.userId;
 
         try {
-            const user = await new Promise((resolve, reject) => {
-                db.get('SELECT id, name, email, profile_setup_complete FROM users WHERE id = ?', [userId], (err, row: User) => {
-                    if (err) {
-                        return reject(err);
-                    }
-                    if (!row) {
-                        const error: any = new Error('User not found');
-                        error.statusCode = 404;
-                        return reject(error);
-                    }
-                    const userProfile = {
-						id: row.id,
-						name: row.name,
-						email: row.email,
-						profileComplete: !!row.profile_setup_complete
-					};
-					return reply.send(userProfile);
-                });
-            });
+           const user: User = await dbGet('SELECT id, email, name, nickname, avatar_url, profile_setup_complete FROM users WHERE id = ?', [userId]);
 
-
+		   if (!user) {
+				return reply.code(404).send({ error: 'User not found' });
+			}
+		   const userProfile = {
+				id: user.id,
+				email: user.email,
+				name: user.name,
+				nickname: user.nickname,
+				avatarUrl: user.avatar_url,
+				profileComplete: user.profile_setup_complete
+			};
+			return reply.send(userProfile);
         } catch (error: any) {
             fastify.log.error(error);
             const statusCode = error.statusCode || 500;
@@ -58,6 +61,6 @@ export default async function authStatusRoute(fastify: FastifyInstance) {
             secure: true,
             sameSite: 'lax'
         });
-        return reply.redirect('http://localhost:8080/login.html');
+        return reply.redirect('https://localhost:8443/login.html');
     });
 }

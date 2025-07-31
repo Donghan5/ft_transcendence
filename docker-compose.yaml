@@ -22,6 +22,8 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:?set in .env}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:?set in .env}
       - JWT_SECRET=${JWT_SECRET:?set in .env}
       - DATABASE_URL=file:/data/user.db
     volumes:

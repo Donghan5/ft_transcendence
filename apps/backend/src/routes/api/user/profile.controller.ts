@@ -16,14 +16,14 @@ async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
     try {
         const token = (request.cookies as any).auth_token; // Type assertion to access cookies
         if (!token) {
-            return reply.code(401).send({ error: 'Unauthorized' });
+            return reply.code(401).send({ error: 'Unauthorized3' });
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: number };
         request.user = decoded;
 
     } catch (err) {
-        return reply.code(401).send({ error: 'Unauthorized' });
+        return reply.code(401).send({ error: 'Unauthorized4' });
     }
 }
 
@@ -174,7 +174,7 @@ export default async function profileRoute(fastify: FastifyInstance) {
 			return reply.code(400).send({ error: 'File must be an image' });
 		}
 
-		const uploadDir = path.join(__dirname, '../../../uploads/avatars');
+		const uploadDir = path.resolve('/usr/src/app/uploads/avatars');
 		await fs.mkdir(uploadDir, { recursive: true });
 
 		const filename = `${userId}-${Date.now()}-${data.filename}`;

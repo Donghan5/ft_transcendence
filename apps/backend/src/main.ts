@@ -20,7 +20,7 @@ import authStatusRoute from './routes/api/auth/status.controller';
 async function buildServer(): Promise<FastifyInstance> {
     const server = fastify({ logger: true, trustProxy: true });
 
-    server.register(cors, {origin: "http://localhost:8080", credentials: true});
+    server.register(cors, {origin: "https://localhost:8443", credentials: true });
     server.register(websocketPlugin);
     server.register(sensible);
 	server.register(multipart);
@@ -32,7 +32,7 @@ async function buildServer(): Promise<FastifyInstance> {
         scope: ['profile', 'email'],
         credentials: {
             client: {
-                id: process.env.VITE_GOOGLE_CLIENT_ID,
+                id: process.env.GOOGLE_CLIENT_ID,
                 secret: process.env.GOOGLE_CLIENT_SECRET
             },
             auth: fastifyOAuth2.GOOGLE_CONFIGURATION
