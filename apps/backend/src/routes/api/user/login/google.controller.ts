@@ -3,23 +3,31 @@ import { FastifyInstance } from 'fastify';
 import GoogleService from '../../../../auth/google.service';
 
 export default async function (fastify: FastifyInstance) {
-	fastify.get('/callback', async (request: any, reply: any) => {
-		try {
-			const { token } = await (fastify as any).googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(request);
+    fastify.get('/callback', async (request: any, reply: any) => {
+        try {
+            const { token } = await (fastify as any).googleOAuth2.getAccessTokenFromAuthorizationCodeFlow(request);
 
-			const ourJwtToken = await GoogleService.handleGoogleLogin(token);
+            const ourJwtToken = await GoogleService.handleGoogleLogin(token);
 
-			reply.setCookie('auth_token', ourJwtToken, {
-				httpOnly: true,
-				secure: true,
-				path: '/',
-				sameSite: 'lax'
-			});
+            reply.setCookie('auth_token', ourJwtToken, {
+                httpOnly: true,
+                secure: true,
+                path: '/',
+                sameSite: 'lax'
+            });
 
-			return reply.redirect('https://localhost:8443/'); // Redirect to the dashboard or any other page
-		} catch (error) {
-			console.error('Error during Google login callback:', error);
-			reply.status(500).send({ message: 'Internal Server Error' });
-		}
-	});
+            return reply.redirect('https://localhost:8443/'); // Redirect to the dashboard or any other page
+        } catch (error) {
+            console.error('======================================================');
+            console.error('CRITICAL ERROR in /login/google/callback:');
+            console.error('Full Error Object:', error); // 에러 객체 전체를 출력
+            console.error('======================================================');
+
+            const message = error instanceof Error ? error.message : 'An unknown error occurred';
+            reply.status(500).send({
+                message: 'Internal Server Error (google.controller.ts)',
+                errorDetails: message
+            });
+        }
+    });
 }

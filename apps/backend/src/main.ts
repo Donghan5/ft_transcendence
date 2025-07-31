@@ -6,7 +6,7 @@ import path from 'path';
 import fastifyOAuth2 from '@fastify/oauth2';
 import cookie from '@fastify/cookie';
 import * as dotenv from 'dotenv';
-import { initializeDatabase } from './database/db';
+import { getDb } from './database/db';
 import multipart from '@fastify/multipart';
 
 import profileRoute from './routes/api/user/profile.controller';
@@ -50,7 +50,7 @@ async function buildServer(): Promise<FastifyInstance> {
     server.setErrorHandler((error, request, reply) => {
         request.log.error(error);
         reply.status(500).send({
-            error: 'Internal Server Error',
+            error: 'Internal Server Error(backend main.ts)',
             message: 'Something went wrong on the server.',
         });
     });
@@ -66,7 +66,7 @@ async function buildServer(): Promise<FastifyInstance> {
 
 async function start() {
     try {
-		await initializeDatabase();
+		await getDb();
         const server = await buildServer();
         const port = Number(process.env.PORT) || 3000;
         const host = process.env.HOST || '0.0.0.0';

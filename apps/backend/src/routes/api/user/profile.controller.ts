@@ -1,8 +1,9 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
-import { db } from '../../../database/db'; // Adjust the import path as necessary
+import { getDb } from '../../../database/db'; // Adjust the import path as necessary
 import path from 'path';
 import { promises as fs } from 'fs';
+import { RunResult } from 'sqlite3';
 
 /**
  * @param request
@@ -27,47 +28,34 @@ async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
     }
 }
 
-/**
- * @param query: string
- * @param params: any[]
- * @returns Promise<any>
- * @description Helper function to execute a database query
- */
-function dbAll(query: string, params: any[]): Promise<any> {
-	return new Promise((resolve, reject) => {
-		db.all(query, params, (err, rows) => {
-			if (err) {
-				return reject(err);
-			}
-			resolve(rows);
-		});
-	});
+async function dbAll(query: string, params: any[]): Promise<any[]> {
+    const db = await getDb();
+    return new Promise((resolve, reject) => {
+        db.all(query, params, (err: Error | null, rows: any[]) => {
+            if (err) return reject(err);
+            resolve(rows);
+        });
+    });
 }
 
-/**
- *
- * @param query: string
- * @param params: any[]
- * @returns Promise<any>
- * @description Helper function to get a single row from the database
- * @throws Error if the query fails or no row is found
- */
-function dbGet(query: string, params: any[]): Promise<any> {
-	return new Promise((resolve, reject) => {
-		db.get(query, params, (err, row) => {
-			if (err) return reject(err);
-			resolve(row);
-		});
-	});
+async function dbGet(query: string, params: any[]): Promise<any> {
+    const db = await getDb();
+    return new Promise((resolve, reject) => {
+        db.get(query, params, (err: Error | null, row: any) => {
+            if (err) return reject(err);
+            resolve(row);
+        });
+    });
 }
 
-const dbRun = (query: string, params: any[]): Promise<{ lastID: number }> => {
-	return new Promise((resolve, reject) => {
-		db.run(query, params, function (err) {
-			if (err) return reject(err);
-			resolve({ lastID: this.lastID });
-		});
-	});
+const dbRun = async (query: string, params: any[]): Promise<{ lastID: number }> => {
+    const db = await getDb();
+    return new Promise((resolve, reject) => {
+        db.run(query, params, function (this: RunResult, err: Error | null) {
+            if (err) return reject(err);
+            resolve({ lastID: this.lastID });
+        });
+    });
 };
 
 /**
@@ -150,7 +138,7 @@ export default async function profileRoute(fastify: FastifyInstance) {
 			return reply.send({ success: true, message: 'Profile setup complete.' });
 		} catch (error) {
 			fastify.log.error(error);
-			return reply.code(500).send({ error: 'Internal Server Error' });
+			return reply.code(500).send({ error: 'Internal Server Error(/setup post)' });
 		}
 	});
 

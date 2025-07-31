@@ -1,11 +1,12 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
-import { db } from '../../../database/db';
+import { getDb } from '../../../database/db';
 import { User } from '@trans/common-types';
 
-function dbGet(query: string, params: any[]): Promise<any> {
+async function dbGet(query: string, params: any[]): Promise<any> {
+    const db = await getDb();
     return new Promise((resolve, reject) => {
-        db.get(query, params, (err, row) => {
+        db.get(query, params, (err: Error | null, row: any) => {
             if (err) return reject(err);
             resolve(row);
         });
