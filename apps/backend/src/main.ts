@@ -6,7 +6,7 @@ import path from 'path';
 import fastifyOAuth2 from '@fastify/oauth2';
 import cookie from '@fastify/cookie';
 import * as dotenv from 'dotenv';
-import { getDb } from './database/db';
+import { initializeDatabase } from './database/db';
 import multipart from '@fastify/multipart';
 
 import profileRoute from './routes/api/user/profile.controller';
@@ -16,6 +16,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../../../.env')});
 import gameRoute from './routes/api/games';
 import googleLoginRoute from './routes/api/user/login/google.controller';
 import authStatusRoute from './routes/api/auth/status.controller';
+import friendsRoute from './routes/api/user/friends.controller';
 
 async function buildServer(): Promise<FastifyInstance> {
     const server = fastify({ logger: true, trustProxy: true });
@@ -46,11 +47,12 @@ async function buildServer(): Promise<FastifyInstance> {
     server.register(googleLoginRoute, { prefix: '/api/users/login/google' });
     server.register(authStatusRoute, { prefix: '/api/auth' });
 	server.register(profileRoute, { prefix: '/api/user' });
+	server.register(friendsRoute, { prefix: '/api/user' });
 
     server.setErrorHandler((error, request, reply) => {
         request.log.error(error);
         reply.status(500).send({
-            error: 'Internal Server Error(backend main.ts)',
+            error: 'Internal Server Error',
             message: 'Something went wrong on the server.',
         });
     });
@@ -66,7 +68,22 @@ async function buildServer(): Promise<FastifyInstance> {
 
 async function start() {
     try {
-		await getDb();
+        console.log('Initializing database...');
+        const db = await initializeDatabase();
+
+        // Temporary: Force check if users table exists
+        try {
+            const result = await new Promise((resolve, reject) => {
+                db.get("SELECT name FROM sqlite_master WHERE type='table' AND name='users'", (err, row) => {
+                    if (err) reject(err);
+                    else resolve(row);
+                });
+            });
+            console.log('Users table check result:', result);
+        } catch (error) {
+            console.error('Error checking users table:', error);
+        }
+
         const server = await buildServer();
         const port = Number(process.env.PORT) || 3000;
         const host = process.env.HOST || '0.0.0.0';

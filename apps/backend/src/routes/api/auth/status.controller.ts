@@ -1,53 +1,57 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
-import { getDb } from '../../../database/db';
+import { dbGet } from '../../../database/helpers';
 import { User } from '@trans/common-types';
-
-async function dbGet(query: string, params: any[]): Promise<any> {
-    const db = await getDb();
-    return new Promise((resolve, reject) => {
-        db.get(query, params, (err: Error | null, row: any) => {
-            if (err) return reject(err);
-            resolve(row);
-        });
-    });
-}
 
 async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
     try {
-        const token = (request.cookies as any).auth_token; // Type assertion to access cookies
+        const token = (request.cookies as any).auth_token;
         if (!token) {
-            return reply.code(401).send({ error: 'Unauthorized1' });
+            return reply.code(401).send({ error: 'Unauthorized' });
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: number };
         request.user = decoded;
 
     } catch (err) {
-        return reply.code(401).send({ error: 'Unauthorized2' });
+        return reply.code(401).send({ error: 'Unauthorized' });
     }
 }
-
 
 export default async function authStatusRoute(fastify: FastifyInstance) {
     fastify.get('/me', { preHandler: [verifyJwt] }, async (request: any, reply: any) => {
         const userId = request.user.userId;
 
         try {
-           const user: User = await dbGet('SELECT id, email, name, nickname, avatar_url, profile_setup_complete FROM users WHERE id = ?', [userId]);
+            // First, let's check what columns actually exist
+            const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
 
-		   if (!user) {
-				return reply.code(404).send({ error: 'User not found' });
-			}
-		   const userProfile = {
-				id: user.id,
-				email: user.email,
-				name: user.name,
-				nickname: user.nickname,
-				avatarUrl: user.avatar_url,
-				profileComplete: user.profile_setup_complete
-			};
-			return reply.send(userProfile);
+            if (!user) {
+                return reply.code(404).send({ error: 'User not found' });
+            }
+
+            // Build response based on what columns actually exist
+            const userProfile: any = {
+                id: user.id,
+                email: user.email,
+                name: user.name,
+            };
+
+            // Only add these fields if they exist
+            if ('nickname' in user) {
+                userProfile.nickname = user.nickname;
+            }
+            if ('avatar_url' in user) {
+                userProfile.avatarUrl = user.avatar_url;
+            }
+            if ('profile_setup_complete' in user) {
+                userProfile.profileComplete = user.profile_setup_complete || false;
+            } else {
+                // If column doesn't exist, assume profile is not complete
+                userProfile.profileComplete = false;
+            }
+
+            return reply.send(userProfile);
         } catch (error: any) {
             fastify.log.error(error);
             const statusCode = error.statusCode || 500;

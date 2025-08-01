@@ -1,9 +1,8 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
-import { getDb } from '../../../database/db'; // Adjust the import path as necessary
+import { dbGet, dbAll, dbRun, getDatabase } from '../../../database/helpers';
 import path from 'path';
 import { promises as fs } from 'fs';
-import { RunResult } from 'sqlite3';
 
 /**
  * @param request
@@ -17,46 +16,16 @@ async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
     try {
         const token = (request.cookies as any).auth_token; // Type assertion to access cookies
         if (!token) {
-            return reply.code(401).send({ error: 'Unauthorized3' });
+            return reply.code(401).send({ error: 'Unauthorized' });
         }
 
         const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: number };
         request.user = decoded;
 
     } catch (err) {
-        return reply.code(401).send({ error: 'Unauthorized4' });
+        return reply.code(401).send({ error: 'Unauthorized' });
     }
 }
-
-async function dbAll(query: string, params: any[]): Promise<any[]> {
-    const db = await getDb();
-    return new Promise((resolve, reject) => {
-        db.all(query, params, (err: Error | null, rows: any[]) => {
-            if (err) return reject(err);
-            resolve(rows);
-        });
-    });
-}
-
-async function dbGet(query: string, params: any[]): Promise<any> {
-    const db = await getDb();
-    return new Promise((resolve, reject) => {
-        db.get(query, params, (err: Error | null, row: any) => {
-            if (err) return reject(err);
-            resolve(row);
-        });
-    });
-}
-
-const dbRun = async (query: string, params: any[]): Promise<{ lastID: number }> => {
-    const db = await getDb();
-    return new Promise((resolve, reject) => {
-        db.run(query, params, function (this: RunResult, err: Error | null) {
-            if (err) return reject(err);
-            resolve({ lastID: this.lastID });
-        });
-    });
-};
 
 /**
  * @param fastify: FastifyInstance
@@ -67,25 +36,81 @@ export default async function profileRoute(fastify: FastifyInstance) {
 		const userId = request.user?.userId;
 
 		try {
-			// Get User Information
-			const user = await dbGet('SELECT id, name, email FROM users WHERE id = ?', [userId]);
+			// First, check what columns exist in the users table
+			const db = await getDatabase();
+			const tableInfo = await new Promise<any[]>((resolve, reject) => {
+				db.all("PRAGMA table_info(users)", (err, rows) => {
+					if (err) reject(err);
+					else resolve(rows);
+				});
+			});
+
+			const columnNames = tableInfo.map(col => col.name);
+			console.log('Available columns in users table:', columnNames);
+
+			// Add missing columns if they don't exist
+			if (!columnNames.includes('nickname')) {
+				await dbRun('ALTER TABLE users ADD COLUMN nickname TEXT', []);
+			}
+			if (!columnNames.includes('avatar_url')) {
+				await dbRun('ALTER TABLE users ADD COLUMN avatar_url TEXT', []);
+			}
+			if (!columnNames.includes('profile_setup_complete')) {
+				await dbRun('ALTER TABLE users ADD COLUMN profile_setup_complete BOOLEAN DEFAULT FALSE', []);
+			}
+
+			// Get User Information - use SELECT * to get all columns
+			const user = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
 			if (!user) {
 				return reply.code(404).send({ error: 'User not found' });
 			}
 
 			// Get Games
-			const games = await dbAll('SELECT * FROM games WHERE player1_id = ? OR player2_id = ? ORDER BY finished_at DESC LIMIT 10', [userId, userId]);
+			// const games = await dbAll('SELECT * FROM games WHERE player1_id = ? OR player2_id = ? ORDER BY finished_at DESC LIMIT 10', [userId, userId]);
+
+			const games = await dbAll(`
+                SELECT
+                    g.id,
+                    g.player1_score,
+                    g.player2_score,
+                    g.game_type,
+                    g.finished_at,
+                    CASE
+                        WHEN g.player1_id = ? THEN p2.nickname
+                        ELSE p1.nickname
+                    END as opponent_nickname,
+                    CASE
+                        WHEN g.winner_id = ? THEN 'Win'
+                        ELSE 'Loss'
+                    END as result
+                FROM games g
+                LEFT JOIN users p1 ON g.player1_id = p1.id
+                LEFT JOIN users p2 ON g.player2_id = p2.id
+                WHERE g.player1_id = ? OR g.player2_id = ?
+                ORDER BY g.finished_at DESC
+                LIMIT 10
+            `, [userId, userId, userId, userId]);
 
 			// Get friends
 			const friends = await dbAll(`
 				SELECT u.id, u.name FROM users u
-				JOIN user_friends uf ON u.id = uf.friend_id
+				JOIN users_friends uf ON u.id = uf.friend_id
 				WHERE uf.user_id = ? AND uf.status = 'accepted'`
 			, [userId]);
 
 			const profileData = {
-				user,
-				gameHistory: games,
+				user: {
+					id: user.id,
+					name: user.name,
+					email: user.email,
+					nickname: user.nickname || null,
+					avatar_url: user.avatar_url || null,
+					profile_setup_complete: user.profile_setup_complete || false
+				},
+				gameHistory: games.map(game => ({
+					...game,
+					opponent_nickname: game.opponent_nickname || (game.game_type === 'AI' ? 'AI' : 'Local Player'),
+				})),
 				friends: friends,
 			};
 
@@ -115,11 +140,41 @@ export default async function profileRoute(fastify: FastifyInstance) {
 		}
 
 		try {
-			const existingUser = await dbGet('SELECT id FROM users WHERE nickname = ?', [nickname]);
+			// First, check what columns exist in the users table
+			const db = await getDatabase();
+			const tableInfo = await new Promise<any[]>((resolve, reject) => {
+				db.all("PRAGMA table_info(users)", (err, rows) => {
+					if (err) reject(err);
+					else resolve(rows);
+				});
+			});
+
+			const columnNames = tableInfo.map(col => col.name);
+			const hasNicknameColumn = columnNames.includes('nickname');
+			const hasProfileCompleteColumn = columnNames.includes('profile_setup_complete');
+
+			console.log('Available columns:', columnNames);
+			console.log('Has nickname column:', hasNicknameColumn);
+			console.log('Has profile_setup_complete column:', hasProfileCompleteColumn);
+
+			// If columns don't exist yet, add them
+			if (!hasNicknameColumn) {
+				console.log('Adding nickname column...');
+				await dbRun('ALTER TABLE users ADD COLUMN nickname TEXT', []); // Remove UNIQUE constraint
+			}
+
+			if (!hasProfileCompleteColumn) {
+				console.log('Adding profile_setup_complete column...');
+				await dbRun('ALTER TABLE users ADD COLUMN profile_setup_complete BOOLEAN DEFAULT FALSE', []);
+			}
+
+			// Check if nickname already exists (only check for duplicates, don't rely on UNIQUE constraint)
+			const existingUser = await dbGet('SELECT id FROM users WHERE nickname = ? AND id != ?', [nickname, userId]);
 			if (existingUser) {
 				return reply.code(409).send({ error: 'Nickname already exists.' });
 			}
 
+			// Update the user with nickname and profile completion
 			await dbRun(
 				'UPDATE users SET nickname = ?, profile_setup_complete = 1 WHERE id = ?',
 				[nickname, userId]
@@ -136,9 +191,9 @@ export default async function profileRoute(fastify: FastifyInstance) {
 			});
 
 			return reply.send({ success: true, message: 'Profile setup complete.' });
-		} catch (error) {
-			fastify.log.error(error);
-			return reply.code(500).send({ error: 'Internal Server Error(/setup post)' });
+		} catch (error: any) {
+			fastify.log.error('Setup endpoint error:', error);
+			return reply.code(500).send({ error: 'Internal Server Error: ' + error.message });
 		}
 	});
 

@@ -8,8 +8,6 @@ CREATE TABLE IF NOT EXISTS games (
     winner_id INTEGER REFERENCES users(id),
     game_type TEXT DEFAULT 'casual',
     tournament_id INTEGER,
-    blockchain_tx_hash TEXT,
-    started_at DATETIME,
     finished_at DATETIME,
     game_data TEXT
 );

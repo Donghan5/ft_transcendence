@@ -17,6 +17,9 @@ COPY packages/common-types/tsconfig.json ./packages/common-types/tsconfig.json
 
 RUN npm run build --workspace=ft-transcendence-backend
 
-RUN cp -r /usr/src/app/apps/backend/src/database/migrations /usr/src/app/apps/backend/dist/src/database/
+# RUN cp -r apps/backend/src/database/migrations apps/backend/dist/database/
+
+COPY apps/backend/src/database/migrations /usr/src/app/apps/backend/migrations/
 
 CMD ["node", "apps/backend/dist/src/main.js"]
+

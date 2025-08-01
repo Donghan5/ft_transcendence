@@ -60,7 +60,6 @@ function createArena(scene: Scene): void {
 	centerLine.position.y = 0.01
 
 	const centerLineMat = new StandardMaterial('centerLineMat', scene)
-	centerLineMat.emissiveColor = new Color3(0.8, 0.8, 1)
 	centerLineMat.diffuseColor = new Color3(0.2, 0.2, 0.5)
 	centerLine.material = centerLineMat
 }
@@ -72,9 +71,7 @@ function createImprovedGround(arenaSize: { width: number, height: number, depth:
 	)
 
 	const groundMat = new StandardMaterial('groundMat', scene)
-	groundMat.diffuseColor = new Color3(0.05, 0.05, 0.1)
-	groundMat.specularColor = new Color3(0.1, 0.1, 0.2)
-	groundMat.emissiveColor = new Color3(0.02, 0.02, 0.05)
+	groundMat.diffuseColor = new Color3(0, 0, 1)
 	ground.material = groundMat
 
 	createGridLines(arenaSize, scene)
@@ -109,8 +106,7 @@ function createGridLines(arenaSize: { width: number, height: number, depth: numb
 
 function createNeonBorder(arenaSize: { width: number, height: number, depth: number }, scene: Scene): void {
 	const borderMat = new StandardMaterial('borderMat', scene);
-	borderMat.emissiveColor = new Color3(0, 0.8, 1);
-	borderMat.diffuseColor = new Color3(0, 0.4, 0.6);
+	borderMat.diffuseColor = new Color3(0, 0, 1);
 
 	const wallHeight = 0.8;
 	const wallThickness = 0.2;
@@ -176,19 +172,19 @@ function createMovableObjects(scene: Scene): SceneObjects {
     const player1Paddle = MeshBuilder.CreateBox('player1Paddle', { width: 0.5, height: 0.5, depth: 4 }, scene);
     player1Paddle.position = new Vector3(-12, 1.5, 0);
     const p1Mat = new StandardMaterial('p1Mat', scene);
-    p1Mat.emissiveColor = new Color3(0, 0.5, 1);
+    p1Mat.diffuseColor = new Color3(0, 0, 1);
     player1Paddle.material = p1Mat;
 
     const player2Paddle = MeshBuilder.CreateBox('player2Paddle', { width: 0.5, height: 0.5, depth: 4 }, scene);
     player2Paddle.position = new Vector3(12, 1.5, 0);
     const p2Mat = new StandardMaterial('p2Mat', scene);
-    p2Mat.emissiveColor = new Color3(1, 0, 0.5);
+    p2Mat.diffuseColor = new Color3(1, 0, 0);
     player2Paddle.material = p2Mat;
 
     const ball = MeshBuilder.CreateSphere('ball', { diameter: 1 }, scene);
     ball.position = new Vector3(0, 0, 0);
     const ballMat = new StandardMaterial('ballMat', scene);
-    ballMat.emissiveColor = new Color3(1, 1, 0.5);
+    ballMat.diffuseColor = new Color3(1, 1, 1);
     ball.material = ballMat;
 
     createBallTrail(scene, ball);

@@ -1,29 +1,9 @@
-// ts/apps/backend/src/auth/google.service.ts
-
-import { User } from '@trans/common-types';
-import { getDb } from '../database/db';
+// apps/backend/src/auth/google.service.ts
+import { OAuth2Token } from '@fastify/oauth2';
+import { User } from '@trans/common-types'
+import { FastifyInstance } from 'fastify';
 import jwt from 'jsonwebtoken';
-import { RunResult } from 'sqlite3';
-
-const dbGet = async (query: string, params: any[]): Promise<User | undefined> => {
-    const db = await getDb();
-    return new Promise((resolve, reject) => {
-        db.get(query, params, (err, row: User | undefined) => {
-            if (err) return reject(err);
-            resolve(row);
-        });
-    });
-};
-
-const dbRun = async (query: string, params: any[]): Promise<{ lastID: number }> => {
-    const db = await getDb();
-    return new Promise((resolve, reject) => {
-        db.run(query, params, function (err) {
-            if (err) return reject(err);
-            resolve({ lastID: this.lastID });
-        });
-    });
-};
+import { dbGet, dbRun } from '../database/helpers';
 
 class GoogleService {
     public static async handleGoogleLogin(token: any): Promise<string> {
@@ -44,17 +24,17 @@ class GoogleService {
 
         let user: User | undefined = await dbGet('SELECT * FROM "users" WHERE email = ?', [googleUser.email]);
 
-        if (!user) {
-            console.log('Creating new user in the database:', googleUser.email);
-            const result = await dbRun(
-                'INSERT INTO "users" (google_id, email, name, token) VALUES (?, ?, ?, ?)',
-                [googleUser.id, googleUser.email, userName, token.access_token]
-            );
-            user = await dbGet('SELECT * FROM "users" WHERE id = ?', [result.lastID]);
-        } else {
-            await dbRun('UPDATE "users" SET token = ?, google_id = ?, name = ? WHERE id = ?', [token.access_token, googleUser.id, userName, user.id]);
-            user = await dbGet('SELECT * FROM "users" WHERE id = ?', [user.id]);
-        }
+		if (!user) {     // If user does not exist, create a new user
+			console.log('Creating new user in the database:', googleUser.email);
+			const result = await dbRun(
+				'INSERT INTO "users" (google_id, email, name, token) VALUES (?, ?, ?, ?)',
+				[googleUser.id, googleUser.email, googleUser.name, token.access_token]
+			);
+			user = await dbGet('SELECT * FROM "users" WHERE id = ?', [result.lastID]);
+		} else {
+			await dbRun('UPDATE "users" SET token = ?, google_id = ? WHERE id = ?', [token.access_token, googleUser.id, user.id]);
+			user = await dbGet('SELECT * FROM "users" WHERE id = ?', [user.id]);
+		}
 
         if (!user) {
             throw new Error('User not found after creation/update');

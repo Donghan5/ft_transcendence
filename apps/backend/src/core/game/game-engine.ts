@@ -1,6 +1,7 @@
 import { WebSocket } from 'ws';
 import { GameState } from '@trans/common-types';
 import * as gameLogics from './logic';
+import { dbRun } from '../../database/helpers';
 
 class Enhanced3DPongGame {
 	private games = new Map<string, GameState>();
@@ -148,7 +149,7 @@ class Enhanced3DPongGame {
 		gameLoop();
 	}
 
-	public endGame(gameId: string): void {
+	public async endGame(gameId: string): Promise<void> {
 		const loop = this.gameLoops.get(gameId);
 		if (loop) {
 			clearTimeout(loop);
@@ -157,6 +158,39 @@ class Enhanced3DPongGame {
 
 		const game = this.games.get(gameId);
 		const players = this.connectedPlayers.get(gameId);
+
+		if (game) {
+			game.status = 'finished';
+			const winnerId = game.player1.score > game.player2.score ? game.player1Id : game.player2Id;
+			const winnerKey = game.player1Id === winnerId ? 'player1' : 'player2';
+			const loserKey = winnerKey === 'player1' ? 'player2' : 'player1';
+
+			try {
+				const isP1User = !isNaN(parseInt(game.player1Id, 10));
+				const isP2User = !isNaN(parseInt(game.player2Id, 10));
+
+				if (isP1User || isP2User) {
+					await dbRun(
+						`INSERT INTO games (game_id, player1_id, player2_id, player1_score, player2_score, winner_id, game_type, finished_at)
+						VALUES (?, ?, ?, ?, ?, ?, ?)`,
+						[
+							game.gameId,
+							isP1User ? game.player1Id : null,
+							isP2User ? game.player2Id : null,
+							game[winnerKey].score,
+							game[loserKey].score,
+							winnerId,
+							game.player2Id === 'AI' ? 'AI' : 'PVP',
+							new Date().toISOString()
+						]
+					);
+					console.log(`[DB] Game ${gameId} result saved,`)
+				}
+			} catch (error) {
+				console.error(`Error saving game result for ${gameId}:`, error);
+			}
+		}
+
 		if (game && players) {
 			const message = JSON.stringify({ type: 'gameEnd', winner: game.player1.score > game.player2.score ? game.player1Id : game.player2Id });
 			players.forEach((ws) => {

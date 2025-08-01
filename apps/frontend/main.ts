@@ -39,16 +39,15 @@ function setupEventListeners() {
 			handleGameStart('ai')
 		})
 	}
+	// const profileButton = document.getElementById('profileBtn');
+    // if (profileButton) {
+    //     profileButton.addEventListener('click', showProfileScreen);
+    // }
 
-	const profileButton = document.getElementById('profileBtn');
-    if (profileButton) {
-        profileButton.addEventListener('click', showProfileScreen);
-    }
-
-	const returnToMenuButton = document.getElementById('profileReturnBtn')
-	if (returnToMenuButton) {
-		returnToMenuButton.addEventListener('click', returnToMainMenu);
-	}
+	// const returnToMenuButton = document.getElementById('profileReturnBtn')
+	// if (returnToMenuButton) {
+	// 	returnToMenuButton.addEventListener('click', returnToMainMenu);
+	// }
 
 	const logoutButton = document.getElementById('logoutBtn')
 	if (logoutButton) {
@@ -58,14 +57,28 @@ function setupEventListeners() {
 		})
 	}
 
+	const profileWidgetBtn = document.getElementById('profileWidgetBtn');
+    const profileDropdown = document.getElementById('profileDropdown');
+    profileWidgetBtn?.addEventListener('click', () => {
+        profileDropdown?.classList.toggle('hidden');
+    });
+
+    document.getElementById('dropdownProfileBtn')?.addEventListener('click', showProfileScreen);
+    document.getElementById('dropdownFriendsBtn')?.addEventListener('click', showFriendsScreen);
+    document.getElementById('dropdownLogoutBtn')?.addEventListener('click', () => {
+        window.location.href = '/api/auth/logout';
+    });
+
+	document.getElementById('profileReturnBtn')?.addEventListener('click', returnToMainMenu);
+	document.getElementById('friendsReturnBtn')?.addEventListener('click', returnToMainMenu);
 }
 
 /**
  * @param sectionId - The ID of the section to show
  * @description Show a specific section by ID and hide others
  */
-function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup') {
-    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection'];
+function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends') {
+    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection'];
     sections.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -120,20 +133,52 @@ function showLoginScreen(){
 function showAppScreen(user: any) {
 	currentUser = user;
 	showSection('hero');
-	// document.getElementById('loginSection')?.classList.add('hidden');
-	// document.getElementById('appSection')?.classList.remove('hidden');
 
-	// console.log('User logged in:', user);
-	// 	setupEventListeners();
+	const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
+	const widgetNickname = document.getElementById('widgetNickname') as HTMLSpanElement;
+	if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
+	if (widgetNickname) widgetNickname.textContent = user.nickname || user.name;
+}
 
-	// // ???
-	// const logoutButton = document.getElementById('logoutBtn');
-	// if (logoutButton) {
-	// 	logoutButton.addEventListener('click', () => {
-	// 		window.location.href = '/api/auth/logout';
-	// 		console.log('Logout action needed');
-	// 	});
-	// }
+/**
+ * @description Show friends screen
+ */
+async function showFriendsScreen() {
+	showSection('friends');
+
+	const friendsContent = document.getElementById('friendsContent');
+	if (!friendsContent) return;
+
+	friendsContent.innerHTML = '<p>Loading friends...</p>';
+
+	try {
+		const response = await fetch('/api/user/friends/all', {
+			credentials: 'include'
+		});
+		if (!response.ok) {
+			throw new Error('Failed to fetch friends');
+		}
+
+		const data = await response.json();
+
+		friendsContent.innerHTML = `
+			<h2 class="text-3xl font-bold text-neon-pink mb-4">Friends</h2>
+			<ul class="space-y-2">
+				${data.friends.map((friend: any) => `
+					<li class="bg-gray-800 p-3 rounded-lg flex justify-between items-center">
+						<div>
+							<p class="font-bold">${friend.nickname}</p>
+						</div>
+					</li>
+				`).join('') || '<li>No friends found.</li>'}
+			</ul>
+		`;
+
+	} catch (error) {
+		friendsContent.innerHTML = `
+			<p class="text-red-500">Failed to load friends. Please try it later</p>`;
+		console.error('Error loading friends:', error);
+	}
 }
 
 /**
@@ -162,7 +207,7 @@ async function showProfileScreen() {
         <p class="text-gray-400 mb-6">${data.user.email}</p>
 
         <div id="avatarSection" class="flex items-center space-x-4 mb-6">
-            <img id="profileAvatar" src="${data.user.avatarUrl || '/default-avatar.png'}" alt="User Avatar" class="w-24 h-24 rounded-full border-2 border-neon-cyan shadow-lg">
+            <img id="profileAvatar" src="${data.user.avatar_url || '/default-avatar.png'}" alt="User Avatar" class="w-24 h-24 rounded-full border-2 border-neon-cyan shadow-lg">
             <div>
                 <h3 class="text-xl font-bold text-neon-cyan">Avatar</h3>
                 <p class="text-gray-300">Upload a new avatar image.</p>
@@ -176,29 +221,27 @@ async function showProfileScreen() {
         </div>
 
         <div class="grid md:grid-cols-2 gap-6">
-            <div>
-                <h3 class="text-xl font-semibold text-neon-cyan mb-3">Game History</h3>
-                <ul class="space-y-2">
-                    ${data.gameHistory.map((game: any) => `
-                        <li class="bg-gray-800 p-2 rounded">
-                            Game ${game.id}: ${game.player1_score} - ${game.player2_score}
-                            <span class="font-bold ${game.winner_id === data.user.id ? 'text-green-400' : 'text-red-400'}">
-                                ${game.winner_id === data.user.id ? 'Win' : 'Loss'}
-                            </span>
-                        </li>
-                    `).join('') || '<li>No games played yet.</li>'}
-                </ul>
+                <div>
+                    <h3 class="text-xl font-semibold text-neon-cyan mb-3">Game History</h3>
+                    <ul class="space-y-2">
+                        ${data.gameHistory.map((game: any) => `
+                            <li class="bg-gray-800 p-3 rounded-lg flex justify-between items-center">
+                                <div>
+                                    <p class="font-bold">vs ${game.opponent_nickname} <span class="text-xs text-gray-400">(${game.game_type})</span></p>
+                                    <p class="text-sm text-gray-300">${new Date(game.finished_at).toLocaleString()}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="font-mono text-lg">${game.player1_score} - ${game.player2_score}</p>
+                                    <span class="font-bold ${game.result === 'Win' ? 'text-green-400' : 'text-red-400'}">
+                                        ${game.result}
+                                    </span>
+                                </div>
+                            </li>
+                        `).join('') || '<li>No games played yet.</li>'}
+                    </ul>
+                </div>
             </div>
-            <div>
-                <h3 class="text-xl font-semibold text-neon-cyan mb-3">Friends</h3>
-                 <ul class="space-y-2">
-                    ${data.friends.map((friend: any) => `
-                        <li class="bg-gray-800 p-2 rounded">${friend.name}</li>
-                    `).join('') || '<li>No friends yet.</li>'}
-                </ul>
-            </div>
-        </div>
-    	`;
+        `;
 
 		attachAvatarFormListener();
 

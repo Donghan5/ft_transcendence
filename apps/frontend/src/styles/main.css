@@ -1,4 +1,4 @@
-@keyframes glow {
+/* @keyframes glow {
     from {
         text-shadow: 0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff;
     }
@@ -298,4 +298,48 @@ input:focus {
     outline: none;
     border-color: #00ffff;
     box-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+} */
+
+
+body {
+    background-color: #008080;
+    font-family: 'MS Sans Serif', 'Tahoma', 'Verdana', sans-serif; /* 윈도우 기본 폰트 */
+    color: #000;
+}
+
+.win98-window {
+    background: #c0c0c0;
+    border: 2px solid;
+    border-top-color: #ffffff;
+    border-left-color: #ffffff;
+    border-right-color: #404040;
+    border-bottom-color: #404040;
+    box-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.win98-titlebar {
+    background: linear-gradient(to right, #000080, #1084d0); /* 파란색 그라데이션 타이틀바 */
+    color: white;
+    padding: 2px 4px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.win98-button {
+    background: #c0c0c0;
+    border: 2px solid;
+    border-top-color: #ffffff;
+    border-left-color: #ffffff;
+    border-right-color: #404040;
+    border-bottom-color: #404040;
+    padding: 5px 10px;
+}
+
+.win98-button:active {
+    border-top-color: #404040;
+    border-left-color: #404040;
+    border-right-color: #ffffff;
+    border-bottom-color: #ffffff;
 }

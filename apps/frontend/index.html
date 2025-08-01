@@ -54,19 +54,16 @@
 						</h1>
 					</div>
 
-					<div class="hidden md:block">
-						<div class="ml-10 flex items-baseline space-x-4">
-							<button id="logoutBtn" class="bg-gradient-to-r from-neon-cyan to-neon-blue px-4 py-2 rounded-md text-sm font-medium hover:shadow-lg hover:shadow-neon-cyan/50 transition-all duration-300">
-								Logout
-							</button>
-						</div>
-					</div>
-
-					<div class="hidden md:block">
-						<div class="ml-10 flex items-baseline space-x-4">
-							<button id="profileBtn" class="text-gray-300 hover:text-white transition-colors duration-300">
-								Profile
-							</button>
+					<div class="relative">
+						<button id="profileWidgetBtn" class="flex items-center space-x-2">
+							<img id="widgetAvatar" src="/default-avatar.png" alt="User Avatar" class="w-10 h-10 rounded-full border-2 border-neon-cyan shadow-lg shadow-neon-cyan/30">
+							<span id="widgetNickname" class="text-lg font-medium text-neon-cyan">Player</span>
+						</button>
+						<div id="profileDropdown" class="hidden absolute right-0 mt-2 w-48 bg-gray-800 rounded-md border-2 border-neon-cyan">
+							<a href="#" id="dropdownProfileBtn" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">Profile</a>
+							<a href="#" id="dropdownFriendsBtn" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">Friends</a>
+							<hr class="border-gray-600 my-1">
+							<a href="#" id="dropdownLogoutBtn" class="block px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-white">Logout</a>
 						</div>
 					</div>
 
@@ -81,7 +78,7 @@
 			</div>
 		</nav>
 		<main class="flex-1">
-			<section id="heroSection" class="relative py-20 px-4 text-center">
+			<section id="heroSection" class="py-20 px-4 text-center">
 				<div class="max-w-4xl mx-auto">
 					<h2 class="text-6xl md:text-8xl font-bold mb-6 bg-gradient-to-r from-neon-cyan via-neon-pink to-yellow-400 bg-clip-text text-transparent animate-pulse">
 						PONG 3D
@@ -133,6 +130,17 @@
 							<button type="submit" class="w-full py-2 px-4 bg-gradient-to-r from-neon-cyan to-neon-blue rounded-md hover:shadow-lg hover:shadow-neon-cyan/50 transition-all duration-300">Save and Continue</button>
 						</div>
 					</form>
+				</div>
+			</section>
+
+			<section id="friendsSection" class="hidden p-8">
+				<div class="max-w-4xl mx-auto bg-gray-900/50 p-6 rounded-lg border border-neon-pink">
+					<button id="friendsReturnBtn" class="mb-6 text-neon-cyan hover:underline">&lt; Return to Main Menu</button>
+					<div id="friendsContent">
+						<h3 class="text-2xl font-bold mb-4 text-center text-neon-cyan">Friends List</h3>
+						<ul id="friendsList" class="space-y-2">
+						</ul>
+					</div>
 				</div>
 			</section>
 
