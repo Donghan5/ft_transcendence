@@ -16,7 +16,7 @@
             from { transform: scale(0.85) rotate(-4deg); opacity: 0; }
             to { transform: scale(1) rotate(0deg); opacity: 1; }
         }
-        
+
         .animate-pop { animation: popIn 0.5s cubic-bezier(0.68, -0.6, 0.32, 1.6) both; }
 
         .hover-anarchy {
@@ -33,9 +33,9 @@
         .border-thick { border: 4px solid #000; }
         .text-outline-black { text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000; }
 
-        body { 
-            -ms-overflow-style: none; 
-            scrollbar-width: none; 
+        body {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
             background-color: #ec4899;
         }
         body::-webkit-scrollbar { display: none; }
@@ -53,7 +53,7 @@
             </button>
         </div>
     </main>
-    
+
     <div id="appSection" class="hidden bg-blue-400 min-h-screen flex flex-col">
         <!-- FIX: Increased nav padding (`px-8`) and reduced element sizes -->
         <nav class="bg-yellow-300 border-b-4 border-black">
@@ -75,7 +75,7 @@
 				</div>
 			</div>
 		</nav>
-        
+
         <main class="flex-1 py-8 px-4">
             <section id="heroSection">
                 <div class="max-w-4xl mx-auto text-center">
@@ -121,12 +121,38 @@
 
             <section id="friendsSection" class="hidden max-w-4xl mx-auto animate-pop">
                 <button id="friendsReturnBtn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
-                <div class="bg-pink-500 p-5 border-thick shadow-sharp">
-                    <h3 class="text-5xl text-white text-outline-black text-center mb-4">FRIENDS LIST</h3>
-                    <ul id="friendsList" class="space-y-2 font-teko text-2xl uppercase">
-                        <li class="bg-white p-3 border-thick">Loading...</li>
-                    </ul>
-                </div>
+
+				<div class="bg-yellow-300 p-5 border-thick shadow-sharp text-white">
+					<h3 class="text-4xl text-outline-black text-center mb-4">ADD FRIEND</h3>
+					<form id="addFriendForm" class="flex items-center gap-2">
+						<input type="text" id="friendNicknameInput" class="w-full p-3 text-2xl uppercase text-center border-thick" placeholder="Enter Nickname" required>
+						<button type="submit" class="bg-pink-500 text-white px-6 py-3 text-2xl uppercase border-thick shadow-sharp hover-anarchy">ADD</button>
+					</form>
+					<p id="addFriendStatus" class="text-center mt-2 font-teko text-xl"></p>
+				</div>
+
+				<div class="bg-pink-500 p-5 border-thick shadow-sharp text-white">
+					<div>
+						<h3 class="text-4xl text-outline-black text-center mb-4">FRIEND REQUESTS</h3>
+						<ul id="receivedRequestsList" class="space-y-2 font-teko text-2xl uppercase">
+							</ul>
+					</div>
+
+					<hr class="border-black my-6 border-2">
+
+					<div>
+						<h3 class="text-4xl text-outline-black text-center mb-4">FRIENDS LIST</h3>
+						<ul id="friendsList" class="space-y-2 font-teko text-2xl uppercase">
+							</ul>
+					</div>
+
+					<hr class="border-black my-6 border-2">
+
+					<div>
+						<h3 class="text-4xl text-outline-black text-center mb-4">SENT REQUESTS</h3>
+						<ul id="sentRequestsList" class="space-y-2 font-teko text-2xl uppercase">
+							</ul>
+					</div>
             </section>
 
             <section id="gameSection" class="hidden">

@@ -30,6 +30,7 @@ export function initState(gameId: string): GameState {
         ball: createInitialBallState(),
         status: 'waiting',
         lastUpdate: Date.now(),
+        gameMode: '',
     };
 }
 

@@ -25,9 +25,11 @@ export interface GameState {
   gameId: string;
   player1Id: string;
   player2Id: string;
-  status: 'waiting' | 'playing' | 'finished';
+  status: 'waiting' | 'countdown' | 'playing' | 'finished';
   lastUpdate: number;
   aiLevel?: 'EASY' | 'MIDDLE' | 'HARD';
+  countdownValue?: number;
+  gameMode: string;
 }
 
 export interface GameDTO {

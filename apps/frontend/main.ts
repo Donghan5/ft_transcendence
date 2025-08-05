@@ -144,41 +144,131 @@ function showAppScreen(user: any) {
  * @description Show friends screen
  */
 async function showFriendsScreen() {
-	showSection('friends');
+    showSection('friends');
 
-	const friendsContent = document.getElementById('friendsContent');
-	if (!friendsContent) return;
+    const friendsListEl = document.getElementById('friendsList');
+    const receivedRequestsListEl = document.getElementById('receivedRequestsList');
+    const sentRequestsListEl = document.getElementById('sentRequestsList');
+    const addFriendForm = document.getElementById('addFriendForm');
+    const friendNicknameInput = document.getElementById('friendNicknameInput') as HTMLInputElement;
+    const addFriendStatus = document.getElementById('addFriendStatus');
 
-	friendsContent.innerHTML = '<p>Loading friends...</p>';
+    if (!friendsListEl || !receivedRequestsListEl || !sentRequestsListEl || !addFriendForm || !addFriendStatus) return;
 
-	try {
-		const response = await fetch('/api/user/friends/all', {
-			credentials: 'include'
-		});
-		if (!response.ok) {
-			throw new Error('Failed to fetch friends');
-		}
+    // Function to render all lists
+    const renderFriendLists = async () => {
+        try {
+            const response = await fetch('/api/user/friends/all', { credentials: 'include' });
+            if (!response.ok) throw new Error('Failed to fetch friends data');
 
-		const data = await response.json();
+            const data = await response.json();
 
-		friendsContent.innerHTML = `
-			<h2 class="text-3xl font-bold text-neon-pink mb-4">Friends</h2>
-			<ul class="space-y-2">
-				${data.friends.map((friend: any) => `
-					<li class="bg-gray-800 p-3 rounded-lg flex justify-between items-center">
-						<div>
-							<p class="font-bold">${friend.nickname}</p>
-						</div>
-					</li>
-				`).join('') || '<li>No friends found.</li>'}
-			</ul>
-		`;
+            // Render Friends List
+            friendsListEl.innerHTML = data.friends.map((friend: any) => `
+                <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+                    <span>${friend.nickname}</span>
+                    <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
+                </li>
+            `).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
 
-	} catch (error) {
-		friendsContent.innerHTML = `
-			<p class="text-red-500">Failed to load friends. Please try it later</p>`;
-		console.error('Error loading friends:', error);
-	}
+            // Render Received Requests
+            receivedRequestsListEl.innerHTML = data.receivedRequests.map((req: any) => `
+                <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+                    <span>${req.nickname}</span>
+                    <div>
+                        <button data-request-id="${req.id}" class="accept-friend-btn bg-green-500 text-white px-3 py-1 text-lg hover-anarchy mr-2">ACCEPT</button>
+                        <button data-request-id="${req.id}" class="reject-friend-btn bg-gray-500 text-white px-3 py-1 text-lg hover-anarchy">REJECT</button>
+                    </div>
+                </li>
+            `).join('') || '<li class="bg-white p-3 border-thick text-black">No new friend requests.</li>';
+
+            // Render Sent Requests
+            sentRequestsListEl.innerHTML = data.sentRequests.map((req: any) => `
+                 <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+                    <span>${req.nickname}</span>
+                    <span class="text-gray-500">Pending</span>
+                </li>
+            `).join('') || '<li class="bg-white p-3 border-thick text-black">No sent requests.</li>';
+
+            attachFriendActionListeners();
+
+        } catch (error) {
+            console.error('Error loading friends screen:', error);
+            friendsListEl.innerHTML = '<li class="text-red-400">Failed to load data.</li>';
+        }
+    };
+
+    // Function to attach event listeners to buttons
+    const attachFriendActionListeners = () => {
+        document.querySelectorAll('.accept-friend-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const requestId = (e.target as HTMLElement).dataset.requestId;
+                await handleFriendAction('/api/user/friends/accept', 'PUT', { requestId });
+            });
+        });
+        document.querySelectorAll('.reject-friend-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const requestId = (e.target as HTMLElement).dataset.requestId;
+                await handleFriendAction('/api/user/friends/reject', 'PUT', { requestId });
+            });
+        });
+        document.querySelectorAll('.remove-friend-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const friendId = (e.target as HTMLElement).dataset.friendId;
+                await handleFriendAction(`/api/user/friends/${friendId}`, 'DELETE');
+            });
+        });
+    };
+
+    // Generic handler for friend actions
+    const handleFriendAction = async (url: string, method: string, body?: object) => {
+        try {
+            const response = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json', },
+                body: body ? JSON.stringify(body) : undefined,
+                credentials: 'include'
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Action failed');
+
+            // Re-render lists to show changes
+            await renderFriendLists();
+
+        } catch (error) {
+            console.error(`Failed to ${method} ${url}:`, error);
+            alert(`Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`);
+        }
+    };
+
+    // Handler for submitting the "add friend" form
+    addFriendForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const friendNickname = friendNicknameInput.value.trim();
+        if (!friendNickname) return;
+
+        addFriendStatus.textContent = 'Sending...';
+        try {
+            const response = await fetch('/api/user/friends/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ friendNickname }),
+                credentials: 'include'
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to send request');
+            }
+            addFriendStatus.textContent = 'Friend request sent!';
+            friendNicknameInput.value = '';
+            await renderFriendLists(); // Refresh lists
+        } catch (error) {
+            addFriendStatus.textContent = `Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`;
+        }
+    };
+
+    // Initial render
+    await renderFriendLists();
 }
 
 /**
@@ -458,6 +548,8 @@ function startGame(gameId: string, playerId: string, gameMode: string) {
 
 	if (currentGame) {
 		console.log('Game initialized successfully')
+		const canvas = document.getElementById('game-canvas');
+		if (canvas) canvas.focus();
 		updateConnectionStatus('connected')
 	} else {
 		console.error('Failed to initialize game')

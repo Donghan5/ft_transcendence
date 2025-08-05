@@ -70,6 +70,12 @@ export class PongGame3D {
             this.state = newState;
             this.lastStateTimestamp = Date.now();
 
+			if (newState.status === 'countdown') {
+				this.updateCountDownDisplay(newState.countdownValue);
+			} else {
+				this.hideCountDownDisplay();
+			}
+
             if (this.previousState && (this.previousState.player1.score !== newState.player1.score || this.previousState.player2.score !== newState.player2.score)) {
                 this.updateScoreDisplay();
                 this.onScoreUpdate();
@@ -86,6 +92,36 @@ export class PongGame3D {
         });
     }
 
+	/**
+	 * @description Update the countdown display
+	 * @param count
+	 */
+	private updateCountDownDisplay(count: number | undefined): void {
+		const countdownDisplay = document.getElementById('countdown-display');
+		if (countdownDisplay) {
+			countdownDisplay.style.display = 'block';
+			if (count !== undefined && count > 0) {
+				countdownDisplay.textContent = count.toString();
+			} else if (count === 0) {
+				countdownDisplay.textContent = 'GO!';
+			}
+		}
+	}
+
+	/**
+	 * @description Hide the countdown display
+	 */
+	private hideCountDownDisplay(): void {
+		const countdownDisplay = document.getElementById('countdown-display');
+		if (countdownDisplay) {
+			countdownDisplay.style.display = 'none';
+		}
+	}
+
+	/**
+	 * @description Interpolate positions for smoother rendering
+	 * @returns void
+	 */
     private interpolatePositions(): void {
         if (!this.state || !this.previousState) return;
 
@@ -250,25 +286,6 @@ export class PongGame3D {
 			modal.classList.remove('hidden');
 
 			const returnToMenuHandler = () => {
-				// const heroSection = document.getElementById('heroSection');
-				// if (heroSection) {
-				// 	heroSection.style.display = 'block';
-				// }
-
-				// const gameSection = document.getElementById('gameSection');
-				// if (gameSection) {
-				// 	gameSection.style.display = 'none';
-				// }
-
-				// const appSection = document.getElementById('appSection');
-				// if (appSection) {
-				// 	appSection.style.display = 'block';
-				// }
-
-				// modal.classList.add('hidden');
-				// if (this) {
-				// 	this.dispose();
-				// }
 				returnToMainMenu();
 				console.log('Returned to main menu from game over modal');
 			};

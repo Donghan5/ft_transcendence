@@ -7,7 +7,11 @@ class Enhanced3DPongGame {
 	private games = new Map<string, GameState>();
 	private gameLoops = new Map<string, NodeJS.Timeout>();
 	private connectedPlayers = new Map<string, Map<string, WebSocket>>();
+	public waitingPlayer: { playerId: string } | null = null;
 
+	/***
+	 * Constructor for the Enhanced 3D Pong Game Engine
+	 */
 	constructor() {
 		console.log('Enhanced 3D Pong Game Engine Initialized');
 	}
@@ -35,7 +39,7 @@ class Enhanced3DPongGame {
 	 * @param player2Id - ID of player 2
 	 * @return gameId - ID of the created game
 	 */
-	public createGame(player1Id: string, player2Id: string, aiLevel?: 'EASY' | 'MIDDLE' | 'HARD'): string {
+	public createGame(player1Id: string, player2Id: string, gameMode: string, aiLevel?: 'EASY' | 'MIDDLE' | 'HARD'): string {
 		const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 		const initialState = gameLogics.initState(gameId);
 
@@ -50,14 +54,15 @@ class Enhanced3DPongGame {
 				velocity: { x: 0.5, y: 0, z: (Math.random() - 0.5) * 0.3 },
 			},
 			gameId,
-			status: 'playing',
+			status: 'waiting',
 			lastUpdate: Date.now(),
-			aiLevel: aiLevel
+			gameMode: gameMode,
+			aiLevel: aiLevel,
 		};
 
 		this.games.set(gameId, gameState);
 		this.connectedPlayers.set(gameId, new Map());
-		this.startGameLoop(gameId);
+		// this.startGameLoop(gameId);
 		return gameId;
 	}
 
@@ -75,6 +80,11 @@ class Enhanced3DPongGame {
 			players.set(playerId, ws);
 			console.log(`Player ${playerId} joined game ${gameId}`);
 
+			const isReadyToStart = (game.player2Id !== 'AI' && players.size === 2) || (game.player2Id === 'AI' && players.size === 1) || (game.gameMode === 'LOCAL_PVP');
+			if (isReadyToStart && game.status === 'waiting') {
+				this.startCountdown(gameId);
+			}
+
 			if (ws.readyState === WebSocket.OPEN) {
 				const message = JSON.stringify({
 					type: 'gameState',
@@ -87,6 +97,34 @@ class Enhanced3DPongGame {
 			}
 		}
 	}
+
+	/**
+	 * @description Start the countdown for the game
+	 * @param gameId - The ID of the game
+	 * @returns
+	 */
+	public startCountdown(gameId: string): void {
+        const game = this.games.get(gameId);
+        if (!game || game.status !== 'waiting') return;
+
+        game.status = 'countdown';
+        let count = 3;
+        game.countdownValue = count;
+
+        const countdownInterval = setInterval(() => {
+            gameLogics.broadcastGameState(gameId);
+            count--;
+            game.countdownValue = count;
+
+            if (count < 0) {
+                clearInterval(countdownInterval);
+                game.status = 'playing';
+                delete game.countdownValue;
+                gameLogics.broadcastGameState(gameId);
+                this.startGameLoop(gameId);
+            }
+        }, 1000);
+    }
 
 	/**
 	 * Remove a player from the game

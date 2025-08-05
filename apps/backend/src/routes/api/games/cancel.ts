@@ -1,4 +1,6 @@
 // this file is to cancel the game -- not fully implemented yet (I don't know how to use this API)
+// for the tournement mode, when player cancels game, like esc, exit the game
+
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { GameStatus } from '@trans/common-types';
 
@@ -32,7 +34,6 @@ export default async function (app: FastifyInstance) {
 				.set({ status: 'CANCELLED' satisfies GameStatus})
 				.where('id', '=', gameId)
 				.execute();
-
 
 			return { ok: true };
 		}

@@ -30,12 +30,24 @@ export default async function createGameRoute(fastify: FastifyInstance) {
 
 		switch (gameMode) {
 			case 'LOCAL_PVP':
+				gameId = gameEngine.createGame(player1Id, player2Id || 'player2', 'LOCAL_PVP');
+				break;
 			case 'AI':
-				gameId = gameEngine.createGame(player1Id, player2Id || 'AI' , aiLevel);
+				gameId = gameEngine.createGame(player1Id, player2Id || 'AI' , 'AI', aiLevel);
 				break;
 			case 'PVP':
-				// TODO : Real matchmaking logic will be implemented later
-				gameId = gameEngine.createGame(player1Id, 'WaitingForPlayer');
+				if (gameEngine.waitingPlayer) {
+					const player2 = gameEngine.waitingPlayer.playerId;
+					gameId = gameEngine.createGame(player1Id, player2, 'PVP');
+					gameEngine.waitingPlayer = null; // Clear the waiting player after pairing
+				}
+				else {
+					gameEngine.waitingPlayer = { playerId: player1Id };
+					return reply.code(200).send({
+						success: true,
+						message: 'Waiting for another player to join...',
+					});
+				}
 				break;
 			default:
 				return reply.code(400).send({

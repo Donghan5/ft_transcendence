@@ -14,7 +14,8 @@ export function initializeGame(
 
 	container.innerHTML = `
 		<div class="game-container">
-			<canvas id="game-canvas"></canvas>
+			<canvas id="game-canvas" tabindex="-1"></canvas>
+			 <div id="countdown-display" class="countdown-display"></div>
 			<div id="score-display-wrapper" class="score-wrapper">
                 <!-- FIX: Added id="score-display" back to the span -->
                 <span id="score-display" class="score-display font-anton text-extrude" data-text="0 - 0">0 - 0</span>
@@ -29,11 +30,11 @@ export function initializeGame(
 			.game-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #000; }
 			#game-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
-            .text-extrude { 
-                position: relative; 
+            .text-extrude {
+                position: relative;
                 color: white;
-                text-shadow: 
-                    -1px -1px 0 #000, 1px -1px 0 #000, 
+                text-shadow:
+                    -1px -1px 0 #000, 1px -1px 0 #000,
                     -1px 1px 0 #000, 1px 1px 0 #000,
                     2px 2px 0 #000;
             }
@@ -57,7 +58,7 @@ export function initializeGame(
 				z-index: 1001;
                 user-select: none;
 			}
-            
+
             .score-display {
                 display: inline-block;
             }
@@ -76,9 +77,24 @@ export function initializeGame(
                 letter-spacing: 2px;
 				z-index: 1001;
 			}
+
+			 .countdown-display {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-family: 'Anton', sans-serif;
+                font-size: 15rem;
+                color: white;
+                text-shadow: 0 0 20px rgba(255, 255, 255, 0.7);
+                z-index: 1002;
+                display: none;
+                user-select: none;
+            }
+
 		</style>
 	`;
-    
+
     // This selector now works fine, as the class is still present.
     const scoreElement = container.querySelector('.score-display');
     if (scoreElement) {
