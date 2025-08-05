@@ -1,266 +1,206 @@
 import {
     Scene,
-	Vector3,
-	HemisphericLight,
-	ArcRotateCamera,
-	GlowLayer,
-	Color3,
+    Vector3,
+    Color3,
+	Color4,
+    Mesh,
     MeshBuilder,
-	StandardMaterial,
-	PointLight,
-	SpotLight,
-	TrailMesh,
-	ParticleSystem,
-	Color4
+    StandardMaterial,
+    ParticleSystem,
+    Texture,
+    ArcRotateCamera,
+    HemisphericLight,
+    CubeTexture,
+    TrailMesh
 } from '@babylonjs/core';
-
-import { GameState } from '@trans/common-types';
+import '@babylonjs/core/Rendering/outlineRenderer';
 
 export interface SceneObjects {
-    player1Paddle: any;
-    player2Paddle: any;
-    ball: any;
-    particleSystem: ParticleSystem;
+    player1Paddle: Mesh;
+    player2Paddle: Mesh;
+    ball: Mesh;
+    particleSystem: ParticleSystem; // This is the continuous smoke trail
+    spawnParticleSystem: ParticleSystem; // FIX: This is the one-shot spawn effect
 }
 
 export function createSceneAndGameObjects(scene: Scene, canvas: HTMLCanvasElement): SceneObjects {
-	setupScene(scene);
-    createArena(scene);
+    const light = new HemisphericLight("light1", new Vector3(0, 1, 0), scene);
+    light.intensity = 1.0;
+    light.groundColor = new Color3(0.5, 0.5, 0.5);
 
+    const skybox = MeshBuilder.CreateBox("skyBox", {size:1000.0}, scene);
+	const skyboxMaterial = new StandardMaterial("skyBox", scene);
+	skyboxMaterial.backFaceCulling = false;
+	skyboxMaterial.reflectionTexture = new CubeTexture("https://www.babylonjs-playground.com/textures/skybox", scene);
+	skyboxMaterial.reflectionTexture.coordinatesMode = Texture.SKYBOX_MODE;
+	skyboxMaterial.diffuseColor = new Color3(0, 0, 0);
+	skyboxMaterial.specularColor = new Color3(0, 0, 0);
+	skybox.material = skyboxMaterial;
+
+    createVisualBorders(scene);
     const gameObjects = createMovableObjects(scene);
-
-	setupLighting(scene, gameObjects);
     setupCamera(scene, canvas);
-
 
     return gameObjects;
 }
 
+function createVisualBorders(scene: Scene) {
+    const wallMat = new StandardMaterial('wallMat', scene);
+    wallMat.diffuseColor = new Color3(0.2, 0.2, 0.25);
+    wallMat.alpha = 0.5;
+    
+    const paddleDepth = 4;
+    const paddleMoveLimit = 12;
+    const borderOffset = paddleDepth / 2;
+    const borderZPosition = paddleMoveLimit + borderOffset;
 
-function setupScene(scene: Scene): void {
-	scene.fogMode = Scene.FOGMODE_EXP;
-	scene.fogColor = new Color3(0.02, 0.05, 0.05);
-	scene.fogDensity = 0.01;
+    const wallHeight = 1.5;
+    const wallThickness = 0.5;
+    const playfieldWidth = 28.0;
 
-	const glowLayer = new GlowLayer('glow', scene);
-	glowLayer.intensity = 0.5;
+    const topWall = MeshBuilder.CreateBox("topWall", { width: playfieldWidth, height: wallHeight, depth: wallThickness }, scene);
+    topWall.position = new Vector3(0, wallHeight / 2, borderZPosition);
+    topWall.material = wallMat;
+    topWall.renderOutline = true;
+    topWall.outlineWidth = 0.05;
+    topWall.outlineColor = Color3.Black();
+
+    const bottomWall = topWall.clone("bottomWall");
+    bottomWall.position.z = -borderZPosition;
 }
 
-function createArena(scene: Scene): void {
-	const arenaSize = { width: 30, height: 12, depth: 30 }
-
-	createImprovedGround(arenaSize, scene)
-
-	createNeonBorder(arenaSize, scene)
-
-	const centerLine = MeshBuilder.CreateBox('centerLine',
-		{ width: 0.15, height: 0.02, depth: arenaSize.depth },
-		scene
-	)
-	centerLine.position.y = 0.01
-
-	const centerLineMat = new StandardMaterial('centerLineMat', scene)
-	centerLineMat.diffuseColor = new Color3(0.2, 0.2, 0.5)
-	centerLine.material = centerLineMat
+function createBallTrail(scene: Scene, ball: Mesh): void {
+	const trail = new TrailMesh('ballTrail', ball, scene, 0.2, 30, true);
+	const trailMaterial = new StandardMaterial('trailMat', scene);
+	trailMaterial.emissiveColor = new Color3(1, 0.85, 0.1);
+	trailMaterial.disableLighting = true;
+	trailMaterial.alpha = 0.5;
+	trail.material = trailMaterial;
 }
 
-function createImprovedGround(arenaSize: { width: number, height: number, depth: number }, scene: Scene): void {
-	const ground = MeshBuilder.CreateGround('ground',
-		{ width: arenaSize.width, height: arenaSize.depth, subdivisions: 20 },
-		scene
-	)
+/**
+ * FIX: This function now uses a valid texture URL to prevent the 404 error.
+ * The "flare" texture creates the desired star-pop effect.
+ */
+function createSpawnParticleEffect(scene: Scene, emitter: Mesh): ParticleSystem {
+    const particleSystem = new ParticleSystem('spawnParticles', 500, scene);
+    
+    // FIX: Using a reliable "flare" texture from the BabylonJS playground assets.
+    // This resolves the "404 Not Found" error for star.png.
+    particleSystem.particleTexture = new Texture("https://playground.babylonjs.com/textures/flare.png", scene);
+    
+    particleSystem.emitter = emitter;
 
-	const groundMat = new StandardMaterial('groundMat', scene)
-	groundMat.diffuseColor = new Color3(0, 0, 1)
-	ground.material = groundMat
+    // Make the effect very quick and poppy
+    particleSystem.minLifeTime = 0.2;
+    particleSystem.maxLifeTime = 0.5;
 
-	createGridLines(arenaSize, scene)
-}
+    // Vibrant "comix" colors: Yellow, Pink, and Cyan
+    particleSystem.color1 = new Color4(1, 0.85, 0.1, 1.0); // Yellow
+    particleSystem.color2 = new Color4(0.85, 0.2, 0.4, 1.0); // Pink
+    particleSystem.colorDead = new Color4(0.1, 0.7, 0.8, 0.0); // Fade to transparent Cyan
+    
+    // Larger, more dramatic stars
+    particleSystem.minSize = 1.5;
+    particleSystem.maxSize = 3.0;
+    particleSystem.minScaleX = 0.5;
+    particleSystem.minScaleY = 1.5;
 
-function createGridLines(arenaSize: { width: number, height: number, depth: number }, scene: Scene): void {
-	const gridMat = new StandardMaterial('gridMat', scene);
-	gridMat.emissiveColor = new Color3(0, 0.3, 0.5);
-	gridMat.alpha = 0.6;
+    // Fast, spinning motion
+    particleSystem.minAngularSpeed = -Math.PI * 4;
+    particleSystem.maxAngularSpeed = Math.PI * 4;
 
-	for (let i = -4; i <= 4; i++) {
-		if (i === 0) continue
-		const line = MeshBuilder.CreateBox(`gridV${i}`,
-			{ width: 0.05, height: 0.01, depth: arenaSize.depth },
-			scene
-		)
-		line.position.x = i * 2.5
-		line.position.y = 0.005
-		line.material = gridMat
-	}
+    // This creates a single, powerful burst of 200 particles.
+    particleSystem.manualEmitCount = 200;
+    particleSystem.maxEmitPower = 15;
+    particleSystem.minEmitPower = 8;
+    
+    // Use additive blending for a bright, glowing effect
+    particleSystem.blendMode = ParticleSystem.BLENDMODE_ADD;
 
-	for (let i = -7; i <= 7; i++) {
-		const line = MeshBuilder.CreateBox(`gridH${i}`,
-			{ width: arenaSize.width, height: 0.01, depth: 0.05 },
-			scene
-		)
-		line.position.z = i * 2
-		line.position.y = 0.005
-		line.material = gridMat
-	}
-}
+    // Ensure particles shoot outwards, not downwards
+    particleSystem.gravity = new Vector3(0, 0, 0);
+    
+    // Emit in all directions from a single point
+    particleSystem.createSphereEmitter(1.2);
 
-function createNeonBorder(arenaSize: { width: number, height: number, depth: number }, scene: Scene): void {
-	const borderMat = new StandardMaterial('borderMat', scene);
-	borderMat.diffuseColor = new Color3(0, 0, 1);
+    // The system should not start on its own.
+    particleSystem.stop();
 
-	const wallHeight = 0.8;
-	const wallThickness = 0.2;
-
-	const topWall = MeshBuilder.CreateBox('topWall',
-		{ width: arenaSize.width, height: wallHeight, depth: wallThickness },
-		scene
-	)
-	topWall.position.z = arenaSize.depth / 2 + wallThickness/2
-	topWall.position.y = wallHeight/2
-	topWall.material = borderMat
-
-	const bottomWall = MeshBuilder.CreateBox('bottomWall',
-		{ width: arenaSize.width, height: wallHeight, depth: wallThickness },
-		scene
-	)
-	bottomWall.position.z = -arenaSize.depth / 2 - wallThickness/2
-	bottomWall.position.y = wallHeight/2
-	bottomWall.material = borderMat
-
-	const leftWall = MeshBuilder.CreateBox('leftWall',
-		{ width: wallThickness + 1, height: wallHeight, depth: arenaSize.depth },
-		scene
-	)
-	leftWall.position.x = -arenaSize.width / 2 - wallThickness/2
-	leftWall.position.y = wallHeight/2
-	leftWall.material = borderMat
-
-	const rightWall = MeshBuilder.CreateBox('rightWall',
-		{ width: wallThickness + 1, height: wallHeight, depth: arenaSize.depth },
-		scene
-	)
-	rightWall.position.x = arenaSize.width / 2 + wallThickness/2
-	rightWall.position.y = wallHeight/2
-	rightWall.material = borderMat
-
-	createCornerConnectors(arenaSize, borderMat, wallHeight, wallThickness, scene)
-}
-
-function createCornerConnectors(arenaSize: { width: number, height: number, depth: number }, borderMat: any, wallHeight: number, wallThickness: number, scene: Scene): void {
-	const cornerSize = wallThickness * 1.5
-
-	const corners = [
-		{ x: -arenaSize.width/2, z: arenaSize.depth/2 },
-		{ x: arenaSize.width/2, z: arenaSize.depth/2 },
-		{ x: -arenaSize.width/2, z: -arenaSize.depth/2 },
-		{ x: arenaSize.width/2, z: -arenaSize.depth/2 }
-	]
-
-	corners.forEach((corner, index) => {
-		const connector = MeshBuilder.CreateBox(`corner${index}`,
-			{ width: cornerSize, height: wallHeight, depth: cornerSize },
-			scene
-		)
-		connector.position.x = corner.x
-		connector.position.z = corner.z
-		connector.position.y = wallHeight/2
-		connector.material = borderMat
-	})
+    return particleSystem;
 }
 
 function createMovableObjects(scene: Scene): SceneObjects {
-    const player1Paddle = MeshBuilder.CreateBox('player1Paddle', { width: 0.5, height: 0.5, depth: 4 }, scene);
-    player1Paddle.position = new Vector3(-12, 1.5, 0);
     const p1Mat = new StandardMaterial('p1Mat', scene);
-    p1Mat.diffuseColor = new Color3(0, 0, 1);
+    p1Mat.diffuseColor = new Color3(0.85, 0.2, 0.4);
+    const player1Paddle = MeshBuilder.CreateBox('p1Paddle', { width: 0.5, height: 1, depth: 4 }, scene);
+    player1Paddle.position = new Vector3(-12, 0.5, 0);
     player1Paddle.material = p1Mat;
+    player1Paddle.renderOutline = true;
+    player1Paddle.outlineWidth = 0.05;
+    player1Paddle.outlineColor = Color3.Black();
 
-    const player2Paddle = MeshBuilder.CreateBox('player2Paddle', { width: 0.5, height: 0.5, depth: 4 }, scene);
-    player2Paddle.position = new Vector3(12, 1.5, 0);
     const p2Mat = new StandardMaterial('p2Mat', scene);
-    p2Mat.diffuseColor = new Color3(1, 0, 0);
+    p2Mat.diffuseColor = new Color3(0.1, 0.7, 0.8);
+    const player2Paddle = MeshBuilder.CreateBox('p2Paddle', { width: 0.5, height: 1, depth: 4 }, scene);
+    player2Paddle.position = new Vector3(12, 0.5, 0);
     player2Paddle.material = p2Mat;
+    player2Paddle.renderOutline = true;
+    player2Paddle.outlineWidth = 0.05;
+    player2Paddle.outlineColor = Color3.Black();
 
-    const ball = MeshBuilder.CreateSphere('ball', { diameter: 1 }, scene);
-    ball.position = new Vector3(0, 0, 0);
     const ballMat = new StandardMaterial('ballMat', scene);
-    ballMat.diffuseColor = new Color3(1, 1, 1);
+    ballMat.diffuseColor = new Color3(1, 0.85, 0.1);
+    const ball = MeshBuilder.CreateSphere('ball', { diameter: 1, segments: 24 }, scene);
+    ball.position = new Vector3(0, 0.5, 0);
     ball.material = ballMat;
+    ball.renderOutline = true;
+    ball.outlineWidth = 0.05;
+    ball.outlineColor = Color3.Black();
 
     createBallTrail(scene, ball);
+    // This is the continuous "smoke" trail. It starts automatically.
     const particleSystem = createParticleEffects(scene, ball);
+    particleSystem.start(); // This is why you see smoke
 
-    return { player1Paddle, player2Paddle, ball, particleSystem };
+    // This is the new "star pop" spawn effect. It does NOT start automatically.
+    const spawnParticleSystem = createSpawnParticleEffect(scene, ball);
+
+    return { player1Paddle, player2Paddle, ball, particleSystem, spawnParticleSystem };
 }
 
-function createBallTrail(scene: Scene, ball: any): void {
-	if (TrailMesh) {
-		const trail = new TrailMesh('trail', ball, scene, 0.5, 30, true)
+function createParticleEffects(scene: Scene, emitter: Mesh): ParticleSystem {
+    const particleSystem = new ParticleSystem('particles', 1500, scene);
+    
+    // FIX: Changed texture from smoke.png to flare.png for a star/sparkle look
+    particleSystem.particleTexture = new Texture("https://playground.babylonjs.com/textures/flare.png", scene);
+    particleSystem.emitter = emitter;
+    
+    // FIX: Colors changed from grey smoke to a fiery, energetic yellow/orange
+    particleSystem.color1 = new Color4(1, 0.85, 0.1, 1.0); // Bright Yellow
+    particleSystem.color2 = new Color4(0.9, 0.4, 0.1, 1.0); // Fiery Orange
+    particleSystem.colorDead = new Color4(1, 0.8, 0.5, 0.0); // Fade to transparent
 
-		const trailMat = new StandardMaterial('trailMat', scene)
-		trailMat.emissiveColor = new Color3(1, 0.8, 0)
-		trailMat.alpha = 0.5
-		trail.material = trailMat
-	}
-}
+    // FIX: Smaller, more numerous particles to look like a trail of sparks
+    particleSystem.minSize = 0.1;
+    particleSystem.maxSize = 0.4;
+    particleSystem.minLifeTime = 0.2;
+    particleSystem.maxLifeTime = 0.5;
+    
+    // Increased rate for a denser trail
+    particleSystem.emitRate = 1000;
+    particleSystem.createSphereEmitter(0.4);
+    particleSystem.minEmitPower = 0.5;
+    particleSystem.maxEmitPower = 1.5;
+    particleSystem.updateSpeed = 0.007;
 
-function createParticleEffects(scene: Scene, ball: any): ParticleSystem {
-	const particleSystem = new ParticleSystem('particles', 2000, scene)
+    // FIX: Changed blend mode to ADD for a bright, glowing effect
+    particleSystem.blendMode = ParticleSystem.BLENDMODE_ADD;
+    
+    // FIX: Set gravity to zero to stop sparks from falling downwards
+    particleSystem.gravity = new Vector3(0, 0, 0);
 
-	particleSystem.emitter = ball
-	particleSystem.minEmitBox = new Vector3(-0.5, 0, -0.5)
-	particleSystem.maxEmitBox = new Vector3(0.5, 0, 0.5)
-
-	particleSystem.color1 = new Color4(1, 0.5, 0, 1)
-	particleSystem.color2 = new Color4(1, 0, 0, 1)
-	particleSystem.colorDead = new Color4(0, 0, 0, 0)
-
-	particleSystem.minSize = 0.1
-	particleSystem.maxSize = 0.3
-
-	particleSystem.minLifeTime = 0.3
-	particleSystem.maxLifeTime = 1.5
-
-	particleSystem.emitRate = 100
-
-	return particleSystem;
-}
-
-function setupLighting(scene: Scene, gameObjects: SceneObjects): void {
-	const ambientLight = new HemisphericLight('ambient',
-		new Vector3(0, 1, 0),
-		scene
-	)
-	ambientLight.intensity = 0.3
-	ambientLight.diffuse = new Color3(0.5, 0.5, 0.7)
-
-	const ballLight = new PointLight('ballLight',
-		gameObjects.ball.position,
-		scene
-	)
-	ballLight.intensity = 2
-	ballLight.diffuse = new Color3(1, 1, 0.5)
-	ballLight.parent = gameObjects.ball
-
-	const spot1 = new SpotLight('spot1',
-		new Vector3(10, 10, 0),
-		new Vector3(-1, -1, 0),
-		Math.PI / 3,
-		2,
-		scene
-	)
-	spot1.intensity = 0.5
-	spot1.diffuse = new Color3(0, 0.5, 1)
-
-	const spot2 = new SpotLight('spot2',
-		new Vector3(-10, 10, 0),
-		new Vector3(1, -1, 0),
-		Math.PI / 3,
-		2,
-		scene
-	)
-	spot2.intensity = 0.5
-	spot2.diffuse = new Color3(1, 0, 0.5)
+    return particleSystem;
 }
 
 function setupCamera(scene: Scene, canvas: HTMLCanvasElement): void {

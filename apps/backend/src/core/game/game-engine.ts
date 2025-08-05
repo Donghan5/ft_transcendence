@@ -1,5 +1,5 @@
 import { WebSocket } from 'ws';
-import { GameState } from '@trans/common-types';
+import { GameState, GameDTO } from '@trans/common-types';
 import * as gameLogics from './logic';
 import { dbRun } from '../../database/helpers';
 
@@ -172,7 +172,7 @@ class Enhanced3DPongGame {
 				if (isP1User || isP2User) {
 					await dbRun(
 						`INSERT INTO games (game_id, player1_id, player2_id, player1_score, player2_score, winner_id, game_type, finished_at)
-						VALUES (?, ?, ?, ?, ?, ?, ?)`,
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 						[
 							game.gameId,
 							isP1User ? game.player1Id : null,

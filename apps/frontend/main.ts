@@ -340,7 +340,6 @@ function showAiLevelSelectionUI(): Promise<string | null> {
 				resolve(target.getAttribute('data-level'));
 			} else if (target === cancelBtn) {
 				cleanup();
-				resolve(null);
 			}
 		}
 
@@ -492,6 +491,7 @@ function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnect
 
 document.addEventListener('keydown', (event) => {
 	if (event.key === 'Escape' && currentGame) {
+		returnToMainMenu();
 		console.log("ESC game")
 	}
 
@@ -526,6 +526,8 @@ function returnToMainMenu() {
 
 	console.log('Returned to main menu')
 }
+
+export { returnToMainMenu };
 
 /**
  * Check login status and update UI accordingly

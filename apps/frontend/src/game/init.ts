@@ -1,4 +1,4 @@
-// here is initialize game
+//init.ts
 import { PongGame3D } from './render'
 import { Vector3 } from '@babylonjs/core'
 import { initialBallVelocity } from '@trans/common-types'
@@ -15,87 +15,88 @@ export function initializeGame(
 	container.innerHTML = `
 		<div class="game-container">
 			<canvas id="game-canvas"></canvas>
-			<div id="score-display" class="score-display">0 - 0</div>
-			<div class="controls">
-				<p>To move the paddle, click the game screen.<br>Move the paddle with your w/s keyboard</p>
-			</div>
+			<div id="score-display-wrapper" class="score-wrapper">
+                <!-- FIX: Added id="score-display" back to the span -->
+                <span id="score-display" class="score-display font-anton text-extrude" data-text="0 - 0">0 - 0</span>
+            </div>
+			<div class="controls-display font-teko">W/S Keys   |   Arrow Keys</div>
 		</div>
 		<style>
-			* {
-				margin: 0;
-				padding: 0;
-				box-sizing: border-box;
-			}
+            @import url('https://fonts.googleapis.com/css2?family=Anton&family=Teko:wght@700&display=swap');
+            .font-anton { font-family: 'Anton', sans-serif; }
+            .font-teko { font-family: 'Teko', sans-serif; }
 
-			html, body {
-				width: 100%;
-				height: 100%;
-				overflow: hidden;
-			}
+			.game-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: #000; }
+			#game-canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
-			.game-container {
-				position: fixed;
-				top: 0;
-				left: 0;
-				width: 100vw;
-				height: 100vh;
-				background-color: #000;
-				overflow: hidden;
-				z-index: 1000;
-			}
+            .text-extrude { 
+                position: relative; 
+                color: white;
+                text-shadow: 
+                    -1px -1px 0 #000, 1px -1px 0 #000, 
+                    -1px 1px 0 #000, 1px 1px 0 #000,
+                    2px 2px 0 #000;
+            }
+            .text-extrude::before {
+                content: attr(data-text);
+                position: absolute;
+                top: 4px;
+                left: 0;
+                z-index: -1;
+                color: #ec4899;
+                text-shadow: none;
+            }
 
-			#game-canvas {
-				display: block;
-				width: 100%;
-				height: 100%;
-				touch-action: none;
-			}
-
-			.score-display {
+			.score-wrapper {
 				position: absolute;
-				top: 30px;
+				top: 15px;
 				left: 50%;
 				transform: translateX(-50%);
-				font-size: clamp(2rem, 5vw, 4rem);
-				font-weight: bold;
-				color: white;
-				text-shadow: 0 0 20px cyan, 0 0 40px cyan;
-				font-family: 'Orbitron', 'Courier New', monospace;
+				font-size: 5rem;
+				line-height: 1;
 				z-index: 1001;
+                user-select: none;
 			}
+            
+            .score-display {
+                display: inline-block;
+            }
 
-			.controls {
+			.controls-display {
 				position: absolute;
-				bottom: 30px;
+				bottom: 10px;
 				left: 50%;
 				transform: translateX(-50%);
 				color: white;
-				text-align: center;
-				font-family: 'Orbitron', 'Courier New', monospace;
-				text-shadow: 0 0 10px cyan;
-				font-size: clamp(0.8rem, 2vw, 1.2rem);
+                background-color: rgba(0,0,0,0.7);
+                padding: 6px 18px;
+                border-top: 3px solid #ec4899;
+				font-size: 1.25rem;
+                text-transform: uppercase;
+                letter-spacing: 2px;
 				z-index: 1001;
-			}
-
-			@media (max-width: 768px) {
-				.score-display {
-					top: 20px;
-					font-size: 2.5rem;
-				}
-
-				.controls {
-					bottom: 20px;
-					font-size: 0.9rem;
-				}
 			}
 		</style>
-	`
+	`;
+    
+    // This selector now works fine, as the class is still present.
+    const scoreElement = container.querySelector('.score-display');
+    if (scoreElement) {
+        const scoreObserver = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                if (mutation.target instanceof Element && mutation.target.textContent) {
+                    mutation.target.setAttribute('data-text', mutation.target.textContent);
+                }
+            });
+        });
+        scoreObserver.observe(scoreElement, { childList: true, characterData: true, subtree: true });
+    }
 
 	const canvasElement = document.getElementById('game-canvas');
 	if (!(canvasElement instanceof HTMLCanvasElement)) {
-		console.error('Canvas element not found or is not an HTMLCanvasElement');
+		console.error('Canvas element not found');
 		return null;
 	}
-	const canvas: HTMLCanvasElement = canvasElement;
-	return new PongGame3D(canvas, gameId, playerId, gameMode);
+    // Now, PongGame3D can successfully find the element using document.getElementById('score-display')
+	return new PongGame3D(canvasElement, gameId, playerId, gameMode);
 }

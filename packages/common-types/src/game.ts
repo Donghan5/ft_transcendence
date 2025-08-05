@@ -32,9 +32,9 @@ export interface GameState {
 
 export interface GameDTO {
   id: number;
-  mode: 'PVP' | 'AI';
+  mode: 'LOCAL_PVP' | 'PVP' | 'AI';
   status: GameStatus;
-  players: { id: number; score: number }[];
+  players: { id: number; nickname: string; score: number }[];
   createdAt: string;
   startedAt?: string;
   finishedAt?: string;

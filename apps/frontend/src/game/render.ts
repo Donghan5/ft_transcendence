@@ -2,6 +2,7 @@ import { Scene, Engine, PointerEventTypes, Mesh, ParticleSystem, KeyboardEventTy
 import { GameState } from '@trans/common-types';
 import { Connection } from './connection';
 import { SceneObjects, createSceneAndGameObjects } from './scene-builder';
+import { returnToMainMenu } from '../../main.ts';
 
 export class PongGame3D {
     private engine: Engine;
@@ -249,25 +250,26 @@ export class PongGame3D {
 			modal.classList.remove('hidden');
 
 			const returnToMenuHandler = () => {
-				const heroSection = document.getElementById('heroSection');
-				if (heroSection) {
-					heroSection.style.display = 'block';
-				}
+				// const heroSection = document.getElementById('heroSection');
+				// if (heroSection) {
+				// 	heroSection.style.display = 'block';
+				// }
 
-				const gameSection = document.getElementById('gameSection');
-				if (gameSection) {
-					gameSection.style.display = 'none';
-				}
+				// const gameSection = document.getElementById('gameSection');
+				// if (gameSection) {
+				// 	gameSection.style.display = 'none';
+				// }
 
-				const appSection = document.getElementById('appSection');
-				if (appSection) {
-					appSection.style.display = 'block';
-				}
+				// const appSection = document.getElementById('appSection');
+				// if (appSection) {
+				// 	appSection.style.display = 'block';
+				// }
 
-				modal.classList.add('hidden');
-				if (this) {
-					this.dispose();
-				}
+				// modal.classList.add('hidden');
+				// if (this) {
+				// 	this.dispose();
+				// }
+				returnToMainMenu();
 				console.log('Returned to main menu from game over modal');
 			};
 

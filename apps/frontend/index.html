@@ -3,213 +3,166 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ft_transcendence - 3D Pong</title>
+    <title>ft_transcendence - 3D PONG</title>
 
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        neon: {
-                            cyan: '#00ffff',
-                            pink: '#ff00ff',
-                            green: '#00ff00',
-                            blue: '#0066ff'
-                        }
-                    },
-                    animation: {
-                        glow: 'glow 2s ease-in-out infinite alternate',
-                        pulse: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-                    }
-                }
-            }
-        }
-    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Anton&family=Teko:wght@500&display=swap');
 
-    <link rel="stylesheet" href="./src/styles/main.css">
+        body, .font-anton { font-family: 'Anton', sans-serif; letter-spacing: 1.5px; }
+        .font-teko { font-family: 'Teko', sans-serif; letter-spacing: 1px; }
+
+        @keyframes popIn {
+            from { transform: scale(0.85) rotate(-4deg); opacity: 0; }
+            to { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        
+        .animate-pop { animation: popIn 0.5s cubic-bezier(0.68, -0.6, 0.32, 1.6) both; }
+
+        .hover-anarchy {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .hover-anarchy:hover {
+            transform: translateY(-5px) rotate(-2deg) scale(1.05);
+            box-shadow: 8px 8px 0px #000;
+        }
+
+        /* FIX: Reduced shadow and border size to match smaller UI */
+        .shadow-sharp { box-shadow: 5px 5px 0px #000; }
+        .border-thick { border: 4px solid #000; }
+        .text-outline-black { text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000; }
+
+        body { 
+            -ms-overflow-style: none; 
+            scrollbar-width: none; 
+            background-color: #ec4899;
+        }
+        body::-webkit-scrollbar { display: none; }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 text-white min-h-screen">
-    <main id="loginSection" class="flex items-center justify-center h-screen">
-        <div class="text-center">
-            <h2 class="text-6xl md:text-8xl font-bold mb-6 bg-gradient-to-r from-white via-neon-pink to-yellow-400 bg-clip-text text-transparent animate-pulse">
-                PONG 3D
-            </h2>
-            <p class="text-xl md:text-2xl mb-8 text-gray-300">
-                Experience the classic Pong game in stunning 3D!
-            </p>
-            <button id="loginBtn" class="bg-gradient-to-r from-neon-cyan to-neon-blue px-6 py-3 rounded-md text-lg font-medium hover:shadow-lg hover:shadow-neon-cyan/50 transition-all duration-300">
+<body class="font-anton text-black">
+
+    <main id="loginSection" class="flex items-center justify-center h-screen bg-pink-500 p-4">
+        <div class="text-center animate-pop">
+            <!-- FIX: Reduced font sizes -->
+            <h1 class="text-7xl md:text-8xl text-white text-outline-black mb-3">PONG</h1>
+            <p class="font-teko text-2xl md:text-3xl text-yellow-300 mb-8 uppercase tracking-wider">The Classic Game With Attitude.</p>
+            <button id="loginBtn" class="bg-yellow-300 text-black px-10 py-3 text-2xl uppercase border-thick shadow-sharp hover-anarchy">
                 Login with Google
             </button>
         </div>
     </main>
-
-	<div id="appSection" class="hidden">
-		<nav class="bg-black/80 backdrop-blur-md border-b-2 border-neon-cyan shadow-lg shadow-neon-cyan/30">
-			<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div class="flex justify-between items-center h-16">
-					<div class="flex-shrink-0">
-						<h1 class="text-2xl font-bold bg-gradient-to-r from-neon-cyan to-neon-pink bg-clip-text text-transparent">
-							ft_transcendence
-						</h1>
-					</div>
-
+    
+    <div id="appSection" class="hidden bg-blue-400 min-h-screen flex flex-col">
+        <!-- FIX: Increased nav padding (`px-8`) and reduced element sizes -->
+        <nav class="bg-yellow-300 border-b-4 border-black">
+			<div class="max-w-7xl mx-auto px-8 py-2">
+				<div class="flex justify-between items-center">
+					<div class="text-3xl text-pink-500 text-outline-black">PONG</div>
 					<div class="relative">
-						<button id="profileWidgetBtn" class="flex items-center space-x-2">
-							<img id="widgetAvatar" src="/default-avatar.png" alt="User Avatar" class="w-10 h-10 rounded-full border-2 border-neon-cyan shadow-lg shadow-neon-cyan/30">
-							<span id="widgetNickname" class="text-lg font-medium text-neon-cyan">Player</span>
+						<button id="profileWidgetBtn" class="flex items-center space-x-3 hover:scale-105 transition-transform">
+							<img id="widgetAvatar" src="/default-avatar.png" alt="User Avatar" class="w-12 h-12 rounded-full border-thick">
+							<span id="widgetNickname" class="font-teko text-3xl text-black uppercase">Player</span>
 						</button>
-						<div id="profileDropdown" class="hidden absolute right-0 mt-2 w-48 bg-gray-800 rounded-md border-2 border-neon-cyan">
-							<a href="#" id="dropdownProfileBtn" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">Profile</a>
-							<a href="#" id="dropdownFriendsBtn" class="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white">Friends</a>
-							<hr class="border-gray-600 my-1">
-							<a href="#" id="dropdownLogoutBtn" class="block px-4 py-2 text-sm text-red-400 hover:bg-gray-700 hover:text-white">Logout</a>
+						<div id="profileDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white border-thick shadow-sharp z-20">
+							<a href="#" id="dropdownProfileBtn" class="block px-4 py-2 text-xl uppercase hover:bg-pink-400 hover:text-white">Profile</a>
+							<a href="#" id="dropdownFriendsBtn" class="block px-4 py-2 text-xl uppercase hover:bg-pink-400 hover:text-white">Friends</a>
+							<hr class="border-black my-1 border-2">
+							<a href="#" id="dropdownLogoutBtn" class="block px-4 py-2 text-xl uppercase text-red-600 hover:bg-black">Logout</a>
 						</div>
-					</div>
-
-					<div class="md:hidden">
-						<button id="mobileMenuBtn" class="p-2 rounded-md hover:bg-gray-700 transition-colors duration-300">
-							<svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-							</svg>
-						</button>
 					</div>
 				</div>
 			</div>
 		</nav>
-		<main class="flex-1">
-			<section id="heroSection" class="py-20 px-4 text-center">
-				<div class="max-w-4xl mx-auto">
-					<h2 class="text-6xl md:text-8xl font-bold mb-6 bg-gradient-to-r from-neon-cyan via-neon-pink to-yellow-400 bg-clip-text text-transparent animate-pulse">
-						PONG 3D
-					</h2>
-					<p class="text-xl md:text-2xl mb-8 text-gray-300">
-						Experience the classic Pong game in stunning 3D!
-					</p>
+        
+        <main class="flex-1 py-8 px-4">
+            <section id="heroSection">
+                <div class="max-w-4xl mx-auto text-center">
+                    <h2 class="text-6xl md:text-7xl text-white text-outline-black mb-8 animate-pop">PICK YOUR BATTLE</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <!-- FIX: Reduced padding and font sizes on buttons -->
+                        <button id="quickPlayBtn" class="animate-pop bg-pink-500 text-white p-6 border-thick shadow-sharp hover-anarchy" style="animation-delay: 0.1s;">
+                            <h3 class="text-3xl uppercase mb-1">Quick Play</h3>
+                            <p class="font-teko text-xl uppercase">Jump into the chaos</p>
+                        </button>
+                        <button id="tournamentBtn" class="animate-pop bg-yellow-300 text-black p-6 border-thick shadow-sharp hover-anarchy" style="animation-delay: 0.2s;">
+                            <h3 class="text-3xl uppercase mb-1">Tournament</h3>
+                            <p class="font-teko text-xl uppercase">Fight for glory</p>
+                        </button>
+                        <button id="aiPlayBtn" class="animate-pop bg-black text-white p-6 border-thick shadow-sharp hover-anarchy" style="animation-delay: 0.3s;">
+                            <h3 class="text-3xl uppercase mb-1">vs AI</h3>
+                            <p class="font-teko text-xl uppercase">Smash the machine</p>
+                        </button>
+                    </div>
+                </div>
+            </section>
 
-					<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-						<button id="quickPlayBtn" class="game-mode-btn bg-gradient-to-br from-green-500 to-green-700 hover:from-green-400 hover:to-green-600">
-							<div class="p-6 rounded-lg border border-green-400 hover:border-green-300 transition-all duration-300">
-								<h3 class="text-2xl font-bold mb-2">Quick Play</h3>
-								<p class="text-green-100">Jump right into a game</p>
-							</div>
-						</button>
-						<button id="tournamentBtn" class="game-mode-btn bg-gradient-to-br from-purple-500 to-purple-700 hover:from-purple-400 hover:to-purple-600">
-							<div class="p-6 rounded-lg border border-purple-400 hover:border-purple-300 transition-all duration-300">
-								<h3 class="text-2xl font-bold mb-2">Tournament</h3>
-								<p class="text-purple-100">Compete for glory</p>
-							</div>
-						</button>
-						<button id="aiPlayBtn" class="game-mode-btn bg-gradient-to-br from-neon-cyan to-blue-700 hover:from-cyan-400 hover:to-blue-600">
-							<div class="p-6 rounded-lg border border-cyan-400 hover:border-cyan-300 transition-all duration-300">
-								<h3 class="text-2xl font-bold mb-2">vs AI</h3>
-								<p class="text-cyan-100">Practice with AI</p>
-							</div>
-						</button>
-					</div>
-				</div>
-			</section>
+            <section id="profileSection" class="hidden max-w-4xl mx-auto animate-pop">
+                <button id="profileReturnBtn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
+                <div class="bg-yellow-300 p-6 border-thick shadow-sharp">
+                    <div id="profileContent" class="text-xl uppercase font-teko">
+                        <p>Loading profile...</p>
+                    </div>
+                </div>
+            </section>
 
-			<section id="profileSection" class="hidden p-8">
-				<div class="max-w-4xl mx-auto bg-gray-900/50 p-6 rounded-lg border border-neon-pink">
-					<button id="profileReturnBtn" class="mb-6 text-neon-cyan hover:underline">&lt; Return to Main Menu</button>
-					<div id="profileContent">
-						</div>
-				</div>
-			</section>
+            <section id="nicknameSetupSection" class="hidden max-w-md mx-auto animate-pop">
+                <div class="bg-white border-thick shadow-sharp p-8 text-center">
+                    <h3 class="text-4xl uppercase mb-6 text-black">Set Your Nickname</h3>
+                    <form id="nicknameForm" class="space-y-4">
+                        <input type="text" id="nicknameInput" name="nickname" required class="w-full p-3 text-2xl uppercase text-center border-thick" placeholder="TYPE NAME HERE">
+                        <button type="submit" class="w-full bg-pink-500 text-white px-6 py-3 text-2xl uppercase border-thick shadow-sharp hover-anarchy">
+                            Save & Fight
+                        </button>
+                    </form>
+                </div>
+            </section>
 
-			<section id="nicknameSetupSection" class="hidden items-center justify-center py-20">
-				<div class="bg-gray-900 border border-neon-cyan rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl shadow-neon-cyan/30">
-					<h3 class="text-2xl font-bold mb-6 text-center text-neon-cyan">Welcome! Please set your nickname.</h3>
-					<form id="nicknameForm" class="space-y-4">
-						<div>
-							<label for="nicknameInput" class="block text-sm font-medium mb-2 text-gray-300">Nickname</label>
-							<input type="text" id="nicknameInput" name="nickname" required class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan text-white">
-						</div>
-						<div class="pt-4">
-							<button type="submit" class="w-full py-2 px-4 bg-gradient-to-r from-neon-cyan to-neon-blue rounded-md hover:shadow-lg hover:shadow-neon-cyan/50 transition-all duration-300">Save and Continue</button>
-						</div>
-					</form>
-				</div>
-			</section>
+            <section id="friendsSection" class="hidden max-w-4xl mx-auto animate-pop">
+                <button id="friendsReturnBtn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
+                <div class="bg-pink-500 p-5 border-thick shadow-sharp">
+                    <h3 class="text-5xl text-white text-outline-black text-center mb-4">FRIENDS LIST</h3>
+                    <ul id="friendsList" class="space-y-2 font-teko text-2xl uppercase">
+                        <li class="bg-white p-3 border-thick">Loading...</li>
+                    </ul>
+                </div>
+            </section>
 
-			<section id="friendsSection" class="hidden p-8">
-				<div class="max-w-4xl mx-auto bg-gray-900/50 p-6 rounded-lg border border-neon-pink">
-					<button id="friendsReturnBtn" class="mb-6 text-neon-cyan hover:underline">&lt; Return to Main Menu</button>
-					<div id="friendsContent">
-						<h3 class="text-2xl font-bold mb-4 text-center text-neon-cyan">Friends List</h3>
-						<ul id="friendsList" class="space-y-2">
-						</ul>
-					</div>
-				</div>
-			</section>
+            <section id="gameSection" class="hidden">
+                 <div id="gameContainer" class="w-full h-screen"></div>
+            </section>
+        </main>
 
-			<section id="gameSection" class="hidden">
-				<div class="max-w-7xl mx-auto px-4 py-8">
-					<div id="gameContainer" class="relative w-full h-screen bg-black rounded-lg border-2 border-neon-cyan shadow-2xl shadow-neon-cyan/30">
-						<canvas id="gameCanvas" class="w-full h-full rounded-lg"></canvas>
-						<div class="absolute top-4 left-1/2 transform -translate-x-1/2">
-							<div id="scoreDisplay" class="text-4xl font-bold text-center text-neon-cyan glow-text">0 - 0</div>
-						</div>
-						<div class="absolute bottom-4 left-4 bg-black/50 p-4 rounded-lg backdrop-blur-sm">
-							<h4 class="text-lg font-bold mb-2 text-neon-cyan">Controls</h4>
-							<p class="text-sm text-gray-300">Mouse: Move paddle</p>
-							<p class="text-sm text-gray-300">ESC: Pause game</p>
-						</div>
-						<div class="absolute top-4 right-4">
-							<div id="connectionStatus" class="flex items-center space-x-2 bg-black/50 px-3 py-2 rounded-lg backdrop-blur-sm">
-								<div id="statusIndicator" class="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
-								<span id="statusText" class="text-sm text-gray-300">Connecting...</span>
-							</div>
-						</div>
-					</div>
-				</div>
-			</section>
+        <footer class="bg-black py-3 border-t-4 border-yellow-300">
+            <div class="max-w-7xl mx-auto px-4 text-center">
+                <p class="text-yellow-300 uppercase tracking-widest text-base font-teko">© 2025 FT_TRANSCENDENCE. NO RIGHTS RESERVED.</p>
+            </div>
+        </footer>
+    </div>
 
-			<!-- <div id="playerSetupModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
-				<div class="bg-gray-900 border border-neon-cyan rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl shadow-neon-cyan/30">
-					<h3 class="text-2xl font-bold mb-6 text-center text-neon-cyan">Enter Game</h3>
-					<form id="playerSetupForm" class="space-y-4">
-						<div>
-							<label for="playerName" class="block text-sm font-medium mb-2 text-gray-300">Player Name</label>
-							<input type="text" id="playerName" name="playerName" required class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-md focus:outline-none focus:border-neon-cyan focus:ring-1 focus:ring-neon-cyan text-white">
-						</div>
-						<div class="flex space-x-4 pt-4">
-							<button type="button" id="cancelSetup" class="flex-1 py-2 px-4 border border-gray-600 rounded-md hover:bg-gray-800 transition-colors duration-300">Cancel</button>
-							<button type="submit" class="flex-1 py-2 px-4 bg-gradient-to-r from-neon-cyan to-neon-blue rounded-md hover:shadow-lg hover:shadow-neon-cyan/50 transition-all duration-300">Start Game</button>
-						</div>
-					</form>
-				</div>
-			</div> -->
+    <!-- FIX: Reduced size of modals -->
+    <div id="gameOverModal" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center" style="z-index: 2000">
+        <div class="bg-yellow-300 border-thick shadow-sharp p-8 max-w-md w-full mx-4 text-center animate-pop">
+            <h3 id="gameOverTitle" class="text-6xl text-black text-outline-black text-red-600 mb-4">GAME OVER</h3>
+            <p id="winnerMessage" class="text-3xl uppercase mb-8 font-teko"></p>
+            <button id="gameOverReturnBtn" class="w-full bg-black text-white px-6 py-4 text-2xl uppercase border-thick shadow-sharp hover-anarchy">
+                Return to Menu
+            </button>
+        </div>
+    </div>
+    <div id="aiLevelModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center">
+        <div class="bg-white border-thick shadow-sharp p-8 max-w-sm w-full mx-4 text-center animate-pop">
+            <h3 class="text-4xl uppercase mb-6 text-black">Select AI Difficulty</h3>
+            <div class="space-y-4 text-2xl uppercase">
+                <button data-level="EASY" class="ai-level-btn w-full py-3 bg-green-500 text-white border-thick shadow-sharp hover-anarchy">EASY</button>
+                <button data-level="MIDDLE" class="ai-level-btn w-full py-3 bg-yellow-400 text-black border-thick shadow-sharp hover-anarchy">MIDDLE</button>
+                <button data-level="HARD" class="ai-level-btn w-full py-3 bg-red-600 text-white border-thick shadow-sharp hover-anarchy">HARD</button>
+            </div>
+            <button id="cancelAiSelect" class="mt-8 text-black uppercase text-xl hover:text-pink-500 font-teko">Cancel</button>
+        </div>
+    </div>
 
-			<div id="gameOverModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center" style="z-index: 2000">
-				<div class="bg-gray-900 border border-neon-cyan rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl shadow-neon-cyan/30 text-center">
-					<h3 id="gameOverTitle" class="text-4xl font-bold mb-4 text-neon-cyan animate-pulse">GAME OVER</h3>
-					<p id="winnerMessage" class="text-2xl mb-8 text-white"></p>
-					<button id="gameOverReturnBtn" class="w-full py-3 px-4 bg-gradient-to-r from-neon-cyan to-neon-blue rounded-md hover:shadow-lg hover:shadow-neon-cyan/50 transition-all duration-300">
-						Return to Main Menu
-					</button>
-				</div>
-			</div>
-
-			<div id="aiLevelModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center">
-    			<div class="bg-gray-900 border border-neon-cyan rounded-lg p-8 max-w-md w-full mx-4 shadow-2xl shadow-neon-cyan/30 text-center">
-				<h3 class="text-2xl font-bold mb-6 text-neon-cyan">Select AI Difficulty</h3>
-				<div class="space-y-4">
-					<button data-level="EASY" class="ai-level-btn w-full py-3 bg-green-600 hover:bg-green-500 rounded-md transition-colors">EASY</button>
-					<button data-level="MIDDLE" class="ai-level-btn w-full py-3 bg-yellow-600 hover:bg-yellow-500 rounded-md transition-colors">MIDDLE</button>
-					<button data-level="HARD" class="ai-level-btn w-full py-3 bg-red-600 hover:bg-red-500 rounded-md transition-colors">HARD</button>
-				</div>
-				<button id="cancelAiSelect" class="mt-6 text-gray-400 hover:text-white transition-colors">Cancel</button>
-			</div>
-		</main>
-
-		<footer class="bg-black/80 backdrop-blur-md border-t border-gray-800 py-8">
-			<div class="max-w-7xl mx-auto px-4 text-center">
-				<p class="text-gray-400">&copy; 2025 ft_transcendence</p>
-			</div>
-		</footer>
-	</div>
-	<script type="module" src="./main.ts"></script>
+    <script type="module" src="./main.ts"></script>
 </body>
 </html>
