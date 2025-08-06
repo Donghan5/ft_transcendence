@@ -71,14 +71,16 @@ function setupEventListeners() {
 
 	document.getElementById('profileReturnBtn')?.addEventListener('click', returnToMainMenu);
 	document.getElementById('friendsReturnBtn')?.addEventListener('click', returnToMainMenu);
+
+	document.getElementById('publicProfileReturnBtn')?.addEventListener('click', showFriendsScreen);
 }
 
 /**
  * @param sectionId - The ID of the section to show
  * @description Show a specific section by ID and hide others
  */
-function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends') {
-    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection'];
+function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting') {
+    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection', 'publicProfileSection', 'waitingSection'];
     sections.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -93,7 +95,7 @@ function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknam
     const targetSection = document.getElementById(`${sectionId}Section`);
     if (targetSection) {
         if (sectionId === 'login' || sectionId === 'nicknameSetup') {
-            targetSection.style.display = 'flex'; // flex로 보여주기
+            targetSection.style.display = 'flex';
         } else {
             targetSection.classList.remove('hidden');
         }
@@ -165,8 +167,9 @@ async function showFriendsScreen() {
 
             // Render Friends List
             friendsListEl.innerHTML = data.friends.map((friend: any) => `
-                <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-                    <span>${friend.nickname}</span>
+                <li class="friend-item bg-white p-3 border-thick flex justify-between items-center text-black" data-nickname="${friend.nickname}">
+					<img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-3 h-3 rounded-full mr-3">
+					<span>${friend.nickname}</span>
                     <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
                 </li>
             `).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
@@ -174,6 +177,7 @@ async function showFriendsScreen() {
             // Render Received Requests
             receivedRequestsListEl.innerHTML = data.receivedRequests.map((req: any) => `
                 <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+					<img src="${req.avatarUrl || '/default-avatar.png'}" alt="${req.nickname}" class="w-10 h-10 rounded-full mr-3">
                     <span>${req.nickname}</span>
                     <div>
                         <button data-request-id="${req.id}" class="accept-friend-btn bg-green-500 text-white px-3 py-1 text-lg hover-anarchy mr-2">ACCEPT</button>
@@ -218,6 +222,15 @@ async function showFriendsScreen() {
                 await handleFriendAction(`/api/user/friends/${friendId}`, 'DELETE');
             });
         });
+
+		document.querySelectorAll('.friend-item').forEach(item => {
+			item.addEventListener('click', async (e) => {
+				const nickname = (e.currentTarget as HTMLElement).dataset.nickname;
+				if (nickname) {
+					await showPublicProfileScreen(nickname);
+				}
+			});
+		});
     };
 
     // Generic handler for friend actions
@@ -269,6 +282,35 @@ async function showFriendsScreen() {
 
     // Initial render
     await renderFriendLists();
+}
+
+async function showPublicProfileScreen(nickname: string) {
+	showSection('publicProfile');
+	const publicProfileContent = document.getElementById('publicProfileContent');
+	if (!publicProfileContent) return;
+
+	publicProfileContent.innerHTML = '<p>Loading profile...</p>';
+
+	try {
+		const response = await fetch(`/api/user/profile/${nickname}`);
+
+		if (!response.ok) throw new Error('Failed to fetch profile');
+
+		const data = await response.json();
+
+		publicProfileContent.innerHTML = `
+            <h2 class="text-3xl font-bold ...">${data.user.nickname}</h2>
+            <img src="${data.user.avatar_url || '/default-avatar.png'}" ...>
+            <h2 class="text-xl ...">Game History</h2>
+            <ul>
+                ${data.gameHistory.map((game: any) => `<li>...</li>`).join('')}
+            </ul>
+        `;
+	} catch (error) {
+		publicProfileContent.innerHTML = `
+			<p class="text-red-500">Failed to load profile. Please try it later</p>`;
+		console.error('Error loading public profile:', error);
+	}
 }
 
 /**
@@ -520,12 +562,22 @@ async function createNewGame(gameMode: string, playerName: string) {
 		}
 
 		const data = await response.json()
-		currentGameId = data.gameId
 
-		console.log('Game created successfully:', data)
+		if (data.message && data.message.includes('Waiting')) {
+			showSection('waiting');
+			// add cancel waiting
+		} else if (data.gameId) {
+			currentGameId = data.gameId
+			console.log('Game created successfully:', data)
+			showGameScreen()
+			startGame(data.gameId, playerName, gameMode)
+		} else {
+			throw new Error('Unexpected response format')
+		}
 
-		showGameScreen()
-		startGame(data.gameId, playerName, gameMode)
+
+
+
 	} catch (error) {
 		console.error('Failed to create game:', error)
 		throw error

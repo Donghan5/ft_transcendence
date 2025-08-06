@@ -16,9 +16,9 @@
 
 6. 유저 정보 관리 --> 정보 업데이트 기능 추가
 
-7. HTTPS 로 변경함
+7. HTTPS 로 변경함 --> DONE
 
-8. study docker images volumes in make
+8. study docker images volumes in make --> DONE
 
 
 
@@ -34,18 +34,29 @@
 
 5. 현재 로그인 기능에 대해서 login.html과 index.html 두개의 파일이 있는데 이를 하나로 통합하고, 기능은 그대로 유지한다. (로그인 이전은 로그인 관련 화면, 로그인 이후는 대쉬보드 같은 화면) --> DONE
 
-6. 게임 히스토리 기능과 매치 메이킹 기능을 추가한다.
+6. 게임 히스토리 기능과 매치 메이킹 기능을 추가한다. --> DONE (MATCH MAKING HAVE TO ENCHANCE)
 
 7. 패들 위치 조정 플레이어 패들 속도
 
-8. 아바타 추가, 친구 목록, 유저 선택 닉네임
+8. 아바타 추가, 친구 목록, 유저 선택 닉네임 --> DONE
 
 9. 패들 충돌 조정
 
-10. 커스텀된 웹페이지 주소
+10. 커스텀된 웹페이지 주소 --? DONE
 
-11. 웹사이트 디자인 개편 - 완전 올드한 디자인 (윈도우 98 디자인)
+11. 웹사이트 디자인 개편 --> DONE
 
+12. add avatar in friend-list
+
+13. implement public profile (to see in friend-list, avatar and nickname with game-history) --> DONE (check game history, It can't bring it)
+
+14. make simple web page to waiting game... (in tournament feature, waiting room) --> DONE
+
+15. In tournamant, the user can invite friend, or real player (in waiting room)
+
+16. Match-making success
+
+17. Match-cancel with cancel.ts
 
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
@@ -55,3 +66,12 @@
 	- 2. /auth/google/callback -> 구글이 리다이렉트함 -> code 로 access_token 요청 -> 유저 정보 확보
 	- 3. DB에 저장 또는 업데이트
 	- 4. JWT로 프론트에 전달 (세션 유지)
+
+
+## ----- INVITE FRIEND FLOW -----
+1. (Front) click invite button in friend-list, send request to backend
+2. (Back) Register invitation information in DB, send it to invited friend (via websocket)
+3. (Front) Pop-up ---> "Player XXX invited... [accept/reject]"
+4. (Front) if accept --> send the post request to backend
+5. (Back) gameEngine.createGame() --> create game of both player, send a signal "Game Start" via websocket
+6. Enter to game id, when they receive the signals

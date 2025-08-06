@@ -122,7 +122,7 @@
             <section id="friendsSection" class="hidden max-w-4xl mx-auto animate-pop">
                 <button id="friendsReturnBtn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
 
-				<div class="bg-yellow-300 p-5 border-thick shadow-sharp text-white">
+				<div class="bg-yellow-300 p-5 border-thick shadow-sharp text-black">
 					<h3 class="text-4xl text-outline-black text-center mb-4">ADD FRIEND</h3>
 					<form id="addFriendForm" class="flex items-center gap-2">
 						<input type="text" id="friendNicknameInput" class="w-full p-3 text-2xl uppercase text-center border-thick" placeholder="Enter Nickname" required>
@@ -154,6 +154,22 @@
 							</ul>
 					</div>
             </section>
+
+            <section id="publicProfileSection" class="hidden max-w-4xl mx-auto animate-pop">
+                <button id="publicProfileReturnBtn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
+                <div class="bg-yellow-300 p-6 border-thick shadow-sharp">
+                    <div id="publicProfileContent" class="text-xl uppercase font-teko">
+                        </div>
+                </div>
+            </section>
+
+            <section id="waitingSection" class="hidden max-w-md mx-auto animate-pop">
+                <div class="bg-white border-thick shadow-sharp p-8 text-center">
+                    <h3 class="text-4xl uppercase mb-6 text-black">Waiting for Opponent...</h3>
+                    <!-- Future implementation with cancel.ts -->
+                    <!-- <button id="cancelMatchmakingBtn" class="mt-4 bg-red-600 text-white ...">Cancel</button> -->
+                </div>
+            </section>  
 
             <section id="gameSection" class="hidden">
                  <div id="gameContainer" class="w-full h-screen"></div>

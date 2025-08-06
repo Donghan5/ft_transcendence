@@ -234,4 +234,57 @@ export default async function profileRoute(fastify: FastifyInstance) {
 
 		return { success: true, avatarUrl };
 	});
+
+	fastify.get('/profile/:nickname', async (request: FastifyRequest<{ Params: { nickname: string } }>, reply: FastifyReply) => {
+		const { nickname } = request.params;
+
+		try {
+			const user = await dbGet('SELECT id, name, nickname, email, avatar_url FROM users WHERE nickname = ?', [nickname]);
+
+			if (!user) {
+				return reply.code(404).send({ error: 'User not found' });
+			}
+
+			// Get game history for the user
+			const gameHistory = await dbAll(`
+                SELECT
+                    g.id,
+                    g.player1_score,
+                    g.player2_score,
+                    g.game_type,
+                    g.finished_at,
+                    CASE
+                        WHEN g.player1_id = ? THEN p2.nickname
+                        ELSE p1.nickname
+                    END as opponent_nickname,
+                    CASE
+                        WHEN g.winner_id = ? THEN 'Win'
+                        ELSE 'Loss'
+                    END as result
+                FROM games g
+                LEFT JOIN users p1 ON g.player1_id = p1.id
+                LEFT JOIN users p2 ON g.player2_id = p2.id
+                WHERE g.player1_id = ? OR g.player2_id = ?
+                ORDER BY g.finished_at DESC
+                LIMIT 10
+            `, [user.id, user.id, user.id, user.id]);
+
+			const publicProfile = {
+				user: {
+					nickname: user.nickname,
+					avatar_url: user.avatar_url,
+				},
+				gameHistory: gameHistory.map(game => ({
+					...game,
+					opponent_nickname: game.opponent_nickname || (game.game_type === 'AI' ? 'AI' : 'Local Player'),
+				})),
+			};
+
+			return reply.send(publicProfile);
+		}
+		catch (error: any) {
+			fastify.log.error(error);
+			return reply.code(500).send({ error: 'Internal Server Error: ' });
+		}
+	});
 }
