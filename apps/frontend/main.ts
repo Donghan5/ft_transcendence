@@ -57,6 +57,11 @@ function setupEventListeners() {
 		})
 	}
 
+	const cancelMatchmakingButton = document.getElementById('cancelMatchmakingBtn');
+    if (cancelMatchmakingButton) {
+        cancelMatchmakingButton.addEventListener('click', cancelMatchmaking);
+    }
+
 	const profileWidgetBtn = document.getElementById('profileWidgetBtn');
     const profileDropdown = document.getElementById('profileDropdown');
     profileWidgetBtn?.addEventListener('click', () => {
@@ -615,8 +620,8 @@ function startGame(gameId: string, playerId: string, gameMode: string) {
 
 	if (currentGame) {
 		console.log('Game initialized successfully')
-		// const canvas = document.getElementById('game-canvas');
-		// if (canvas) canvas.focus();
+		const canvas = document.getElementById('game-canvas');
+		if (canvas) canvas.focus();
 		updateConnectionStatus('connected')
 	} else {
 		console.error('Failed to initialize game')
@@ -714,6 +719,37 @@ async function updateLoginStatus() {
 	} catch (error) {
 		console.error('Not logged in or session expired2');
 		showLoginScreen();
+	}
+}
+
+async function cancelMatchmaking() {
+	if (!currentUser || !currentUser.id) {
+		console.error('Current user is not logged in. Cannot cancel matchmaking.');
+		returnToMainMenu();
+		return;
+	}
+
+	try {
+		const response = await fetch('/api/games/cancel', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ playerId: currentUser.id }),
+			credentials: 'include'
+		});
+
+		if (!response.ok) {
+			throw new Error('Failed to cancel matchmaking');
+		}
+
+		const data = await response.json();
+		console.log('Matchmaking cancelled:', data);
+		returnToMainMenu();
+	} catch (error) {
+		console.error('Error cancelling matchmaking:', error);
+		alert('Failed to cancel matchmaking. Please try again later.');
+		returnToMainMenu();
 	}
 }
 

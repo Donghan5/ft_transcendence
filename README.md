@@ -20,9 +20,7 @@
 
 8. study docker images volumes in make --> DONE
 
-
-
-그래서 이 아이디어를 실현시키기 위해서
+## -------------------------------------------------------------
 
 1. 로그인을 구현한다. OAuth2를 활용해서 google log-in 을 할 생각임 --> DONE
 
@@ -46,15 +44,15 @@
 
 11. 웹사이트 디자인 개편 --> DONE
 
-12. add avatar in friend-list
+12. add avatar in friend-list --> DONE
 
-13. implement public profile (to see in friend-list, avatar and nickname with game-history) --> DONE (check game history, It can't bring it)
+13. implement public profile (to see in friend-list, avatar and nickname with game-history) --> DONE
 
-14. make simple web page to waiting game... (in tournament feature, waiting room) --> DONE
+14. make simple web page to waiting game... (in tournament feature, waiting room) --> JUST SHOWING WAITING PLAYER (PARTINALLY DONE)
 
 15. In tournamant, the user can invite friend, or real player (in waiting room)
 
-16. Match-making success
+16. Match-making success --> NOT WORKING
 
 17. Match-cancel with cancel.ts
 

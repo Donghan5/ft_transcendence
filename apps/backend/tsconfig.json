@@ -23,6 +23,5 @@
   "exclude": [
     "node_modules",
     "dist",
-	"src/routes/api/games/cancel.ts",
   ]
 }

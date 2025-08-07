@@ -5,14 +5,14 @@ import { gameEngine } from '../../../core/game/game-engine';
 
 import createGameRoutes from './create';
 import gameStatusRoutes from './status';
-// import cancelRoutes from './cancel'; // Uncomment if added later
+import cancelRoutes from './cancel'; // Uncomment if added later
 
 
 
 export default async function gameRoutes(fastify: FastifyInstance) {
 
 	fastify.register(createGameRoutes);
-	// fastify.register(cancelRoutes);
+	fastify.register(cancelRoutes);
 	fastify.register(gameStatusRoutes);
 
 	fastify.get('/ws/:gameId', { websocket: true }, (connection, req: FastifyRequest) => {

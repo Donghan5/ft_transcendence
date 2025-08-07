@@ -1,41 +1,22 @@
-// this file is to cancel the game -- not fully implemented yet (I don't know how to use this API)
-// for the tournement mode, when player cancels game, like esc, exit the game
+// ts/apps/backend/src/routes/api/games/cancel.ts
 
 import { FastifyInstance, FastifyRequest } from 'fastify';
-import { GameStatus } from '@trans/common-types';
+import { gameEngine } from '../../../core/game/game-engine';
 
-export default async function (app: FastifyInstance) {
-	app.patch(
-		'/route/api/games/:id/cancel',
-		async (req: FastifyRequest<{ Params: {id: string} }>) => {
-			const gameId = Number(req.params.id);
-			const userId = req.user.id;
+export default async function cancelRoutes(fastify: FastifyInstance) {
+  fastify.post('/cancel', async (request: FastifyRequest, reply) => {
+    const { playerId } = request.body as { playerId: string };
 
-			const game = await app.db
-				.selectFrom('games')
-				.selectAll()
-				.where('id', '=', gameId)
-				.executeTakeFirst();
-			if (!game) return app.httpErrors.notFound();
+    if (!playerId) {
+      return reply.code(400).send({ error: 'Player ID is required' });
+    }
 
-			if (game.status !== 'WAITING') {
-				return app.httpErrors.conflict('Game has already started');
-			}
+    if (gameEngine.waitingPlayer && String(gameEngine.waitingPlayer.playerId) === String(playerId)) {
+      gameEngine.waitingPlayer = null;
+      fastify.log.info(`Matchmaking cancelled by player ${playerId}`);
+      return reply.send({ success: true, message: 'Matchmaking cancelled' });
+    }
 
-			const isOwner = await app.db
-				.selectFrom('game_players')
-				.where('game_id', '=', gameId)
-				.where('user_id', '=', userId)
-				.executeTakeFirst();
-			if (!isOwner) return app.httpErrors.forbidden();
-
-			await app.db
-				.updateTable('games')
-				.set({ status: 'CANCELLED' satisfies GameStatus})
-				.where('id', '=', gameId)
-				.execute();
-
-			return { ok: true };
-		}
-	);
+    return reply.code(404).send({ error: 'No waiting player found to cancel' });
+  });
 }
