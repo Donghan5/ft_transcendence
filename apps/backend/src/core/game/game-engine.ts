@@ -174,10 +174,18 @@ class Enhanced3DPongGame {
 	public startGameLoop(gameId: string): void {
 		const gameLoop = () => {
 			const game = this.games.get(gameId);
+			// if (!game || game.status !== 'playing') {
+			// 	this.endGame(gameId);
+			// 	return;
+			// }
 			if (!game || game.status !== 'playing') {
-				this.endGame(gameId);
-				return;
-			}
+            	const loop = this.gameLoops.get(gameId);
+            	if (loop) {
+                	clearTimeout(loop);
+                	this.gameLoops.delete(gameId);
+            	}
+            	return;
+        	}
 
 			gameLogics.updatePhysics(game);
 			gameLogics.broadcastGameState(gameId);
@@ -197,17 +205,16 @@ class Enhanced3DPongGame {
 		const game = this.games.get(gameId);
 		const players = this.connectedPlayers.get(gameId);
 
+
 		if (game) {
 			game.status = 'finished';
 			const winnerId = game.player1.score > game.player2.score ? game.player1Id : game.player2Id;
-			const winnerKey = game.player1Id === winnerId ? 'player1' : 'player2';
-			const loserKey = winnerKey === 'player1' ? 'player2' : 'player1';
 
 			try {
-				const isP1User = !isNaN(parseInt(game.player1Id, 10));
-				const isP2User = !isNaN(parseInt(game.player2Id, 10));
+				const isP1User = game.player1Id !== 'AI' && game.player1Id !== 'Player2';
+            	const isP2User = game.player2Id !== 'AI' && game.player2Id !== 'Player2';
 
-				if (isP1User || isP2User) {
+				if (isP1User || isP2User || game.gameMode === 'LOCAL_PVP') {
 					await dbRun(
 						`INSERT INTO games (game_id, player1_id, player2_id, player1_score, player2_score, winner_id, game_type, finished_at)
 						VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -215,10 +222,10 @@ class Enhanced3DPongGame {
 							game.gameId,
 							isP1User ? game.player1Id : null,
 							isP2User ? game.player2Id : null,
-							game[winnerKey].score,
-							game[loserKey].score,
-							winnerId,
-							game.player2Id === 'AI' ? 'AI' : 'PVP',
+							game.player1.score,
+							game.player2.score,
+							(isP1User || isP2User) ? winnerId : null,
+							game.gameMode,
 							new Date().toISOString()
 						]
 					);

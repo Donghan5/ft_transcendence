@@ -9,6 +9,7 @@ export class PongGame3D {
     private scene: Scene;
     private connection: Connection;
 	private gameMode: string;
+	private localPlayerNickname: string;
 
     private player1Paddle: Mesh;
     private player2Paddle: Mesh;
@@ -32,11 +33,12 @@ export class PongGame3D {
 
     private paddleSpeed = 0.5;
 
-    constructor(canvas: HTMLCanvasElement, gameId: string, playerId: string = 'player1', gameMode: string = 'PVP') {
+    constructor(canvas: HTMLCanvasElement, gameId: string, playerId: string = 'player1', gameMode: string = 'PVP', playerNickname: string = 'Player') {
         this.engine = new Engine(canvas, true);
         this.scene = new Scene(this.engine);
         this.localPlayerId = playerId;
         this.gameMode = gameMode;
+		this.localPlayerNickname = playerNickname;
 
         const sceneObjects: SceneObjects = createSceneAndGameObjects(this.scene, canvas);
         this.player1Paddle = sceneObjects.player1Paddle;
@@ -271,8 +273,8 @@ export class PongGame3D {
         }
     }
 
-    private onGameEnd(winner: string): void {
-		console.log(`[DEBUG] onGameEnd called with winner: ${winner}`);
+    private onGameEnd(winnerId: string): void {
+		console.log(`[DEBUG] onGameEnd called with winner: ${winnerId}`);
 
 		const modal = document.getElementById('gameOverModal');
 		const returnBtn = document.getElementById('gameOverReturnBtn');
@@ -281,8 +283,22 @@ export class PongGame3D {
 		const winnerMessage = document.getElementById('winnerMessage');
 
 		if (modal && winnerMessage) {
-			const winnerName = winner === 'AI' ? 'AI' : winner;
-			winnerMessage.textContent = `🏆 Game Over! Congratulations Winner: ${winnerName}`;
+			let winnerName: string;
+
+			if (winnerId === 'AI') {
+				winnerName = 'AI';
+			} else if (this.state && winnerId === this.localPlayerId) {
+				winnerName = this.localPlayerNickname;
+			} else if (this.state) {
+				const opponentId = this.localPlayerId === this.state.player1Id ? this.state.player2Id : this.state.player1Id;
+				// Using API to get opponent's nickname future improvement
+				winnerName = `Player ${winnerId}`;
+			} else {
+				winnerName = `Player ${winnerId}`;
+			}
+
+			winnerMessage.textContent = `Game Over! ${winnerName} wins!`
+
 			modal.classList.remove('hidden');
 
 			const returnToMenuHandler = () => {

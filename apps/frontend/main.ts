@@ -167,11 +167,14 @@ async function showFriendsScreen() {
 
             // Render Friends List
             friendsListEl.innerHTML = data.friends.map((friend: any) => `
-                <li class="friend-item bg-white p-3 border-thick flex justify-between items-center text-black" data-nickname="${friend.nickname}">
-					<img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-3 h-3 rounded-full mr-3">
+                <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+					<img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full mr-3">
 					<span>${friend.nickname}</span>
-                    <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
-                </li>
+					<div class="flex items-center gap-x-2">
+						<button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
+						<button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
+					</div
+				</li>
             `).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
 
             // Render Received Requests
@@ -236,9 +239,14 @@ async function showFriendsScreen() {
     // Generic handler for friend actions
     const handleFriendAction = async (url: string, method: string, body?: object) => {
         try {
+
+			const headers: HeadersInit = { };
+			if (body) {
+				headers['Content-Type'] = 'application/json';
+			}
             const response = await fetch(url, {
                 method,
-                headers: { 'Content-Type': 'application/json', },
+                headers,
                 body: body ? JSON.stringify(body) : undefined,
                 credentials: 'include'
             });
@@ -299,11 +307,20 @@ async function showPublicProfileScreen(nickname: string) {
 		const data = await response.json();
 
 		publicProfileContent.innerHTML = `
-            <h2 class="text-3xl font-bold ...">${data.user.nickname}</h2>
-            <img src="${data.user.avatar_url || '/default-avatar.png'}" ...>
-            <h2 class="text-xl ...">Game History</h2>
-            <ul>
-                ${data.gameHistory.map((game: any) => `<li>...</li>`).join('')}
+            <div class="flex items-center gap-x-4 mb-4">
+                <img src="${data.user.avatar_url || '/default-avatar.png'}" class="w-16 h-16 rounded-full border-thick">
+                <h2 class="text-4xl uppercase">${data.user.nickname}</h2>
+            </div>
+            <h3 class="text-3xl uppercase mt-6 mb-3 border-t-4 border-black pt-4">Game History</h3>
+            <ul class="space-y-2 font-teko text-2xl">
+                ${data.gameHistory.map((game: any) => `
+                    <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+                        <span>vs ${game.opponent_nickname} (${game.game_type})</span>
+                        <span class="font-bold ${game.result === 'Win' ? 'text-green-600' : 'text-red-600'}">
+                            ${game.result} (${game.player1_score} - ${game.player2_score})
+                        </span>
+                    </li>
+                `).join('') || '<li class="bg-white p-3 border-thick text-black">No games played yet.</li>'}
             </ul>
         `;
 	} catch (error) {
@@ -335,45 +352,43 @@ async function showProfileScreen() {
 		const data = await response.json();
 
 		profileContent.innerHTML = `
-        <h2 class="text-3xl font-bold text-neon-pink mb-4">${data.user.name} | ${data.user.nickname}</h2>
-        <p class="text-gray-400 mb-6">${data.user.email}</p>
+            <div class="flex flex-col md:flex-row items-center gap-x-6 mb-6">
+                <img id="profileAvatar" src="${data.user.avatar_url || '/default-avatar.png'}" alt="User Avatar" class="w-24 h-24 rounded-full border-thick shadow-sharp mb-4 md:mb-0">
+                <div class="text-center md:text-left">
+                    <h2 class="text-5xl uppercase">${data.user.nickname}</h2>
+                    <p class="font-teko text-2xl text-black/80">${data.user.name} (${data.user.email})</p>
+                </div>
+            </div>
 
-        <div id="avatarSection" class="flex items-center space-x-4 mb-6">
-            <img id="profileAvatar" src="${data.user.avatar_url || '/default-avatar.png'}" alt="User Avatar" class="w-24 h-24 rounded-full border-2 border-neon-cyan shadow-lg">
-            <div>
-                <h3 class="text-xl font-bold text-neon-cyan">Avatar</h3>
-                <p class="text-gray-300">Upload a new avatar image.</p>
-                <form id="avatarForm">
-                    <input type="file" id="avatarUpload" accept="image/*" class="mt-2 block w-full text-sm text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-neon-cyan/20 file:text-neon-cyan hover:file:bg-neon-cyan/30">
-                    <button type="submit" class="mt-2 bg-gradient-to-r from-neon-cyan to-neon-blue px-4 py-2 rounded-md text-sm font-medium hover:shadow-lg hover:shadow-neon-cyan/50 transition-all duration-300">
-                        Save Avatar
+            <div class="bg-white p-4 border-thick shadow-sharp mb-6">
+                 <h3 class="text-2xl uppercase mb-2">Upload Avatar</h3>
+                 <form id="avatarForm" class="flex items-center gap-2">
+                    <input type="file" id="avatarUpload" accept="image/*" class="w-full p-2 text-lg border-thick bg-white">
+                    <button type="submit" class="bg-pink-500 text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">
+                        Save
                     </button>
                 </form>
             </div>
-        </div>
 
-        <div class="grid md:grid-cols-2 gap-6">
-                <div>
-                    <h3 class="text-xl font-semibold text-neon-cyan mb-3">Game History</h3>
-                    <ul class="space-y-2">
-                        ${data.gameHistory.map((game: any) => `
-                            <li class="bg-gray-800 p-3 rounded-lg flex justify-between items-center">
-                                <div>
-                                    <p class="font-bold">vs ${game.opponent_nickname} <span class="text-xs text-gray-400">(${game.game_type})</span></p>
-                                    <p class="text-sm text-gray-300">${new Date(game.finished_at).toLocaleString()}</p>
-                                </div>
-                                <div class="text-right">
-                                    <p class="font-mono text-lg">${game.player1_score} - ${game.player2_score}</p>
-                                    <span class="font-bold ${game.result === 'Win' ? 'text-green-400' : 'text-red-400'}">
-                                        ${game.result}
-                                    </span>
-                                </div>
-                            </li>
-                        `).join('') || '<li>No games played yet.</li>'}
-                    </ul>
-                </div>
+            <div>
+                <h3 class="text-4xl text-outline-white text-center mb-4">Game History</h3>
+                <ul class="space-y-2 font-teko text-2xl uppercase">
+                    ${data.gameHistory.map((game: any) => `
+                        <li class="bg-white p-3 border-thick shadow-sharp flex justify-between items-center text-black">
+                            <div>
+                                vs ${game.opponent_nickname}
+                                <span class="text-lg text-black/70">(${game.game_type})</span>
+                            </div>
+                            <div class="text-right ${game.result === 'Win' ? 'text-green-600' : 'text-red-600'}">
+                                ${game.result}
+                                <span class="ml-2 text-black font-mono">(${game.player1_score} - ${game.player2_score})</span>
+                            </div>
+                        </li>
+                    `).join('') || '<li class="bg-white p-3 border-thick shadow-sharp text-black">No games played yet.</li>'}
+                </ul>
             </div>
         `;
+
 
 		attachAvatarFormListener();
 
@@ -441,7 +456,7 @@ async function handleGameStart(gameMode: string) {
     console.log(`Player ${currentUser.name} is starting a ${gameMode} game.`);
 
     try {
-        await createNewGame(gameMode, currentUser.name);
+        await createNewGame(gameMode);
     } catch (error) {
         console.error('Failed to create game:', error);
         alert('Failed to create game. Please try again later.');
@@ -505,7 +520,7 @@ async function selectingAiLevel(): Promise<string | null> {
  * @param playerName: string - The name of the player starting the game
  * @description Creates a new game by sending a request to the server and initializes the game
  */
-async function createNewGame(gameMode: string, playerName: string) {
+async function createNewGame(gameMode: string) {
 	try {
 		console.log('Requesting new game from server...')
 
@@ -517,7 +532,7 @@ async function createNewGame(gameMode: string, playerName: string) {
 		switch (gameMode) {
 			case 'quick':
 				requestBody = {
-					player1Id: playerName,
+					player1Id: currentUser.id,
 					player2Id: 'Player2',
 					gameMode: 'LOCAL_PVP'
 				};
@@ -532,7 +547,7 @@ async function createNewGame(gameMode: string, playerName: string) {
 				}
 
 				requestBody = {
-					player1Id: playerName,
+					player1Id: currentUser.id,
 					player2Id: 'AI',
 					gameMode: 'AI',
 					aiLevel: selectedAiLevel
@@ -541,7 +556,7 @@ async function createNewGame(gameMode: string, playerName: string) {
 			case 'tournament':
 				// TODO: After implementing login logic, use real player ID (in DB)
 				requestBody = {
-					player1Id: playerName,
+					player1Id: currentUser.id,
 					gameMode: 'PVP',
 				};
 				break;
@@ -570,7 +585,7 @@ async function createNewGame(gameMode: string, playerName: string) {
 			currentGameId = data.gameId
 			console.log('Game created successfully:', data)
 			showGameScreen()
-			startGame(data.gameId, playerName, gameMode)
+			startGame(data.gameId, String(currentUser.id), gameMode)
 		} else {
 			throw new Error('Unexpected response format')
 		}
@@ -596,12 +611,12 @@ function startGame(gameId: string, playerId: string, gameMode: string) {
 		currentGame.dispose()
 	}
 
-	currentGame = initializeGame('gameContainer', gameId, playerId, gameMode)
+	currentGame = initializeGame('gameContainer', gameId, playerId, gameMode, currentUser.nickname);
 
 	if (currentGame) {
 		console.log('Game initialized successfully')
-		const canvas = document.getElementById('game-canvas');
-		if (canvas) canvas.focus();
+		// const canvas = document.getElementById('game-canvas');
+		// if (canvas) canvas.focus();
 		updateConnectionStatus('connected')
 	} else {
 		console.error('Failed to initialize game')

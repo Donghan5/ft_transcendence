@@ -7,7 +7,8 @@ export function initializeGame(
 	containerId: string,
 	gameId: string,
 	playerId: string = 'player1',
-	gameMode: string // default to player vs player
+	gameMode: string, // default to player vs player
+	nickname: string = 'Player'
 ): PongGame3D | null {
 	const container = document.getElementById(containerId)
 	if (!container) return null
@@ -114,5 +115,5 @@ export function initializeGame(
 		return null;
 	}
     // Now, PongGame3D can successfully find the element using document.getElementById('score-display')
-	return new PongGame3D(canvasElement, gameId, playerId, gameMode);
+	return new PongGame3D(canvasElement, gameId, playerId, gameMode, nickname);
 }

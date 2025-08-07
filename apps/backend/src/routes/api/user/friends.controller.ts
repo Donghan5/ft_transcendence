@@ -106,6 +106,9 @@ export default async function friendsRoute(fastify: FastifyInstance) {
         }
     });
 
+	/**
+	 * HERE!!!! FRIENDS DELETE NOT WORKING
+	 */
     fastify.delete<FriendIdParam>('/friends/:friendId', opts, async (request, reply) => {
         const userId = request.user?.userId;
         const { friendId } = request.params;
@@ -121,7 +124,7 @@ export default async function friendsRoute(fastify: FastifyInstance) {
         } catch (error) {
             await dbRun('ROLLBACK');
             fastify.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error' });
+            return reply.code(500).send({ error: 'Internal Server Error1' });
         }
     });
 }
