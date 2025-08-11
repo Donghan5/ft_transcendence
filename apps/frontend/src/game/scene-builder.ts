@@ -24,7 +24,10 @@ export interface SceneObjects {
 }
 
 export function createSceneAndGameObjects(scene: Scene, canvas: HTMLCanvasElement): SceneObjects {
-    const light = new HemisphericLight("light1", new Vector3(0, 1, 0), scene);
+    const engine = scene.getEngine();
+	engine.enableOfflineSupport = false; // Disable offline support for faster loading
+
+	const light = new HemisphericLight("light1", new Vector3(0, 1, 0), scene);
     light.intensity = 1.0;
     light.groundColor = new Color3(0.5, 0.5, 0.5);
 
@@ -48,7 +51,7 @@ function createVisualBorders(scene: Scene) {
     const wallMat = new StandardMaterial('wallMat', scene);
     wallMat.diffuseColor = new Color3(0.2, 0.2, 0.25);
     wallMat.alpha = 0.5;
-    
+
     const paddleDepth = 4;
     const paddleMoveLimit = 12;
     const borderOffset = paddleDepth / 2;
@@ -84,11 +87,11 @@ function createBallTrail(scene: Scene, ball: Mesh): void {
  */
 function createSpawnParticleEffect(scene: Scene, emitter: Mesh): ParticleSystem {
     const particleSystem = new ParticleSystem('spawnParticles', 500, scene);
-    
+
     // FIX: Using a reliable "flare" texture from the BabylonJS playground assets.
     // This resolves the "404 Not Found" error for star.png.
     particleSystem.particleTexture = new Texture("https://playground.babylonjs.com/textures/flare.png", scene);
-    
+
     particleSystem.emitter = emitter;
 
     // Make the effect very quick and poppy
@@ -99,7 +102,7 @@ function createSpawnParticleEffect(scene: Scene, emitter: Mesh): ParticleSystem 
     particleSystem.color1 = new Color4(1, 0.85, 0.1, 1.0); // Yellow
     particleSystem.color2 = new Color4(0.85, 0.2, 0.4, 1.0); // Pink
     particleSystem.colorDead = new Color4(0.1, 0.7, 0.8, 0.0); // Fade to transparent Cyan
-    
+
     // Larger, more dramatic stars
     particleSystem.minSize = 1.5;
     particleSystem.maxSize = 3.0;
@@ -114,13 +117,13 @@ function createSpawnParticleEffect(scene: Scene, emitter: Mesh): ParticleSystem 
     particleSystem.manualEmitCount = 200;
     particleSystem.maxEmitPower = 15;
     particleSystem.minEmitPower = 8;
-    
+
     // Use additive blending for a bright, glowing effect
     particleSystem.blendMode = ParticleSystem.BLENDMODE_ADD;
 
     // Ensure particles shoot outwards, not downwards
     particleSystem.gravity = new Vector3(0, 0, 0);
-    
+
     // Emit in all directions from a single point
     particleSystem.createSphereEmitter(1.2);
 
@@ -171,11 +174,11 @@ function createMovableObjects(scene: Scene): SceneObjects {
 
 function createParticleEffects(scene: Scene, emitter: Mesh): ParticleSystem {
     const particleSystem = new ParticleSystem('particles', 1500, scene);
-    
+
     // FIX: Changed texture from smoke.png to flare.png for a star/sparkle look
     particleSystem.particleTexture = new Texture("https://playground.babylonjs.com/textures/flare.png", scene);
     particleSystem.emitter = emitter;
-    
+
     // FIX: Colors changed from grey smoke to a fiery, energetic yellow/orange
     particleSystem.color1 = new Color4(1, 0.85, 0.1, 1.0); // Bright Yellow
     particleSystem.color2 = new Color4(0.9, 0.4, 0.1, 1.0); // Fiery Orange
@@ -186,7 +189,7 @@ function createParticleEffects(scene: Scene, emitter: Mesh): ParticleSystem {
     particleSystem.maxSize = 0.4;
     particleSystem.minLifeTime = 0.2;
     particleSystem.maxLifeTime = 0.5;
-    
+
     // Increased rate for a denser trail
     particleSystem.emitRate = 1000;
     particleSystem.createSphereEmitter(0.4);
@@ -196,7 +199,7 @@ function createParticleEffects(scene: Scene, emitter: Mesh): ParticleSystem {
 
     // FIX: Changed blend mode to ADD for a bright, glowing effect
     particleSystem.blendMode = ParticleSystem.BLENDMODE_ADD;
-    
+
     // FIX: Set gravity to zero to stop sparks from falling downwards
     particleSystem.gravity = new Vector3(0, 0, 0);
 

@@ -153,6 +153,13 @@ class Enhanced3DPongGame {
 		const playerKey = this.getPlayerKey(playerId, game);
 		if (playerKey) {
 			game[playerKey].paddleZ = Math.max(-13, Math.min(13, paddleZ));
+
+			if (playerKey === 'player1') {
+				game.player1.position.x = -12;
+			}
+			if (playerKey === 'player2') {
+				game.player2.position.x = 12;
+			}
 		}
 	}
 

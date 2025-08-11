@@ -52,13 +52,15 @@ export class PongGame3D {
         this.connection.connect().catch(err => console.error('Connection failed:', err));
 
         this.engine.runRenderLoop(() => {
+			this.scene.render(true, true);
+
 			if (this.gameMode === 'quick') {
 				this.updateMultiPlayerPaddlePosition();
 			} else {
 				this.updateSinglePlayerPaddlePosition();
 			}
+			
 			this.interpolatePositions();
-            this.scene.render();
         });
 
         window.addEventListener('resize', () => {

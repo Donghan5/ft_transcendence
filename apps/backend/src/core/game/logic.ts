@@ -105,23 +105,34 @@ export function updatePhysics(game: GameState): void {
 
 export function checkPaddleCollisions(game: GameState): void {
 	const { ball, player1, player2 } = game;
-	const check = (paddlePos: Vector3D, paddleZ: number) => {
+	const checkPlayer1Collision = () => {
+    	return (
+        	Math.abs(ball.position.z - player1.paddleZ) < 4 &&
+        	Math.abs(ball.position.x - (-12)) < 1
+    	);
+	};
+
+	const checkPlayer2Collision = () => {
 		return (
-			Math.abs(ball.position.z - paddleZ) < 4 &&
-			Math.abs(ball.position.x - paddlePos.x) < 1
+			Math.abs(ball.position.z - player2.paddleZ) < 4 &&
+			Math.abs(ball.position.x - 12) < 1
 		);
 	};
 
-	if (ball.velocity.x < 0 && check(player1.position, player1.paddleZ)) {
+	if (ball.velocity.x < 0 && checkPlayer1Collision()) {
 		ball.velocity.x *= -1.05;
 		const relativeIntersect = player1.paddleZ - ball.position.z;
 		ball.velocity.z = -relativeIntersect / 4 * 0.5; // Adjust
 	}
-	else if (ball.velocity.x > 0 && check(player2.position, player2.paddleZ)) {
+	else if (ball.velocity.x > 0 && checkPlayer2Collision()) { // PROBLEM: DOESN'T WORK
 		ball.velocity.x *= -1.05;
 		const relativeIntersect = player2.paddleZ - ball.position.z;
 		ball.velocity.z = -relativeIntersect / 4 * 0.5; // Adjust
 	}
+
+	 console.log('Ball position:', ball.position);
+    console.log('Player1 position:', player1.position, 'paddleZ:', player1.paddleZ);
+    console.log('Player2 position:', player2.position, 'paddleZ:', player2.paddleZ);
 }
 
 export function resetBall(game: GameState): void {
