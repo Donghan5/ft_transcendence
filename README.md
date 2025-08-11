@@ -50,11 +50,13 @@
 
 14. make simple web page to waiting game... (in tournament feature, waiting room) --> JUST SHOWING WAITING PLAYER (PARTINALLY DONE)
 
-15. In tournamant, the user can invite friend, or real player (in waiting room)
+15. In tournamant, the user can invite friend, or real player (in waiting room) --> ??
 
-16. Match-making success --> NOT WORKING
+16. Match-making success --> DONE
 
 17. Match-cancel with cancel.ts
+
+18. when opponent win the game, they show just player 1 (or 2 something), not the nickname
 
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인

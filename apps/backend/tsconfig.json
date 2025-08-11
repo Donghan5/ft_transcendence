@@ -8,7 +8,6 @@
     "strict": true,
     "skipLibCheck": true,
     "composite": true,
-    // ✅ baseUrl과 paths를 다시 추가하여 모듈 경로를 명시적으로 지정합니다.
     "baseUrl": ".",
     "paths": {
       "@trans/common-types/*": ["../../packages/common-types/src/*"]

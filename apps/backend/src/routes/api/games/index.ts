@@ -6,6 +6,7 @@ import { gameEngine } from '../../../core/game/game-engine';
 import createGameRoutes from './create';
 import gameStatusRoutes from './status';
 import cancelRoutes from './cancel'; // Uncomment if added later
+import matchmakingRoutes from './matchmaking';
 
 
 
@@ -14,6 +15,7 @@ export default async function gameRoutes(fastify: FastifyInstance) {
 	fastify.register(createGameRoutes);
 	fastify.register(cancelRoutes);
 	fastify.register(gameStatusRoutes);
+	fastify.register(matchmakingRoutes);
 
 	fastify.get('/ws/:gameId', { websocket: true }, (connection, req: FastifyRequest) => {
 		const { gameId } = req.params as { gameId: string };

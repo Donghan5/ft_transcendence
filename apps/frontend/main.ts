@@ -5,6 +5,7 @@ import { redirectGoogleLogin } from './auth/login/google'
 let currentGame: PongGame3D | null = null;
 let currentGameId: string | null = null;
 let currentUser: any | null = null;
+let matchmakingWs: WebSocket | null = null;
 
 document.addEventListener('DOMContentLoaded', () => {
 	updateLoginStatus();
@@ -559,11 +560,12 @@ async function createNewGame(gameMode: string) {
 				};
 				break;
 			case 'tournament':
-				// TODO: After implementing login logic, use real player ID (in DB)
 				requestBody = {
 					player1Id: currentUser.id,
 					gameMode: 'PVP',
 				};
+
+				connectingMatchmaking();
 				break;
 			default:
 				throw new Error('Invalid game mode selected');
@@ -601,6 +603,43 @@ async function createNewGame(gameMode: string) {
 	} catch (error) {
 		console.error('Failed to create game:', error)
 		throw error
+	}
+}
+
+function connectingMatchmaking() {
+	const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+ 	const wsUrl = `${protocol}//${window.location.host}/api/games/matchmaking/ws?playerId=${currentUser.id}`;
+
+	matchmakingWs = new WebSocket(wsUrl);
+
+	matchmakingWs.onopen = () => {
+		console.log('Connected to matchmaking server');
+	}
+
+	matchmakingWs.onmessage = (event) => {
+		const data = JSON.parse(event.data);
+		if (data.type === 'matchFound') {
+			console.log('Match found! Game ID: ', data.gameId);
+			currentGameId = data.gameId;
+
+			if (matchmakingWs) {
+				matchmakingWs.close();
+				matchmakingWs = null;
+			}
+
+			showGameScreen();
+			startGame(data.gameId, String(currentUser.id), 'tournament');
+		}
+	};
+
+	matchmakingWs.onerror = (error) => {
+		console.error('Matchmaking WebSocket error:', error);
+		alert('Matchmaking connection failed');
+		returnToMainMenu();
+	}
+
+	matchmakingWs.onclose = () => {
+		console.log('Matchmaking WebSocket connection closed');
 	}
 }
 
@@ -723,6 +762,12 @@ async function updateLoginStatus() {
 }
 
 async function cancelMatchmaking() {
+	if (matchmakingWs) {
+		matchmakingWs.close();
+		matchmakingWs = null;
+		console.log('Matchmaking cancelled');
+	}
+
 	if (!currentUser || !currentUser.id) {
 		console.error('Current user is not logged in. Cannot cancel matchmaking.');
 		returnToMainMenu();

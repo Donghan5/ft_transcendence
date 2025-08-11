@@ -7,6 +7,7 @@ class Enhanced3DPongGame {
 	private games = new Map<string, GameState>();
 	private gameLoops = new Map<string, NodeJS.Timeout>();
 	private connectedPlayers = new Map<string, Map<string, WebSocket>>();
+	private matchmakingSockets = new Map<string, WebSocket>();
 	public waitingPlayer: { playerId: string } | null = null;
 
 	/***
@@ -165,6 +166,39 @@ class Enhanced3DPongGame {
 		if (game.player1Id === playerId) return 'player1';
 		if (game.player2Id === playerId) return 'player2';
 		return null; // Default to player1 if not found
+	}
+
+	/**
+	 * Add a WebSocket connection for a waiting player
+	 * @param playerId - The ID of the player
+	 * @param ws - The WebSocket connection
+	 */
+	public addWaitingPlayerSocket(playerId: string, ws: WebSocket): void {
+		this.matchmakingSockets.set(playerId, ws);
+	}
+
+	/**
+	 * Remove a WebSocket connection for a waiting player
+	 * @param playerId - The ID of the player
+	 */
+	public removeWaitingPlayerSocket(playerId: string): void {
+		this.matchmakingSockets.delete(playerId);
+	}
+
+	/**
+	 * Notify a player that a match has been found
+	 * @param playerId - The ID of the player
+	 * @param gameId - The ID of the game
+	 */
+	public notifyMatchFound(playerId: string, gameId: string): void {
+		const ws = this.matchmakingSockets.get(playerId);
+		if (ws && ws.readyState === WebSocket.OPEN) {
+			const message = JSON.stringify({ type: 'matchFound', gameId });
+			ws.send(message);
+			this.matchmakingSockets.delete(playerId); // Remove after notifying
+		} else {
+			console.warn(`WebSocket for player ${playerId} is not open or does not exist.`);
+		}
 	}
 
 	/**

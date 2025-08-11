@@ -37,15 +37,24 @@ export default async function createGameRoute(fastify: FastifyInstance) {
 				break;
 			case 'PVP':
 				if (gameEngine.waitingPlayer) {
-					const player2 = gameEngine.waitingPlayer.playerId;
-					gameId = gameEngine.createGame(player1Id, player2, 'PVP');
-					gameEngine.waitingPlayer = null; // Clear the waiting player after pairing
-				}
-				else {
+					const player2Id = gameEngine.waitingPlayer.playerId;
+					gameId = gameEngine.createGame(player1Id, player2Id, 'PVP');
+
+					gameEngine.notifyMatchFound(player2Id, gameId);
+
+					gameEngine.waitingPlayer = null;
+
+					return reply.code(201).send({
+					success: true,
+					message: 'Match found!',
+					gameId,
+					gameState: gameEngine.getGameState(gameId)
+					});
+				} else {
 					gameEngine.waitingPlayer = { playerId: player1Id };
 					return reply.code(200).send({
-						success: true,
-						message: 'Waiting for another player to join...',
+					success: true,
+					message: 'Waiting for another player to join...',
 					});
 				}
 				break;

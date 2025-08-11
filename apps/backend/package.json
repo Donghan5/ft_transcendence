@@ -5,7 +5,7 @@
   "scripts": {
     "build": "tsc --build",
     "start": "node dist/main.js",
-    "dev": "ts-node -r tsconfig-paths/register src/main.ts"
+    "dev": "ts-node -r tsconfig-paths/register dist/main.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",
