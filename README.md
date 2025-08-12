@@ -66,6 +66,14 @@
 
 22. ip test
 
+23. if one player cancel the game, ended games --> giving pen. (like 5-0)
+
+24. register nickname (number of characters) && flow (same as google OAuth)
+
+25. profile like change password
+
+
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2
