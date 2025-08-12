@@ -54,9 +54,17 @@
 
 16. Match-making success --> DONE
 
-17. Match-cancel with cancel.ts
+17. Match-cancel with cancel.ts --> DONE
 
 18. when opponent win the game, they show just player 1 (or 2 something), not the nickname
+
+19. 로컬 로그인 구현 --> done
+
+20. when logged in -> not redirect to main
+
+21. messed up form
+
+22. ip test
 
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인

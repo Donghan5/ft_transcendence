@@ -1,6 +1,7 @@
 import { PongGame3D } from './src/game/render'
 import { initializeGame } from './src/game/init'
 import { redirectGoogleLogin } from './auth/login/google'
+import { AuthService } from './auth/services/auth-service';
 
 let currentGame: PongGame3D | null = null;
 let currentGameId: string | null = null;
@@ -12,8 +13,174 @@ document.addEventListener('DOMContentLoaded', () => {
 
     console.log('Start beautiful PONG game!');
 	setupEventListeners();
+	setupLocalAuthHandlers();
 })
 
+/**
+ * @description checking auth status
+ */
+async function checkAuthStatus() {
+    const authStatus = await AuthService.checkAuthStatus();
+
+    if (authStatus.isAuthenticated && authStatus.user) {
+        console.log('User is authenticated:', authStatus.user);
+        if (!authStatus.profileComplete) {
+            console.log('Profile setup required');
+            showSection('nicknameSetup');
+        } else {
+            showAppScreen(authStatus.user);
+        }
+    } else {
+        console.log('User not authenticated, showing login');
+        showLoginScreen();
+    }
+}
+
+/**
+ * @description handler setting up local authentication handlers
+ */
+function setupLocalAuthHandlers() {
+	(window as any).showAuthTab = showAuthTab;
+
+	const loginForm = document.getElementById('loginForm');
+	if (loginForm) {
+		loginForm.addEventListener('submit', handleLocalLogin);
+	}
+
+	const registerForm = document.getElementById('registerForm');
+	if (registerForm) {
+		registerForm.addEventListener('submit', handleLocalRegister);
+	}
+}
+
+/**
+ * @description Show the specified authentication tab
+ * @param tabName - The name of the tab to show ('login' or 'register')
+ */
+function showAuthTab(tabName: 'login' | 'register') {
+	const loginForm = document.getElementById('login-form');
+	const registerForm = document.getElementById('register-form');
+	const tabButtons = document.querySelectorAll('.tab-button');
+
+	tabButtons.forEach(btn => btn.classList.remove('active'));
+
+	if (tabName === 'login') {
+		loginForm?.classList.remove('hidden');
+		registerForm?.classList.add('hidden');
+		tabButtons[0]?.classList.add('active');
+	} else {
+		loginForm?.classList.add('hidden');
+		registerForm?.classList.remove('hidden');
+		tabButtons[1]?.classList.add('active');
+	}
+
+	clearAuthMessages();
+}
+
+/**
+ * @description initializes auth messages
+ */
+function clearAuthMessages() {
+	const errorElements = document.querySelectorAll('#loginError, #registerError');
+	const successElements = document.querySelectorAll('#loginSuccess, #registerSuccess');
+
+	[...errorElements, ...successElements].forEach(el => {
+		el.classList.add('hidden');
+		el.textContent = '';
+	});
+}
+
+/**
+ * @description Shows an error message
+ * @param elementId
+ * @param message
+ */
+function showAuthError(elementId: string, message: string) {
+	const errorEl = document.getElementById(elementId);
+	if (errorEl) {
+		errorEl.textContent = message;
+		errorEl.classList.remove('hidden');
+	}
+}
+
+/**
+ * @description Shows a success message
+ * @param elementId
+ * @param message
+ */
+function showAuthSuccess(elementId: string, message: string) {
+	const successEl = document.getElementById(elementId);
+	if (successEl) {
+		successEl.textContent = message;
+		successEl.classList.remove('hidden');
+	}
+}
+
+/**
+ * @description Handles user registration
+ * @param e - The submit event
+ */
+async function handleLocalLogin(e: Event) {
+	e.preventDefault();
+	clearAuthMessages();
+
+	const formData = new FormData(e.target as HTMLFormElement);
+	const loginData = {
+		loginInput: formData.get('loginInput') as string,
+		password: formData.get('password') as string
+	};
+
+    const validationError = AuthService.validateLoginInput(loginData);
+    if (validationError) {
+        showAuthError('loginError', validationError);
+        return;
+    }
+
+	const result = await AuthService.localLogin(loginData); // AuthService 사용
+
+	if (result.success) {
+		showAuthSuccess('loginSuccess', result.message);
+		setTimeout(() => {
+			checkAuthStatus();
+		}, 1000);
+	} else {
+		showAuthError('loginError', result.error || 'Login failed.');
+	}
+}
+
+/**
+ * @description Handles local user registration
+ * @param e - The submit event
+ */
+async function handleLocalRegister(e: Event) {
+	e.preventDefault();
+	clearAuthMessages();
+
+	const formData = new FormData(e.target as HTMLFormElement);
+	const registerData = {
+		nickname: formData.get('nickname') as string,
+		email: formData.get('email') as string,
+		password: formData.get('password') as string,
+		confirmPassword: formData.get('confirmPassword') as string
+	};
+
+    const validationError = AuthService.validateRegisterInput(registerData);
+    if (validationError) {
+        showAuthError('registerError', validationError);
+        return;
+    }
+
+	const result = await AuthService.localRegister(registerData); // AuthService 사용
+
+	if (result.success) {
+		showAuthSuccess('registerSuccess', result.message);
+		setTimeout(() => {
+			checkAuthStatus();
+		}, 1000);
+	} else {
+		showAuthError('registerError', result.error || 'Registration failed.');
+	}
+}
 
 function setupEventListeners() {
 	const quickPlayButton = document.getElementById('quickPlayBtn')
@@ -40,15 +207,6 @@ function setupEventListeners() {
 			handleGameStart('ai')
 		})
 	}
-	// const profileButton = document.getElementById('profileBtn');
-    // if (profileButton) {
-    //     profileButton.addEventListener('click', showProfileScreen);
-    // }
-
-	// const returnToMenuButton = document.getElementById('profileReturnBtn')
-	// if (returnToMenuButton) {
-	// 	returnToMenuButton.addEventListener('click', returnToMainMenu);
-	// }
 
 	const logoutButton = document.getElementById('logoutBtn')
 	if (logoutButton) {
