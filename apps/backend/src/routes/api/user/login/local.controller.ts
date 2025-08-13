@@ -1,5 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import LocalAuthService from '../../../../auth/local.service';
+import { AuthenticatedRequest, authMiddleware } from '../../../../middleware/auth.middleware';
+import { PasswordChangeRequest } from '@trans/common-types';
 
 export default async function (fastify: FastifyInstance) {
 	// Route to handle local login by nickname (registering user)
@@ -89,34 +91,48 @@ export default async function (fastify: FastifyInstance) {
 		}
 	});
 
-	// change password route
-	fastify.post('/change-password', async (request: any, reply: any) =>{
-		try {
-			const { currentPassword, newPassword, confirmNewPassword } = request.body;
+	fastify.post('/change-password', {
+        preHandler: [authMiddleware]
+    }, async (request: AuthenticatedRequest, reply: any) => {
+        try {
+            const { currentPassword, newPassword, confirmNewPassword } = request.body as PasswordChangeRequest;
 
-			if (!currentPassword || !newPassword || !confirmNewPassword) {
-				return reply.status(400).send({
-					error: 'Please provide all required fields: current password, new password, and confirm new password'
-				});
-			}
+            if (!currentPassword || !newPassword || !confirmNewPassword) {
+                return reply.status(400).send({
+                    error: 'Please provide all required fields: current password, new password, and confirm new password'
+                });
+            }
 
-			if (newPassword !== confirmNewPassword) {
-				return reply.status(400).send({ error: 'New passwords do not match' });
-			}
+            if (newPassword !== confirmNewPassword) {
+                return reply.status(400).send({ error: 'New passwords do not match' });
+            }
 
-			if (newPassword.length < 8) {
-				return reply.status(400).send({ error: 'New password must be at least 8 characters long' });
-			}
+            if (newPassword.length < 8) {
+                return reply.status(400).send({ error: 'New password must be at least 8 characters long' });
+            }
 
-			return reply.send({
-				success: true,
-				message: 'Password change successfully done'
-			});
-		} catch (error) {
-			console.error('Change password error:', error);
-			const message = error instanceof Error ? error.message : 'Password change failed';
-			return reply.status(400).send({ error: message });
-		}
-	});
+            if (currentPassword === newPassword) {
+                return reply.status(400).send({ error: 'New password must be different from current password' });
+            }
+
+            const userId = request.user!.userId;
+
+            await LocalAuthService.changePassword(userId, currentPassword, newPassword);
+
+            return reply.send({
+                success: true,
+                message: 'Password changed successfully'
+            });
+			
+
+        } catch (error) {
+            console.error('Change password error:', error);
+            const message = error instanceof Error ? error.message : 'Password change failed';
+
+            const statusCode = message.includes('Current password is incorrect') ? 400 : 500;
+
+            return reply.status(statusCode).send({ error: message });
+        }
+    });
 
 }

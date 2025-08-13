@@ -98,6 +98,35 @@ class LocalAuthService {
 
 		return jwt.sign(jwtPayload, secret, { expiresIn: '1h' });
 	}
+
+	public static async changePassword(userId: number, oldPassword: string, newPassword: string): Promise<void> {
+		const user = await dbGet(`SELECT * FROM users WHERE id = ? AND auth_provider = ?`, [userId, 'local']);
+
+		if (!user) {
+			throw new Error('User not found');
+		}
+
+		if (!user.password_hash) {
+			throw new Error('Not a local user');
+		}
+
+		const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password_hash);
+		if (!isOldPasswordValid) {
+			throw new Error('Invalid old password');
+		}
+
+		const saltRounds = 12;
+		const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
+
+		const result = await dbRun(
+			`UPDATE users SET password_hash = ? WHERE id = ? AND auth_provider = ?`,
+			[newPasswordHash, userId, 'local']
+		);
+
+		if (result.changes === 0) {
+			throw new Error('Failed to change password');
+		}
+	}
 }
 
 export default LocalAuthService;

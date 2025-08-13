@@ -2,6 +2,7 @@ import { PongGame3D } from './src/game/render'
 import { initializeGame } from './src/game/init'
 import { redirectGoogleLogin } from './auth/login/google'
 import { AuthService } from './auth/services/auth-service';
+import { PasswordChangeForm } from './components/password-change-form';
 
 let currentGame: PongGame3D | null = null;
 let currentGameId: string | null = null;
@@ -225,7 +226,7 @@ function setupEventListeners() {
     const profileDropdown = document.getElementById('profileDropdown');
     profileWidgetBtn?.addEventListener('click', (event) => {
         // Stop the click from immediately being caught by our new document listener
-        event.stopPropagation(); 
+        event.stopPropagation();
         profileDropdown?.classList.toggle('hidden');
     });
 
@@ -557,7 +558,6 @@ async function showProfileScreen() {
                     </button>
                 </form>
             </div>
-
             <div>
                 <h3 class="text-4xl text-outline-white text-center mb-4">Game History</h3>
                 <ul class="space-y-2 font-teko text-2xl uppercase">
@@ -577,8 +577,12 @@ async function showProfileScreen() {
             </div>
         `;
 
-
 		attachAvatarFormListener();
+
+		 const passwordChangeContainer = document.getElementById('password-change-container');
+        if (passwordChangeContainer) {
+            new PasswordChangeForm(passwordChangeContainer);
+        }
 
 	} catch (error) {
 		profileContent.innerHTML = `
