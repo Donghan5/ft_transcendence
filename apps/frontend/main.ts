@@ -10,11 +10,11 @@ let currentUser: any | null = null;
 let matchmakingWs: WebSocket | null = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+	setupLocalAuthHandlers();
 	updateLoginStatus();
 
     console.log('Start beautiful PONG game!');
 	setupEventListeners();
-	setupLocalAuthHandlers();
 })
 
 /**

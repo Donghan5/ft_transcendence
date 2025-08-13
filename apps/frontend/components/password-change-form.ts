@@ -17,27 +17,58 @@ export class PasswordChangeForm {
         formContainer.className = 'password-change-form';
 
         formContainer.innerHTML = `
-            <h3>Change Password</h3>
-            <div class="form-group">
-                <label for="currentPassword">Current password</label>
-                <input type="password" id="currentPassword" name="currentPassword" required>
-            </div>
-            <div class="form-group">
-                <label for="newPassword">New password</label>
-                <input type="password" id="newPassword" name="newPassword" required>
-                <small>Minimum 8 characters</small>
-            </div>
-            <div class="form-group">
-                <label for="confirmNewPassword">Confirm new password</label>
-                <input type="password" id="confirmNewPassword" name="confirmNewPassword" required>
-            </div>
-            <div class="form-actions">
-                <button type="button" id="changePasswordBtn" class="btn-primary">Change Password</button>
-                <button type="button" id="cancelBtn" class="btn-secondary">Cancel</button>
-            </div>
-            <div id="errorMessage" class="error-message" style="display: none;"></div>
-            <div id="successMessage" class="success-message" style="display: none;"></div>
-        `;
+			<div class="bg-white border-thick shadow-sharp p-6 sm:p-8 animate-pop">
+				<h2 class="text-4xl uppercase mb-6 text-black text-center">Change Password</h2>
+
+				<form id="changePasswordForm" class="space-y-5">
+					<div class="form-row">
+						<label for="currentPassword" class="form-label">Current Password</label>
+						<input type="password"
+							class="form-input"
+							id="currentPassword"
+							name="currentPassword"
+							required
+							placeholder="••••••••">
+					</div>
+
+					<div class="form-row">
+						<label for="newPassword" class="form-label">New Password</label>
+						<input type="password"
+							class="form-input"
+							id="newPassword"
+							name="newPassword"
+							required
+							placeholder="MIN. 8 CHARACTERS">
+					</div>
+
+					<div class="form-row">
+						<label for="confirmNewPassword" class="form-label">Confirm Password</label>
+						<input type="password"
+							class="form-input"
+							id="confirmNewPassword"
+							name="confirmNewPassword"
+							required
+							placeholder="TYPE IT AGAIN!">
+					</div>
+
+					<div class="flex gap-4 mt-8">
+						<button type="button"
+								id="changePasswordBtn"
+								class="flex-1 bg-pink-500 text-white px-6 py-3 text-2xl uppercase border-thick shadow-sharp hover-anarchy font-teko">
+							Change Password
+						</button>
+						<button type="button"
+								id="cancelBtn"
+								class="flex-1 bg-black text-white px-6 py-3 text-2xl uppercase border-thick shadow-sharp hover-anarchy font-teko">
+							Cancel
+						</button>
+					</div>
+
+					<div id="errorMessage" class="error-message hidden"></div>
+					<div id="successMessage" class="success-message hidden"></div>
+				</form>
+			</div>
+		`;
 
         return formContainer;
     }
@@ -77,7 +108,7 @@ export class PasswordChangeForm {
 
         const changeBtn = this.form.querySelector('#changePasswordBtn') as HTMLButtonElement;
         const originalText = changeBtn.textContent;
-        changeBtn.textContent = '변경 중...';
+        changeBtn.textContent = 'Changing...';
         changeBtn.disabled = true;
 
         try {
@@ -85,8 +116,10 @@ export class PasswordChangeForm {
 
             if (result.success) {
                 this.showSuccess(result.message || 'Password changed successfully.');
-                this.clearForm();
-            } else {
+				setTimeout(() => {
+					this.clearFormInputsOnly();
+				}, 2000);
+			} else {
                 this.showError(result.error || 'Failed to change password.');
             }
         } catch (error) {
@@ -121,5 +154,10 @@ export class PasswordChangeForm {
         const inputs = this.form.querySelectorAll('input');
         inputs.forEach(input => input.value = '');
         this.hideMessages();
+    }
+
+	private clearFormInputsOnly(): void {
+        const inputs = this.form.querySelectorAll('input');
+        inputs.forEach(input => input.value = '');
     }
 }
