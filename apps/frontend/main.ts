@@ -577,12 +577,14 @@ async function showProfileScreen() {
             </div>
         `;
 
-		attachAvatarFormListener();
-
-		 const passwordChangeContainer = document.getElementById('password-change-container');
-        if (passwordChangeContainer) {
-            new PasswordChangeForm(passwordChangeContainer);
+		if (data.user.auth_provider === 'local') {
+            const passwordChangeContainer = document.getElementById('password-change-container');
+            if (passwordChangeContainer) {
+                new PasswordChangeForm(passwordChangeContainer);
+            }
         }
+
+		attachAvatarFormListener();
 
 	} catch (error) {
 		profileContent.innerHTML = `

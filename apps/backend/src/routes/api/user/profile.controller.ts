@@ -105,7 +105,8 @@ export default async function profileRoute(fastify: FastifyInstance) {
 					email: user.email,
 					nickname: user.nickname || null,
 					avatar_url: user.avatar_url || null,
-					profile_setup_complete: user.profile_setup_complete || false
+					profile_setup_complete: user.profile_setup_complete || false,
+					auth_provider: user.auth_provider
 				},
 				gameHistory: games.map(game => ({
 					...game,
