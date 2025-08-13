@@ -7,6 +7,9 @@ COPY packages/common-types/package*.json ./packages/common-types/
 
 RUN npm install
 
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 COPY apps/frontend/ ./apps/frontend/
 COPY packages/common-types/src/ ./packages/common-types/src/
 COPY tsconfig.json ./

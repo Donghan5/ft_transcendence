@@ -21,12 +21,20 @@ import localLoginRoute from './routes/api/user/login/local.controller';
 
 async function buildServer(): Promise<FastifyInstance> {
     const server = fastify({ logger: true, trustProxy: true });
+	
+	// get URL from env
+	server.register(cors, {
+        origin: process.env.FRONTEND_URL,
+        credentials: true
+    });
 
-    server.register(cors, {origin: "https://localhost:8443", credentials: true });
     server.register(websocketPlugin);
     server.register(sensible);
 	server.register(multipart);
     await server.register(cookie);
+
+
+	const callbackUri = `${process.env.BACKEND_URL}/api/users/login/google/callback`;
 
     // Google OAuth2
     server.register<any>(fastifyOAuth2, {
@@ -40,7 +48,7 @@ async function buildServer(): Promise<FastifyInstance> {
             auth: fastifyOAuth2.GOOGLE_CONFIGURATION
         },
         startRedirectPath: '/api/users/login/google',
-        callbackUri: `https://localhost:8443/api/users/login/google/callback`
+        callbackUri: callbackUri
     });
 
     // register Routes API
@@ -69,6 +77,12 @@ async function buildServer(): Promise<FastifyInstance> {
 }
 
 async function start() {
+	//Fail-Fast
+	if (!process.env.FRONTEND_URL || !process.env.BACKEND_URL) {
+        console.error("FATAL: FRONTEND_URL and BACKEND_URL must be set in the environment.");
+        process.exit(1);
+    }
+
     try {
         console.log('Initializing database...');
         const db = await initializeDatabase();

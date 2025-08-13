@@ -223,13 +223,37 @@ function setupEventListeners() {
 
 	const profileWidgetBtn = document.getElementById('profileWidgetBtn');
     const profileDropdown = document.getElementById('profileDropdown');
-    profileWidgetBtn?.addEventListener('click', () => {
+    profileWidgetBtn?.addEventListener('click', (event) => {
+        // Stop the click from immediately being caught by our new document listener
+        event.stopPropagation(); 
         profileDropdown?.classList.toggle('hidden');
     });
 
-    document.getElementById('dropdownProfileBtn')?.addEventListener('click', showProfileScreen);
-    document.getElementById('dropdownFriendsBtn')?.addEventListener('click', showFriendsScreen);
+	document.addEventListener('click', (event) => {
+        if (profileDropdown?.classList.contains('hidden')) {
+            return;
+        }
+
+        const isClickInsideWidget = profileWidgetBtn?.contains(event.target as Node);
+        const isClickInsideDropdown = profileDropdown?.contains(event.target as Node);
+
+        if (!isClickInsideWidget && !isClickInsideDropdown) {
+            profileDropdown?.classList.add('hidden');
+        }
+    });
+
+    document.getElementById('dropdownProfileBtn')?.addEventListener('click', () => {
+        showProfileScreen();
+        profileDropdown?.classList.add('hidden');
+    });
+
+    document.getElementById('dropdownFriendsBtn')?.addEventListener('click', () => {
+        showFriendsScreen();
+        profileDropdown?.classList.add('hidden');
+    });
+
     document.getElementById('dropdownLogoutBtn')?.addEventListener('click', () => {
+        profileDropdown?.classList.add('hidden');
         window.location.href = '/api/auth/logout';
     });
 

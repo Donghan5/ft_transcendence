@@ -16,7 +16,12 @@ export default async function (fastify: FastifyInstance) {
                 sameSite: 'lax'
             });
 
-            return reply.redirect('https://localhost:8443/'); // Redirect to the dashboard or any other page
+            const frontendUrl = process.env.FRONTEND_URL;
+            if (!frontendUrl) {
+                throw new Error("FRONTEND_URL environment variable is not set!");
+            }
+
+            return reply.redirect(frontendUrl); // Redirect to the dashboard or any other page
         } catch (error) {
             console.error('======================================================');
             console.error('CRITICAL ERROR in /login/google/callback:');

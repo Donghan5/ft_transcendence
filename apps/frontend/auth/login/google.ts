@@ -1,5 +1,11 @@
 export function redirectGoogleLogin() {
-	const backendLoginUrl = 'https://localhost:8443/api/users/login/google';
+	const backendApiUrl = import.meta.env.VITE_API_URL;
 
-	window.location.href = backendLoginUrl;
+	if (!backendApiUrl) {
+		console.error("VITE_API_URL is not defined! Check your .env and docker-compose.yaml files.");
+		return;
+	}
+
+	const googleLoginUrl = `${backendApiUrl}/api/users/login/google`;
+	window.location.href = googleLoginUrl;
 }

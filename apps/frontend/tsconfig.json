@@ -18,7 +18,8 @@
     "paths": {
       "@/*": ["src/*"],
       "@trans/*": ["../../packages/*/src"]
-    }
+    },
+	"types": ["vite/client"]
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx"],
   "references": [{ "path": "./tsconfig.node.json" }]

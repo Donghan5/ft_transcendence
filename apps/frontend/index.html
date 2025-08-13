@@ -39,91 +39,111 @@
             background-color: #ec4899;
         }
         body::-webkit-scrollbar { display: none; }
+
+		.auth-toggle {
+			@apply font-teko text-2xl uppercase mr-4 cursor-pointer text-gray-400;
+		}
+		.auth-toggle.active {
+			@apply text-black font-bold;
+		}
+
+		.form-row {
+			@apply flex items-center justify-between;
+		}
+		.form-label {
+			/* Using a fixed width creates the aligned column effect from your image */
+			@apply w-48 text-left font-bold text-lg;
+		}
+		.form-input {
+			/* The input field takes the remaining space */
+			@apply flex-1 bg-transparent text-gray-400 text-lg font-bold placeholder-gray-400 focus:outline-none;
+		}
+		.error-message {
+			@apply mt-4 p-2 text-white bg-red-600 border-2 border-black font-teko text-lg text-center uppercase;
+		}
+		.success-message {
+			@apply mt-4 p-2 text-black bg-green-400 border-2 border-black font-teko text-lg text-center uppercase;
+		}
     </style>
 </head>
 <body class="font-anton text-black">
 
     <main id="loginSection" class="flex items-center justify-center h-screen bg-pink-500 p-4">
-                <div class="text-center animate-pop max-w-md w-full">
-            <!-- 게임 타이틀 -->
-            <h1 class="text-7xl md:text-8xl text-white text-outline-black mb-6">PONG</h1>
-            <p class="font-teko text-2xl md:text-3xl text-yellow-300 mb-8 uppercase tracking-wider">The Classic Game With Attitude.</p>
+		<div class="text-center animate-pop max-w-md w-full">
+			<!-- FIX 1: The Game Title and Subtitle are back where they belong -->
+			<h1 class="text-7xl md:text-8xl text-white text-outline-black mb-6">PONG</h1>
+			<p class="font-teko text-2xl md:text-3xl text-yellow-300 mb-8 uppercase tracking-wider">The Classic Game With Attitude.</p>
 
-            <!-- 로컬 로그인 폼 -->
-            <div class="bg-gray-800 border-thick shadow-sharp p-6 mb-6">
-                <div class="auth-tabs">
-                    <button class="tab-button active" onclick="showAuthTab('login')">Login</button>
-                    <button class="tab-button" onclick="showAuthTab('register')">Sign Up</button>
-                </div>
+			<!-- Main Auth Card -->
+			<div class="bg-white border-thick shadow-sharp p-6 sm:p-8">
+				
+				<!-- Login/Sign Up Toggle -->
+				<div class="flex justify-between mb-2 pb-2 border-b-2 border-black">
+					<!-- FIX 2: Added 'cursor-pointer' to both span elements -->
+					<span class="auth-toggle active cursor-pointer" onclick="showAuthTab('login')">Login</span>
+					<span class="auth-toggle cursor-pointer" onclick="showAuthTab('register')">Sign Up</span>
+				</div>
 
-                <!-- 로그인 폼 -->
-                <div id="login-form" class="auth-form">
-                    <form id="loginForm">
-                        <div class="form-group">
-                            <label class="form-label">Nickname or Email</label>
-                            <input type="text" class="form-input" id="loginInput" name="loginInput" required
-                                   placeholder="Enter your nickname or email">
-                        </div>
+				<!-- Login Form -->
+				<div id="login-form" class="auth-form pt-4">
+					<form id="loginForm" class="space-y-5">
+						<div class="form-row">
+							<label for="loginInput" class="form-label">Nickname or Email</label>
+							<input type="text" class="form-input" id="loginInput" name="loginInput" required placeholder="NICKNAME OR EMAIL">
+						</div>
+						<div class="form-row">
+							<label for="loginPassword" class="form-label">Password</label>
+							<input type="password" class="form-input" id="loginPassword" name="password" required placeholder="••••••••">
+						</div>
+						
+						<button type="submit" class="w-full bg-yellow-300 text-black mt-6 px-6 py-3 text-2xl uppercase border-thick shadow-sharp hover-anarchy font-teko">
+							Let's Go!
+						</button>
+						<div id="loginError" class="error-message hidden"></div>
+					</form>
+				</div>
 
-                        <div class="form-group">
-                            <label class="form-label">Password</label>
-                            <input type="password" class="form-input" id="loginPassword" name="password" required
-                                   placeholder="Enter your password">
-                        </div>
+				<!-- Registration Form -->
+				<div id="register-form" class="auth-form hidden pt-4">
+					<form id="registerForm" class="space-y-5">
+						<div class="form-row">
+							<label for="regNickname" class="form-label">Nickname</label>
+							<input type="text" class="form-input" id="regNickname" name="nickname" required placeholder="CHOOSE YOUR NAME">
+						</div>
+						<div class="form-row">
+							<label for="regEmail" class="form-label">Email</label>
+							<input type="email" class="form-input" id="regEmail" name="email" required placeholder="YOUR@EMAIL.COM">
+						</div>
+						<div class="form-row">
+							<label for="regPassword" class="form-label">Password</label>
+							<input type="password" class="form-input" id="regPassword" name="password" required placeholder="MIN. 8 CHARACTERS">
+						</div>
+						<div class="form-row">
+							<label for="regConfirmPassword" class="form-label">Confirm Password</label>
+							<input type="password" class="form-input" id="regConfirmPassword" name="confirmPassword" required placeholder="TYPE IT AGAIN!">
+						</div>
+						<button type="submit" class="w-full bg-pink-500 text-white mt-6 px-6 py-3 text-2xl uppercase border-thick shadow-sharp hover-anarchy font-teko">
+							Create Account
+						</button>
+						<div id="registerError" class="error-message hidden"></div>
+						<div id="registerSuccess" class="success-message hidden"></div>
+					</form>
+				</div>
 
-                        <button type="submit" class="w-full bg-yellow-300 text-black px-6 py-3 text-xl uppercase border-thick shadow-sharp hover-anarchy font-teko">
-                            Login
-                        </button>
-                        <div id="loginError" class="error-message hidden"></div>
-                        <div id="loginSuccess" class="success-message hidden"></div>
-                    </form>
-                </div>
+				<!-- "OR" Divider -->
+				<div class="relative flex py-5 items-center">
+					<div class="flex-grow border-t-2 border-black"></div>
+					<span class="flex-shrink mx-4 text-xl font-teko uppercase">or</span>
+					<div class="flex-grow border-t-2 border-black"></div>
+				</div>
 
-                <!-- 회원가입 폼 -->
-                <div id="register-form" class="auth-form hidden">
-                    <form id="registerForm">
-                        <div class="form-group">
-                            <label class="form-label">Nickname</label>
-                            <input type="text" class="form-input" id="regNickname" name="nickname" required
-                                   placeholder="2-20 characters">
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-input" id="regEmail" name="email" required
-                                   placeholder="your@email.com">
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Password</label>
-                            <input type="password" class="form-input" id="regPassword" name="password" required
-                                   placeholder="Min 8 characters">
-                        </div>
-
-                        <div class="form-group">
-                            <label class="form-label">Confirm Password</label>
-                            <input type="password" class="form-input" id="regConfirmPassword" name="confirmPassword" required
-                                   placeholder="Re-enter password">
-                        </div>
-
-                        <button type="submit" class="w-full bg-yellow-300 text-black px-6 py-3 text-xl uppercase border-thick shadow-sharp hover-anarchy font-teko">
-                            Sign Up
-                        </button>
-                        <div id="registerError" class="error-message hidden"></div>
-                        <div id="registerSuccess" class="success-message hidden"></div>
-                    </form>
-                </div>
-
-                <div class="or-divider">
-                    <span>or</span>
-                </div>
-
-                <button id="loginBtn" class="w-full bg-red-500 text-white px-6 py-3 text-xl uppercase border-thick shadow-sharp hover-anarchy font-teko">
-                    Login with Google
-                </button>
-            </div>
-        </div>
-    </main>
+				<!-- Google Login Button -->
+				<button id="loginBtn" class="w-full bg-red-500 text-white px-6 py-3 text-xl uppercase border-thick shadow-sharp hover-anarchy font-teko">
+					Login with Google
+				</button>
+			</div>
+		</div>
+	</main>
 
     <div id="appSection" class="hidden bg-blue-400 min-h-screen flex flex-col">
         <!-- FIX: Increased nav padding (`px-8`) and reduced element sizes -->
@@ -276,6 +296,30 @@
         </div>
     </div>
 
-    <script type="module" src="./main.ts"></script>
-</body>
+	<script>
+		function showAuthTab(tabName) {
+			const loginForm = document.getElementById('login-form');
+			const registerForm = document.getElementById('register-form');
+			const authToggles = document.querySelectorAll('.auth-toggle');
+
+			// Hide both forms
+			loginForm.classList.add('hidden');
+			registerForm.classList.add('hidden');
+
+			// Deactivate all toggles
+			authToggles.forEach(toggle => toggle.classList.remove('active'));
+
+			// Show the selected form and activate the corresponding toggle
+			if (tabName === 'login') {
+				loginForm.classList.remove('hidden');
+				document.querySelector('.auth-toggle[onclick="showAuthTab(\'login\')"]').classList.add('active');
+			} else {
+				registerForm.classList.remove('hidden');
+				document.querySelector('.auth-toggle[onclick="showAuthTab(\'register\')"]').classList.add('active');
+			}
+		}
+	</script>
+
+	<script type="module" src="./main.ts"></script>
+	</body>
 </html>

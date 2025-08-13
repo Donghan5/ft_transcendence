@@ -66,6 +66,11 @@ export default async function authStatusRoute(fastify: FastifyInstance) {
             secure: true,
             sameSite: 'lax'
         });
-        return reply.redirect('https://localhost:8443/login.html');
+
+		// Read the base URL from the environment variables
+		const frontendUrl = process.env.FRONTEND_URL;
+
+		// Construct the full redirect URL dynamically
+		return reply.redirect(`${frontendUrl}/login.html`);
     });
 }

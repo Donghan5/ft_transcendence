@@ -1,4 +1,8 @@
-all: build up
+all: start build up
+
+start:
+	@echo "Starting application with dynamic IP detection..."
+	@./start.sh
 
 build:
 	docker-compose build --pull
@@ -34,4 +38,4 @@ debug:
 	docker-compose exec $(c) sh -c 'echo -e "\n=== ENV ==="; env; echo -e "\n=== PROC ==="; ps aux'
 
 
-.PHONY: all build up down clean fclean re logs ps sh debug
+.PHONY: all start build up down clean fclean re logs ps sh debug

@@ -8,10 +8,14 @@ services:
     build:
       context: .
       dockerfile: ./apps/frontend/Dockerfile
+      args:
+        - VITE_API_URL=https://transcendence.${LOCAL_IP}.nip.io:8443
     image: transcendence_frontend
-    ports: ["3001:3001"] # vite preview 포트와 일치
+    ports: ["3001:3001"]
     restart: unless-stopped
     networks: [ts_transcendence]
+    environment:
+      - VITE_API_URL=https://transcendence.${LOCAL_IP}.nip.io:8443
 
   # ─────────────────── Back
   backend:
@@ -22,9 +26,11 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:?set in .env}
-      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:?set in .env}
-      - JWT_SECRET=${JWT_SECRET:?set in .env}
+      - BACKEND_URL=https://transcendence.${LOCAL_IP}.nip.io:8443
+      - FRONTEND_URL=https://transcendence.${LOCAL_IP}.nip.io:8443
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
       - DATABASE_URL=file:/data/user.db
     volumes:
       - db-data:/data
@@ -38,7 +44,11 @@ services:
     build:
       context: .
       dockerfile: ./infra/nginx/Dockerfile
+      args:
+        - DOMAIN_NAME=transcendence.${LOCAL_IP}.nip.io
     image: transcendence_gateway
+    environment:
+      - DOMAIN_NAME=transcendence.${LOCAL_IP}.nip.io
     depends_on: [frontend, backend]
     ports:
       - "8080:80"
