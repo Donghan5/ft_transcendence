@@ -54,9 +54,9 @@ export type GameUpdate = {
 }
 
 export const initialBallVelocity: Vector3D = {
-  x: 0.2,
+  x: 0.12,
   y: 0,
-  z: 0.15,
+  z: 0.08,
 };
 
 

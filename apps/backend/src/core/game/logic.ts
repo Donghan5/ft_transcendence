@@ -72,13 +72,20 @@ export function isGameOver(state: GameState): boolean {
 export function updatePhysics(game: GameState): void {
 	// Update ball position
 	game.ball.position.x += game.ball.velocity.x;
-	game.ball.position.y += game.ball.velocity.y;
-	game.ball.position.z += game.ball.velocity.z;
+
 
 	// I don't know why I didn't put this before...
 	const ballRadius = 0.5; // Assuming ball diameter is 1, radius is 0.5
 	const arenaDepth = 30;
 	const wallZ = arenaDepth / 2 - ballRadius;
+
+	const oldX = game.ball.position.x;
+	game.ball.position.x += game.ball.velocity.x;
+
+	checkPaddleCollisions(game);
+
+	game.ball.position.y += game.ball.velocity.y;
+	game.ball.position.z += game.ball.velocity.z;
 
 	if (game.ball.position.z > wallZ || game.ball.position.z < -wallZ) {
 		game.ball.velocity.z *= -1; // Bounce off walls
@@ -104,35 +111,57 @@ export function updatePhysics(game: GameState): void {
 }
 
 export function checkPaddleCollisions(game: GameState): void {
-	const { ball, player1, player2 } = game;
-	const checkPlayer1Collision = () => {
-    	return (
-        	Math.abs(ball.position.z - player1.paddleZ) < 4 &&
-        	Math.abs(ball.position.x - (-12)) < 1
-    	);
-	};
+    const { ball, player1, player2 } = game;
+    const ballRadius = 0.5;
+    const paddleWidth = 1.5;
+    const paddleHeight = 8;
+	const maxSpeed = 0.8; 
+    
+    const prevX = ball.position.x - ball.velocity.x;
+	const prevZ = ball.position.z - ball.velocity.z;
+    
+	// Player 1 paddle collision
+    const player1X = -12;
+    if (ball.velocity.x < 0) {
+        if (prevX >= player1X && ball.position.x <= player1X + paddleWidth) {
 
-	const checkPlayer2Collision = () => {
-		return (
-			Math.abs(ball.position.z - player2.paddleZ) < 4 &&
-			Math.abs(ball.position.x - 12) < 1
-		);
-	};
+			// Calculate intersection point (interpolation)
+			const t = (player1X - prevX) / (ball.position.x - prevX);
+			const intersectZ = prevZ + t * (ball.position.z - prevZ);
 
-	if (ball.velocity.x < 0 && checkPlayer1Collision()) {
-		ball.velocity.x *= -1.05;
-		const relativeIntersect = player1.paddleZ - ball.position.z;
-		ball.velocity.z = -relativeIntersect / 4 * 0.5; // Adjust
-	}
-	else if (ball.velocity.x > 0 && checkPlayer2Collision()) { // PROBLEM: DOESN'T WORK
-		ball.velocity.x *= -1.05;
-		const relativeIntersect = player2.paddleZ - ball.position.z;
-		ball.velocity.z = -relativeIntersect / 4 * 0.5; // Adjust
-	}
+            if (Math.abs(intersectZ - player1.paddleZ) < paddleHeight/2) {
+				if (Math.abs(ball.velocity.x) < maxSpeed) {
+					ball.velocity.x = -Math.abs(ball.velocity.x) * 1.02;
+				} else {
+					ball.velocity.x = maxSpeed;
+				}
+                const relativeIntersect = player1.paddleZ - intersectZ;
+                ball.velocity.z = -relativeIntersect / (paddleHeight/2) * 0.5;
+                ball.position.x = player1X + paddleWidth + ballRadius;
+            }
+        }
+    }
+    
+	// Player 2 paddle collision
+    const player2X = 12;
+    if (ball.velocity.x > 0) {
+        if (prevX <= player2X && ball.position.x >= player2X - paddleWidth) {
 
-	 console.log('Ball position:', ball.position);
-    console.log('Player1 position:', player1.position, 'paddleZ:', player1.paddleZ);
-    console.log('Player2 position:', player2.position, 'paddleZ:', player2.paddleZ);
+			const t = (player2X - prevX) / (ball.position.x - prevX);
+			const intersectZ = prevZ + t * (ball.position.z - prevZ);
+
+            if (Math.abs(intersectZ - player2.paddleZ) < paddleHeight/2) {
+                if (Math.abs(ball.velocity.x) < maxSpeed) {
+					ball.velocity.x = -Math.abs(ball.velocity.x) * 1.02;
+				} else {
+					ball.velocity.x = maxSpeed;
+				}
+                const relativeIntersect = player2.paddleZ - intersectZ;
+                ball.velocity.z = -relativeIntersect / (paddleHeight/2) * 0.5;
+                ball.position.x = player2X - paddleWidth - ballRadius;
+            }
+        }
+    }
 }
 
 export function resetBall(game: GameState): void {
