@@ -207,6 +207,7 @@ export class PongGame3D {
             this.sendPaddleUpdate(this.localPlayerId, localPlayer.position.z);
         }
     }
+    
 
 	private updateMultiPlayerPaddlePosition(): void {
 		if (!this.state) return;

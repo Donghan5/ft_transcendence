@@ -1,5 +1,5 @@
 // apps/backend/src/core/game/logic.ts
-import { WIN_SCORE, POINT_PER_GOAL } from "./constant";
+import { WIN_SCORE, POINT_PER_GOAL, BALL_RADIUS, ARENA_DEPTH,PADDLE_WIDTH, PADDLE_DEPTH, PADDLE_HEIGHT, PADDLE_X_POSITION } from "./constant";
 import { GameState, PlayerState, BallState, initialBallVelocity, GameStatus, Vector3D } from "@trans/common-types"; // 👍 수정된 부분
 import { gameEngine } from "./game-engine"; // Import the games map from game-engine
 import { strategy } from "./ai-strategy";
@@ -69,99 +69,185 @@ export function isGameOver(state: GameState): boolean {
  * Update the physics of the game
  * @param game - The current game state
  */
+// ... (imports and other functions remain the same)
+
 export function updatePhysics(game: GameState): void {
-	// Update ball position
-	game.ball.position.x += game.ball.velocity.x;
+    const substeps = 8; // Increased to 8 for better accuracy (reduces dt to 0.125, lowering overshoot risk without high cost)
+    const dt = 1 / substeps;
+    const wallZ = ARENA_DEPTH / 2 - BALL_RADIUS;
+    const maxSpeed = 0.6; // Reduced from 0.8 to make the ball feel slower at max
+    const speedIncrease = 1.015; // Reduced from 1.02 for slower acceleration
 
+    for (let i = 0; i < substeps; i++) {
+        // Simulate the substep with continuous collision detection
+        simulateSubstep(game, dt, BALL_RADIUS, wallZ, PADDLE_WIDTH, PADDLE_HEIGHT, maxSpeed, speedIncrease);
+    }
 
-	// I don't know why I didn't put this before...
-	const ballRadius = 0.5; // Assuming ball diameter is 1, radius is 0.5
-	const arenaDepth = 30;
-	const wallZ = arenaDepth / 2 - ballRadius;
+    if (game.player2Id === 'AI') {
+        strategy.updateAIPaddle(game);
+    }
 
-	const oldX = game.ball.position.x;
-	game.ball.position.x += game.ball.velocity.x;
+    const scorerSide = game.ball.position.x < -16 ? 'right' : game.ball.position.x > 16 ? 'left' : null;
+    if (scorerSide) {
+        const scorerId = scorerSide === 'left' ? game.player1Id : game.player2Id;
+        const updatedState = addPoint(game, scorerId);
+        gameEngine.getGames().set(game.gameId, updatedState);
+        resetBall(updatedState);
 
-	checkPaddleCollisions(game);
-
-	game.ball.position.y += game.ball.velocity.y;
-	game.ball.position.z += game.ball.velocity.z;
-
-	if (game.ball.position.z > wallZ || game.ball.position.z < -wallZ) {
-		game.ball.velocity.z *= -1; // Bounce off walls
-	}
-
-	if (game.player2Id === 'AI')
-			strategy.updateAIPaddle(game);
-
-	// Check for collisions with paddles
-	checkPaddleCollisions(game);
-
-	const scorerSide = game.ball.position.x < -16 ? 'right' : game.ball.position.x > 16 ? 'left' : null;
-	if (scorerSide) {
-		const scorerId = scorerSide === 'left' ? game.player1Id : game.player2Id;
-		const updatedState = addPoint(game, scorerId);
-		gameEngine.getGames().set(game.gameId, updatedState);
-		resetBall(updatedState);
-
-		if (isGameOver(updatedState)) {
-			gameEngine.endGame(game.gameId);
-		}
-	}
+        if (isGameOver(updatedState)) {
+            gameEngine.endGame(game.gameId);
+        }
+    }
 }
 
-export function checkPaddleCollisions(game: GameState): void {
-    const { ball, player1, player2 } = game;
-    const ballRadius = 0.5;
-    const paddleWidth = 1.5;
-    const paddleHeight = 8;
-	const maxSpeed = 0.8; 
-    
-    const prevX = ball.position.x - ball.velocity.x;
-	const prevZ = ball.position.z - ball.velocity.z;
-    
-	// Player 1 paddle collision
+// New function to handle a single substep with proper collision timing
+function simulateSubstep(
+    game: GameState,
+    dt: number,
+    ballRadius: number,
+    wallZ: number,
+    paddleWidth: number,
+    paddleHeight: number,
+    maxSpeed: number,
+    speedIncrease: number
+): void {
+    let remainingTime = dt;
+    let safetyCounter = 0; // Prevent infinite loops (max 5 collisions per substep)
+    const maxCollisions = 5;
+
+    while (remainingTime > 0 && safetyCounter < maxCollisions) {
+        safetyCounter++;
+
+        // Calculate times to potential collisions (must be in [0, remainingTime])
+        const times = calculateCollisionTimes(game, remainingTime, ballRadius, wallZ, paddleWidth, paddleHeight);
+
+        // Find the earliest collision time
+        let minTime = remainingTime;
+        let collisionType: 'none' | 'topWall' | 'bottomWall' | 'leftPaddle' | 'rightPaddle' = 'none';
+        if (times.topWall >= 0 && times.topWall < minTime) {
+            minTime = times.topWall;
+            collisionType = 'topWall';
+        }
+        if (times.bottomWall >= 0 && times.bottomWall < minTime) {
+            minTime = times.bottomWall;
+            collisionType = 'bottomWall';
+        }
+        if (times.leftPaddle >= 0 && times.leftPaddle < minTime) {
+            minTime = times.leftPaddle;
+            collisionType = 'leftPaddle';
+        }
+        if (times.rightPaddle >= 0 && times.rightPaddle < minTime) {
+            minTime = times.rightPaddle;
+            collisionType = 'rightPaddle';
+        }
+
+        // Advance position by minTime (no collision if minTime == remainingTime)
+        game.ball.position.x += game.ball.velocity.x * minTime;
+        game.ball.position.y += game.ball.velocity.y * minTime;
+        game.ball.position.z += game.ball.velocity.z * minTime;
+
+        // Handle the collision if any
+        if (collisionType !== 'none') {
+            switch (collisionType) {
+                case 'topWall':
+                case 'bottomWall':
+                    game.ball.velocity.z *= -1;
+                    // No position adjustment needed since time is exact (no overshoot)
+                    break;
+                case 'leftPaddle':
+                    // Calculate intersectZ at exact hit time (already advanced)
+                    const relativeIntersectLeft = (game.ball.position.z - game.player1.paddleZ) / (paddleHeight / 2);
+                    game.ball.velocity.z = relativeIntersectLeft * 0.5;
+                    game.ball.velocity.x = Math.min(Math.abs(game.ball.velocity.x) * speedIncrease, maxSpeed);
+                    game.ball.position.x += 0.01; // Small nudge to prevent sticking
+                    break;
+                case 'rightPaddle':
+                    const relativeIntersectRight = (game.ball.position.z - game.player2.paddleZ) / (paddleHeight / 2);
+                    game.ball.velocity.z = relativeIntersectRight * 0.5;
+                    game.ball.velocity.x = -Math.min(Math.abs(game.ball.velocity.x) * speedIncrease, maxSpeed);
+                    game.ball.position.x -= 0.01; // Small nudge
+                    break;
+            }
+        }
+
+        remainingTime -= minTime;
+    }
+
+    // If safety counter hit max, just advance remaining (rare edge case)
+    if (remainingTime > 0) {
+        game.ball.position.x += game.ball.velocity.x * remainingTime;
+        game.ball.position.y += game.ball.velocity.y * remainingTime;
+        game.ball.position.z += game.ball.velocity.z * remainingTime;
+    }
+}
+
+// New function to calculate collision times
+function calculateCollisionTimes(
+    game: GameState,
+    dt: number,
+    ballRadius: number,
+    wallZ: number,
+    paddleWidth: number,
+	paddleHeight: number
+): {
+    topWall: number;
+    bottomWall: number;
+    leftPaddle: number;
+    rightPaddle: number;
+} {
+    const pos = game.ball.position;
+    const vel = game.ball.velocity;
     const player1X = -12;
-    if (ball.velocity.x < 0) {
-        if (prevX >= player1X && ball.position.x <= player1X + paddleWidth) {
-
-			// Calculate intersection point (interpolation)
-			const t = (player1X - prevX) / (ball.position.x - prevX);
-			const intersectZ = prevZ + t * (ball.position.z - prevZ);
-
-            if (Math.abs(intersectZ - player1.paddleZ) < paddleHeight/2) {
-				if (Math.abs(ball.velocity.x) < maxSpeed) {
-					ball.velocity.x = -Math.abs(ball.velocity.x) * 1.02;
-				} else {
-					ball.velocity.x = maxSpeed;
-				}
-                const relativeIntersect = player1.paddleZ - intersectZ;
-                ball.velocity.z = -relativeIntersect / (paddleHeight/2) * 0.5;
-                ball.position.x = player1X + paddleWidth + ballRadius;
-            }
-        }
-    }
-    
-	// Player 2 paddle collision
     const player2X = 12;
-    if (ball.velocity.x > 0) {
-        if (prevX <= player2X && ball.position.x >= player2X - paddleWidth) {
+    const paddle1Front = player1X + paddleWidth;
+    const paddle2Front = player2X - paddleWidth;
 
-			const t = (player2X - prevX) / (ball.position.x - prevX);
-			const intersectZ = prevZ + t * (ball.position.z - prevZ);
+    let topWall = -1;
+    if (vel.z > 0) {
+        topWall = (wallZ - pos.z) / vel.z;
+        if (topWall < 0 || topWall > dt) topWall = -1;
+    }
 
-            if (Math.abs(intersectZ - player2.paddleZ) < paddleHeight/2) {
-                if (Math.abs(ball.velocity.x) < maxSpeed) {
-					ball.velocity.x = -Math.abs(ball.velocity.x) * 1.02;
-				} else {
-					ball.velocity.x = maxSpeed;
-				}
-                const relativeIntersect = player2.paddleZ - intersectZ;
-                ball.velocity.z = -relativeIntersect / (paddleHeight/2) * 0.5;
-                ball.position.x = player2X - paddleWidth - ballRadius;
+    let bottomWall = -1;
+    if (vel.z < 0) {
+        bottomWall = (-wallZ - pos.z) / vel.z;
+        if (bottomWall < 0 || bottomWall > dt) bottomWall = -1;
+    }
+
+    let leftPaddle = -1;
+    if (vel.x < 0) {
+        const ballLeft = pos.x - ballRadius;
+        leftPaddle = (paddle1Front - ballLeft) / vel.x; // Since vel.x < 0, this is positive if approaching
+        if (leftPaddle < 0 || leftPaddle > dt) {
+            leftPaddle = -1;
+        } else {
+            // Predict z at hit time and check if within paddle height
+            const hitZ = pos.z + vel.z * leftPaddle;
+            const paddleTop = game.player1.paddleZ - (paddleHeight / 2) - BALL_RADIUS;
+            const paddleBottom = game.player1.paddleZ + (paddleHeight / 2) + BALL_RADIUS;
+            if (hitZ < paddleTop || hitZ > paddleBottom) {
+                leftPaddle = -1; // Miss if not in height
             }
         }
     }
+
+    let rightPaddle = -1;
+    if (vel.x > 0) {
+        const ballRight = pos.x + ballRadius;
+        rightPaddle = (paddle2Front - ballRight) / vel.x; // vel.x > 0
+        if (rightPaddle < 0 || rightPaddle > dt) {
+            rightPaddle = -1;
+        } else {
+            const hitZ = pos.z + vel.z * rightPaddle;
+            const paddleTop = game.player2.paddleZ - (paddleHeight / 2) - BALL_RADIUS;
+            const paddleBottom = game.player2.paddleZ + (paddleHeight / 2) + BALL_RADIUS;
+            if (hitZ < paddleTop || hitZ > paddleBottom) {
+                rightPaddle = -1;
+            }
+        }
+    }
+
+    return { topWall, bottomWall, leftPaddle, rightPaddle };
 }
 
 export function resetBall(game: GameState): void {
