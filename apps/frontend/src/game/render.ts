@@ -21,6 +21,9 @@ export class PongGame3D {
     private lastStateTimestamp: number = 0;
     private localPlayerId: string;
 
+    private lastSentInputStateP1: 'up' | 'down' | 'stop' = 'stop';
+    private lastSentInputStateP2: 'up' | 'down' | 'stop' = 'stop';
+
     private inputStatePlayer1 = {
         up: false,
         down: false
@@ -125,30 +128,29 @@ export class PongGame3D {
 	/**
 	 * @description Interpolate positions for smoother rendering
 	 * @returns void
+     * const lerp = (start: number, end: number, t: number) => start * (1 - t) + end * t;
 	 */
     private interpolatePositions(): void {
         if (!this.state || !this.previousState) return;
 
-        const renderLoopTime = 1000 / 60;
-        const timeSinceLastState = Date.now() - this.lastStateTimestamp;
-        let interpolationFactor = timeSinceLastState / renderLoopTime;
-        if (interpolationFactor > 1) interpolationFactor = 1;
-
-        const lerp = (start: number, end: number, t: number) => start * (1 - t) + end * t;
+        const now = Date.now();
+        const timeSinceUpdate = now - this.state.lastUpdate;
+        const interpolationFactor = Math.min(timeSinceUpdate / (1000 / 60), 1);
 
         this.ball.position.x = lerp(this.previousState.ball.position.x, this.state.ball.position.x, interpolationFactor);
+        this.ball.position.y = lerp(this.previousState.ball.position.y, this.state.ball.position.y, interpolationFactor);
         this.ball.position.z = lerp(this.previousState.ball.position.z, this.state.ball.position.z, interpolationFactor);
 
-
-        // interpolate paddle positions (opponent's paddle)
-		if (this.gameMode !== 'quick') {
-        	if (this.localPlayerId === this.state.player1Id) {
-        	     this.player2Paddle.position.z = lerp(this.previousState.player2.paddleZ, this.state.player2.paddleZ, interpolationFactor);
-        	} else {
-        	     this.player1Paddle.position.z = lerp(this.previousState.player1.paddleZ, this.state.player1.paddleZ, interpolationFactor);
-        	}
-		}
-
+        this.player1Paddle.position.z = lerp(
+            this.previousState.player1.paddleZ, 
+            this.state.player1.paddleZ, 
+            interpolationFactor
+        );
+        this.player2Paddle.position.z = lerp(
+            this.previousState.player2.paddleZ, 
+            this.state.player2.paddleZ, 
+            interpolationFactor
+        );
 
         this.updateScoreDisplay();
     }
@@ -162,11 +164,11 @@ export class PongGame3D {
                     } else if (kbInfo.event.key === 's' || kbInfo.event.key === 'S') {
                         this.inputStatePlayer1.down = true;
                     }
-					else if (kbInfo.event.key === 'ArrowUp') {
-						this.inputStatePlayer2.up = true;
-					} else if (kbInfo.event.key === 'ArrowDown') {
-						this.inputStatePlayer2.down = true;
-					}
+                    else if (kbInfo.event.key === 'ArrowUp') {
+                        this.inputStatePlayer2.up = true;
+                    } else if (kbInfo.event.key === 'ArrowDown') {
+                        this.inputStatePlayer2.down = true;
+                    }
                     break;
                 case KeyboardEventTypes.KEYUP:
                     if (kbInfo.event.key === 'w' || kbInfo.event.key === 'W') {
@@ -174,11 +176,11 @@ export class PongGame3D {
                     } else if (kbInfo.event.key === 's' || kbInfo.event.key === 'S') {
                         this.inputStatePlayer1.down = false;
                     }
-					else if (kbInfo.event.key === 'ArrowUp') {
-						this.inputStatePlayer2.up = false;
-					} else if (kbInfo.event.key === 'ArrowDown') {
-						this.inputStatePlayer2.down = false;
-					}
+                    else if (kbInfo.event.key === 'ArrowUp') {
+                        this.inputStatePlayer2.up = false;
+                    } else if (kbInfo.event.key === 'ArrowDown') {
+                        this.inputStatePlayer2.down = false;
+                    }
                     break;
             }
         });
@@ -187,73 +189,49 @@ export class PongGame3D {
     private updateSinglePlayerPaddlePosition(): void {
         if (!this.state) return;
 
-        const localPlayer = this.localPlayerId === this.state.player1Id ? this.player1Paddle : this.player2Paddle;
-        let moved = false;
-
-        if (this.inputStatePlayer1.down) {
-            localPlayer.position.z -= this.paddleSpeed;
-            moved = true;
-        }
-        if (this.inputStatePlayer1.up) {
-            localPlayer.position.z += this.paddleSpeed;
-            moved = true;
-        }
-
-        const limit = 12;
-        if (localPlayer.position.z > limit) localPlayer.position.z = limit;
-        if (localPlayer.position.z < -limit) localPlayer.position.z = -limit;
-
-        if (moved) {
-            this.sendPaddleUpdate(this.localPlayerId, localPlayer.position.z);
-        }
+        this.sendPlayer1InputState();
     }
-    
 
 	private updateMultiPlayerPaddlePosition(): void {
 		if (!this.state) return;
 
-		let p1moved = false;
-		let p2moved = false;
-
-		// Player 1 controls
-		if (this.inputStatePlayer1.down) {
-			this.player1Paddle.position.z -= this.paddleSpeed;
-			p1moved = true;
-		}
-		if (this.inputStatePlayer1.up) {
-			this.player1Paddle.position.z += this.paddleSpeed;
-			p1moved = true;
-		}
-
-		// Player 2 controls
-		if (this.inputStatePlayer2.down) {
-			this.player2Paddle.position.z -= this.paddleSpeed;
-			p2moved = true;
-		}
-		if (this.inputStatePlayer2.up) {
-			this.player2Paddle.position.z += this.paddleSpeed;
-			p2moved = true;
-		}
-
-		const limit = 12;
-
-		if (this.player1Paddle.position.z > limit)
-			this.player1Paddle.position.z = limit;
-		if (this.player1Paddle.position.z < -limit)
-			this.player1Paddle.position.z = -limit;
-
-		if (this.player2Paddle.position.z > limit)
-			this.player2Paddle.position.z = limit;
-		if (this.player2Paddle.position.z < -limit)
-			this.player2Paddle.position.z = -limit;
-
-		if (p1moved) {
-			this.sendPaddleUpdate(this.state.player1Id, this.player1Paddle.position.z);
-		}
-		if (p2moved) {
-			this.sendPaddleUpdate(this.state.player2Id, this.player2Paddle.position.z);
-		}
+        this.sendPlayer1InputState();
+        this.sendPlayer2InputState();
 	}
+
+    private sendPlayer1InputState(): void {
+        let inputState: 'up' | 'down' | 'stop' = 'stop';
+        if (this.inputStatePlayer1.up) {
+            inputState = 'up';
+        }
+        else if (this.inputStatePlayer1.down) {
+            inputState = 'down';
+        }
+
+        if (this.lastSentInputStateP1 !== inputState) {
+            this.connection.sendPlayerInput(inputState, this.localPlayerId);
+            this.lastSentInputStateP1 = inputState;
+            console.log(`Player 1 input: ${inputState}`);
+        }
+    }
+
+    private sendPlayer2InputState(): void {
+        if (!this.state?.player2Id || this.state.player2Id === 'AI') return;
+
+        let inputState: 'up' | 'down' | 'stop' = 'stop';
+        
+        if (this.inputStatePlayer2.up) {
+            inputState = 'up';
+        } else if (this.inputStatePlayer2.down) {
+            inputState = 'down';
+        }
+        
+        if (this.lastSentInputStateP2 !== inputState) {
+            this.connection.sendPlayerInput(inputState, this.state.player2Id);
+            this.lastSentInputStateP2 = inputState;
+            console.log(`🎮 Player 2 input: ${inputState}`);
+        }
+    }
 
     private sendPaddleUpdate(playerId: string, paddleZ: number): void {
         this.connection.sendGameAction('updatePaddle', { playerId, paddleZ });
@@ -318,4 +296,8 @@ export class PongGame3D {
         this.scene.dispose();
         this.engine.dispose();
     }
+}
+
+function lerp(start: number, end: number, factor: number): number {
+    return start + (end - start) * factor;
 }

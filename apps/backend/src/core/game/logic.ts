@@ -250,6 +250,56 @@ function calculateCollisionTimes(
     return { topWall, bottomWall, leftPaddle, rightPaddle };
 }
 
+export function processPlayerInput(
+    game: GameState,
+    playerId: string,
+    direction: 'up' | 'down' | 'stop',
+    deltaTime: number = 1/60
+): void {
+    const PADDLE_SPEED = 0.6;
+    const PADDLE_LIMIT = 12;
+
+    const playerKey = getPlayerKey(playerId, game);
+    if (!playerKey) return;
+
+    let currentPaddleZ = game[playerKey].paddleZ;
+
+    switch (direction) {
+        case 'up':
+            currentPaddleZ += PADDLE_SPEED;
+            break;
+        case 'down':
+            currentPaddleZ -= PADDLE_SPEED;
+            break;
+        case 'stop':
+            break;
+    }
+
+    if (currentPaddleZ > PADDLE_LIMIT) currentPaddleZ = PADDLE_LIMIT;
+    if (currentPaddleZ < -PADDLE_LIMIT) currentPaddleZ = -PADDLE_LIMIT;
+    
+    game[playerKey].paddleZ = currentPaddleZ;
+    
+    if (playerKey === 'player1') {
+        game.player1.position.x = -12;
+        game.player1.position.z = currentPaddleZ;
+    } else {
+        game.player2.position.x = 12;
+        game.player2.position.z = currentPaddleZ;
+    }
+}
+
+function getPlayerKey(playerId: string, game: GameState): 'player1' | 'player2' | null {
+    if (game.player1Id === playerId) {
+        return 'player1';
+    }
+    if (game.player2Id === playerId) {
+        return 'player2';
+    }
+
+    return null; // Player not found in the game
+}
+
 export function resetBall(game: GameState): void {
 	game.ball.position = { x: 0, y: 1, z: 0 };
 	game.ball.velocity = {

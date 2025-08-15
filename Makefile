@@ -1,4 +1,4 @@
-all: start build up
+all: start 
 
 start:
 	@echo "Starting application with dynamic IP detection..."

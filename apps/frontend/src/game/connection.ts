@@ -173,6 +173,15 @@ export class Connection {
 		}
 	}
 
+	sendPlayerInput(inputState: 'up' | 'down' | 'stop', playerId?: string): void {
+        this.send(JSON.stringify({
+            type: 'playerInput',
+            inputState: inputState,
+            playerId: playerId || this.playerId,
+            timestamp: Date.now()
+        }));
+    }
+
 	sendGameAction(action: string, data?: any): void {
 		this.send(JSON.stringify({
 			type: 'gameAction',

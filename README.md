@@ -72,6 +72,14 @@
 
 25. profile like change password
 
+26. injecting HTML each time
+
+27. showing opponent nickname
+
+28. updating score-board (showing the score and player name also, it confusing)
+
+29. Showing infinity game loop stopped message --> IT MAKES BE FEEL BAD ㅡㅡ
+
 
 
 ## ----- LOGIN Flow -----

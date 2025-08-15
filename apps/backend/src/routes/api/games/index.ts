@@ -28,12 +28,30 @@ export default async function gameRoutes(fastify: FastifyInstance) {
 		connection.on('message', (message: Buffer) => {
 			try {
 				const data = JSON.parse(message.toString());
-				if (data.type === 'gameAction' && data.action === 'updatePaddle') {
+				
+				if (data.type === 'playerInput') {
+					const { inputState, playerId: inputPlayerId } = data; // 'up' | 'down' | 'stop'
+					
+					if (!['up', 'down', 'stop'].includes(inputState)) {
+						fastify.log.warn(`❌ Invalid input state: ${inputState} from player ${playerId}`);
+						return;
+					}
+					
+					const targetPlayerId = inputPlayerId || playerId;
+					gameEngine.updatePlayerInputState(gameId, targetPlayerId, inputState);
+					
+				} else if (data.type === 'gameAction' && data.action === 'updatePaddle') {
 					const { paddleZ } = data.data;
+					fastify.log.warn(`⚠️ Legacy paddle update used by player ${playerId}`);
 					gameEngine.updatePaddlePosition(gameId, playerId, paddleZ);
+					
+				} else if (data.type === 'ping') {
+					if (connection.readyState === 1) {
+						connection.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+					}
 				}
 			} catch (error) {
-				fastify.log.error(`Error processing message: ${error}`);
+				fastify.log.error(`❌ Error processing message from player ${playerId}: ${error}`);
 			}
 		});
 

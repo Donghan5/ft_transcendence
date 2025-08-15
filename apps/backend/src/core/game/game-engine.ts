@@ -10,6 +10,7 @@ class Enhanced3DPongGame {
 	private matchmakingSockets = new Map<string, WebSocket>();
 	public waitingPlayer: { playerId: string } | null = null;
 
+	private currentInputStates = new Map<string, Map<string, 'up' | 'down' | 'stop'>>();
 	/***
 	 * Constructor for the Enhanced 3D Pong Game Engine
 	 */
@@ -127,18 +128,18 @@ class Enhanced3DPongGame {
         }, 1000);
     }
 
-	/**
-	 * Remove a player from the game
-	 * @param gameId - The ID of the game
-	 * @param playerId - The ID of the player
-	 */
-	public removePlayer(gameId: string, playerId: string): void {
-		const players = this.connectedPlayers.get(gameId);
-		if (players?.has(playerId)) {
-			players.delete(playerId);
-			console.log(`Player ${playerId} left game ${gameId}`);
-		}
-	}
+	// /**
+	//  * Remove a player from the game
+	//  * @param gameId - The ID of the game
+	//  * @param playerId - The ID of the player
+	//  */
+	// public removePlayer(gameId: string, playerId: string): void {
+	// 	const players = this.connectedPlayers.get(gameId);
+	// 	if (players?.has(playerId)) {
+	// 		players.delete(playerId);
+	// 		console.log(`Player ${playerId} left game ${gameId}`);
+	// 	}
+	// }
 
 	/**
 	 * Update the paddle position of a player
@@ -147,6 +148,8 @@ class Enhanced3DPongGame {
 	 * @param paddleZ - The new Z position of the paddle
 	 */
 	public updatePaddlePosition(gameId: string, playerId: string, paddleZ: number): void {
+		  console.warn(`Legacy paddle update used for player ${playerId}. Consider migrating to input-based system.`);
+		
 		const game = this.games.get(gameId);
 		if (!game) return;
 
@@ -208,32 +211,86 @@ class Enhanced3DPongGame {
 		}
 	}
 
+	public updatePlayerInputState(gameId: string, playerId: string, direction: 'up' | 'down' | 'stop'): void {
+		if (!this.currentInputStates.has(gameId)) {
+			this.currentInputStates.set(gameId, new Map());
+		}
+
+		const gameInputs = this.currentInputStates.get(gameId)!;
+		gameInputs.set(playerId, direction);
+
+		console.log(`Player ${playerId} input: ${direction}`);
+	}
+
+	private stopGameLoop(gameId: string): void {
+		const interval = this.gameLoops.get(gameId);
+
+		if (interval) {
+			clearTimeout(interval);
+			this.gameLoops.delete(gameId);
+		}
+
+		this.currentInputStates.delete(gameId);
+		console.log(`Game loop stopped for game ${gameId}`);
+	}
+
+	public removePlayer(gameId: string, playerId: string): void {
+		const players = this.connectedPlayers.get(gameId);
+		if (players?.has(playerId)) {
+			players.delete(playerId);
+			console.log(`Player ${playerId} removed from game ${gameId}`);
+		}
+
+		const gameInputs = this.currentInputStates.get(gameId);
+		if (gameInputs?.has(playerId)) {
+			gameInputs.delete(playerId);
+			console.log(`Input state for player ${playerId} removed from game ${gameId}`);
+		}
+	}
+
 	/**
 	 * Start the game loop for a specific game
 	 * @param gameId - The ID of the game
 	 */
 	public startGameLoop(gameId: string): void {
+		const targetFPS = 60; // Target frames per second
+		const frameTime = 1000 / targetFPS; // Time per frame in milliseconds
+		let lastFrameTime = Date.now();
+
+
 		const gameLoop = () => {
 			const game = this.games.get(gameId);
-			// if (!game || game.status !== 'playing') {
-			// 	this.endGame(gameId);
-			// 	return;
-			// }
 			if (!game || game.status !== 'playing') {
-            	const loop = this.gameLoops.get(gameId);
-            	if (loop) {
-                	clearTimeout(loop);
-                	this.gameLoops.delete(gameId);
-            	}
+            	this.stopGameLoop(gameId);
             	return;
         	}
 
+			const currentTime = Date.now();
+			const deltaTime = (currentTime - lastFrameTime) / 1000; // Convert to seconds
+			lastFrameTime = currentTime;
+
+			const gameInputs = this.currentInputStates.get(gameId);
+			if (gameInputs) {
+				gameInputs.forEach((direction, playerId) => {
+					gameLogics.processPlayerInput(game, playerId, direction);
+				});
+			}
+
 			gameLogics.updatePhysics(game);
+			
 			gameLogics.broadcastGameState(gameId);
 
-			this.gameLoops.set(gameId, setTimeout(gameLoop, 1000 / 60)); // 60 FPS
 		};
-		gameLoop();
+
+		const scheduleNextFrame = () => {
+			const timeToNextFrame = frameTime - (Date.now() - lastFrameTime);
+			this.gameLoops.set(gameId, setTimeout(() => {
+				gameLoop();
+				scheduleNextFrame();
+			}, timeToNextFrame));
+		};
+
+		scheduleNextFrame();
 	}
 
 	public async endGame(gameId: string): Promise<void> {
