@@ -41,7 +41,9 @@ class Enhanced3DPongGame {
 	 * @param player2Id - ID of player 2
 	 * @return gameId - ID of the created game
 	 */
-	public createGame(player1Id: string, player2Id: string, gameMode: string, aiLevel?: 'EASY' | 'MIDDLE' | 'HARD'): string {
+	public createGame(player1Id: string, player2Id: string, gameMode: string, aiLevel?: 'EASY' | 'MIDDLE' | 'HARD',
+		player1Nickname?: string, player2Nickname?: string
+	): string {
 		const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 		const initialState = gameLogics.initState(gameId);
 
@@ -49,8 +51,18 @@ class Enhanced3DPongGame {
 			...initialState,
 			player1Id: player1Id,
 			player2Id: player2Id,
-			player1: { ...initialState.player1, position: { x: -12, y: 1.5, z: 0 }, paddleZ: 0 },
-			player2: { ...initialState.player2, position: { x: 12, y: 1.5, z: 0 }, paddleZ: 0 },
+			player1: { 
+				...initialState.player1, 
+				position: { x: -12, y: 1.5, z: 0 }, 
+				paddleZ: 0,
+				nickname: player1Nickname || player1Id
+			},
+			player2: { 
+				...initialState.player2, 
+				position: { x: 12, y: 1.5, z: 0 }, 
+				paddleZ: 0,
+				nickname: player2Nickname || player2Id
+			},
 			ball: {
 				position: { x: 0, y: 1, z: 0 },
 				velocity: { x: 0.5, y: 0, z: (Math.random() - 0.5) * 0.3 },
@@ -59,7 +71,7 @@ class Enhanced3DPongGame {
 			status: 'waiting',
 			lastUpdate: Date.now(),
 			gameMode: gameMode,
-			aiLevel: aiLevel,
+			aiLevel: aiLevel
 		};
 
 		this.games.set(gameId, gameState);
@@ -260,7 +272,7 @@ class Enhanced3DPongGame {
 
 		const gameLoop = () => {
 			const game = this.games.get(gameId);
-			if (!game || game.status !== 'playing') {
+			if (!game || game.status === 'finished') {
             	this.stopGameLoop(gameId);
             	return;
         	}

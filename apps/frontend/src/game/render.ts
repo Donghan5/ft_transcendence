@@ -241,7 +241,10 @@ export class PongGame3D {
         if (!this.state) return;
         const scoreText = document.getElementById('score-display');
         if (scoreText) {
-            scoreText.textContent = `${this.state.player1.score} - ${this.state.player2.score}`;
+            const player1Name = this.state.player1.nickname || this.state.player1Id;
+            const player2Name = this.state.player2.nickname || this.state.player2Id;
+            
+            scoreText.textContent = `${player1Name} ${this.state.player1.score} ${this.state.player2.score} ${player2Name}`;
         }
     }
 

@@ -60,7 +60,7 @@
 
 19. 로컬 로그인 구현 --> done
 
-20. when logged in -> not redirect to main
+20. when logged in -> not redirect to main --> fixed
 
 21. messed up form
 
@@ -78,8 +78,11 @@
 
 28. updating score-board (showing the score and player name also, it confusing)
 
-29. Showing infinity game loop stopped message --> IT MAKES BE FEEL BAD ㅡㅡ
+29.  'game loop stopped message'를 끊임 없이 보여줌 (stopGameLoop 함수와 관련이 있을 듯) --> IT MAKES BE FEEL BAD ㅡㅡ
 
+30. when we sign up, at after it redirect to main page --> WHAT THE ....
+
+31. 점수판 표시에 플레이어 닉네임이 아닌 그냥 플레이어 1, 플레이어 2로 표시함 (로컬에서, AI 에서는 player1 으로 표시)
 
 
 ## ----- LOGIN Flow -----

@@ -11,6 +11,7 @@ export interface PlayerState {
   position: Vector3D;
   score: number;
   paddleZ: number;
+  nickname?: string;
 }
 
 export interface BallState {

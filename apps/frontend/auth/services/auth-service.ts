@@ -4,7 +4,7 @@ import { LocalLoginRequest, LocalRegisterRequest, AuthResponse, AuthStatus, Pass
 
 export class AuthService {
     private static readonly BASE_URL = '/api/users/login/local';
-    private static readonly AUTH_STATUS_URL = '/api/auth/status';
+    private static readonly AUTH_STATUS_URL = '/api/auth/me';
 
     /**
      * local user login

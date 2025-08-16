@@ -1,5 +1,6 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { gameEngine } from '../../../core/game/game-engine';
+import { dbGet } from '../../../database/helpers'
 
 // Define a schema for the request body for validation
 const createGameBodySchema = {
@@ -25,20 +26,41 @@ export default async function createGameRoute(fastify: FastifyInstance) {
     async (request, reply) => {
       try {
         const { player1Id, player2Id, gameMode, aiLevel } = request.body as any;
+      
+        let player1Nickname = 'Player 1';
+        let player2Nickname = 'Player 2';
+
+        try {
+          const player1Data = await dbGet(
+            `SELECT nickname FROM users WHERE id = ?`, [player1Id]
+          );
+
+           if (player2Id && player2Id !== 'AI' && player2Id !== 'player2') {
+            const player2Data = await dbGet('SELECT nickname FROM users WHERE id = ?', [player2Id]);
+            if (player2Data) {
+              player2Nickname = player2Data.nickname || `Player ${player2Id}`;
+            }
+          } else if (player2Id === 'AI') {
+            player2Nickname = 'AI';
+          }
+        } catch (dbError) {
+          fastify.log.warn('Failed to fetch player nicknames, using defaults');
+        }
+
 
 		let gameId: string;
 
 		switch (gameMode) {
 			case 'LOCAL_PVP':
-				gameId = gameEngine.createGame(player1Id, player2Id || 'player2', 'LOCAL_PVP');
+				gameId = gameEngine.createGame(player1Id, player2Id || 'player2', 'LOCAL_PVP', undefined, player1Nickname, player2Nickname);
 				break;
 			case 'AI':
-				gameId = gameEngine.createGame(player1Id, player2Id || 'AI' , 'AI', aiLevel);
+				gameId = gameEngine.createGame(player1Id, player2Id || 'AI' , 'AI', aiLevel, player1Nickname);
 				break;
 			case 'PVP':
 				if (gameEngine.waitingPlayer) {
 					const player2Id = gameEngine.waitingPlayer.playerId;
-					gameId = gameEngine.createGame(player1Id, player2Id, 'PVP');
+					gameId = gameEngine.createGame(player1Id, player2Id, 'PVP', undefined, player1Nickname, player2Nickname);
 
 					gameEngine.notifyMatchFound(player2Id, gameId);
 

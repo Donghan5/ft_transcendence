@@ -21,13 +21,15 @@ document.addEventListener('DOMContentLoaded', () => {
  * @description checking auth status
  */
 async function checkAuthStatus() {
+	console.log('Checking authentication status...');
     const authStatus = await AuthService.checkAuthStatus();
+	console.log('Auth status:', authStatus);
 
     if (authStatus.isAuthenticated && authStatus.user) {
         console.log('User is authenticated:', authStatus.user);
         if (!authStatus.profileComplete) {
             console.log('Profile setup required');
-            showSection('nicknameSetup');
+            showSection('nicknameSetup');  // same flow as google-login ==> have to check it (always true)
         } else {
             showAppScreen(authStatus.user);
         }
@@ -137,13 +139,30 @@ async function handleLocalLogin(e: Event) {
         return;
     }
 
-	const result = await AuthService.localLogin(loginData); // AuthService 사용
+	const result = await AuthService.localLogin(loginData);
 
 	if (result.success) {
 		showAuthSuccess('loginSuccess', result.message);
-		setTimeout(() => {
-			checkAuthStatus();
-		}, 1000);
+
+		try {
+			const userResponse = await fetch('/api/auth/me', { credentials: 'include' });
+			if (userResponse.ok) {
+				const userData = await userResponse.json();
+				console.log('User data after login:', userData);
+				currentUser = userData;
+				
+				if (!userData.profileComplete) {
+					showNicknameSetupScreen();
+				} else {
+					showAppScreen(userData);
+				}
+			} else {
+				throw new Error('Failed to fetch user data');
+			}
+		} catch (error) {
+			console.error('Error fetching user data:', error);
+			showAuthError('loginError', 'Failed to load user profile');
+		}
 	} else {
 		showAuthError('loginError', result.error || 'Login failed.');
 	}
@@ -171,13 +190,30 @@ async function handleLocalRegister(e: Event) {
         return;
     }
 
-	const result = await AuthService.localRegister(registerData); // AuthService 사용
+	const result = await AuthService.localRegister(registerData);
 
 	if (result.success) {
 		showAuthSuccess('registerSuccess', result.message);
-		setTimeout(() => {
-			checkAuthStatus();
-		}, 1000);
+
+		try {
+			const userResponse = await fetch('/api/auth/me', { credentials: 'include' });
+			if (userResponse.ok) {
+				const userData = await userResponse.json();
+				console.log('User data after register:', userData);
+				currentUser = userData;
+				
+				if (!userData.profileComplete) {
+					showNicknameSetupScreen();
+				} else {
+					showAppScreen(userData);
+				}
+			} else {
+				throw new Error('Failed to fetch user data');
+			}
+		} catch (error) {
+			console.error('Error fetching user data:', error);
+			showAuthError('registerError', 'Failed to load user profile');
+		}
 	} else {
 		showAuthError('registerError', result.error || 'Registration failed.');
 	}
@@ -580,6 +616,7 @@ async function showProfileScreen() {
 		if (data.user.auth_provider === 'local') {
             const passwordChangeContainer = document.getElementById('password-change-container');
             if (passwordChangeContainer) {
+				passwordChangeContainer.innerHTML = '';
                 new PasswordChangeForm(passwordChangeContainer);
             }
         }
@@ -621,12 +658,18 @@ function attachAvatarFormListener() {
 				const result = await uploadResponse.json();
 
 				if (uploadResponse.ok) {
-					console.log('Avatar uploaded successfully:', result);
-					const profileAvatar = document.getElementById('avatarImage') as HTMLImageElement;
-					if (profileAvatar) {
-						profileAvatar.src = result.avatarUrl + '?t=' + new Date().getTime(); // Assuming the response contains the URL of the uploaded avatar
-					}
-				} else {
+                console.log('Avatar uploaded successfully:', result);
+                
+                const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
+                if (widgetAvatar) {
+                    widgetAvatar.src = result.avatarUrl + '?t=' + new Date().getTime();
+                }
+                
+                const profileAvatar = document.getElementById('profileAvatar') as HTMLImageElement;
+                if (profileAvatar) {
+                    profileAvatar.src = result.avatarUrl + '?t=' + new Date().getTime();
+                }
+            } else {
 					throw new Error(result.error || 'Failed to upload avatar');
 				}
 			} catch (error) {
@@ -926,7 +969,7 @@ export { returnToMainMenu };
  */
 async function updateLoginStatus() {
 	try {
-		const response = await fetch('/api/auth/me', { credentials: 'include' });     // create /api/auth/me endpoint in backend
+		const response = await fetch('/api/auth/me', { credentials: 'include' });
 		console.log('Checking login status...');
 		if (!response.ok) {
 			throw new Error('Not logged in');
@@ -936,15 +979,16 @@ async function updateLoginStatus() {
 		console.log('User data:', user);
 
 		currentUser = user;
+		
+		console.log('Profile complete status from /api/auth/me:', user.profileComplete);
+		
 		if (!user.profileComplete) {
 			showNicknameSetupScreen();
-		}
-
-		if (user.profileComplete) {
+		} else {
 			showAppScreen(user);
 		}
 	} catch (error) {
-		console.error('Not logged in or session expired2');
+		console.error('Not logged in or session expired');
 		showLoginScreen();
 	}
 }
@@ -996,7 +1040,12 @@ function showNicknameSetupScreen() {
 		console.error('Nickname form not found');
 		return;
 	}
-	nicknameForm.addEventListener('submit', async (event) => {
+	
+	// 기존 이벤트 리스너 제거 (중복 방지)
+	const newForm = nicknameForm.cloneNode(true) as HTMLFormElement;
+	nicknameForm.parentNode?.replaceChild(newForm, nicknameForm);
+	
+	newForm.addEventListener('submit', async (event) => {
 		event.preventDefault();
 		const nicknameInput = document.getElementById('nicknameInput') as HTMLInputElement;
 		const nickname = nicknameInput.value.trim();
@@ -1019,21 +1068,40 @@ function showNicknameSetupScreen() {
 			console.log(`response: ${response.status} ${response.statusText}`);
 
 			if (!response.ok) {
-				throw new Error('Failed to set nickname');
+				const errorData = await response.json();
+				throw new Error(errorData.error || 'Failed to set nickname');
 			}
 
 			const data = await response.json();
 			console.log('Nickname set successfully:', data);
 
-			window.location.reload();
-
-			// updateLoginStatus();
+			// 닉네임 설정 완료 후 사용자 정보 다시 가져오기
+			// AuthService 대신 직접 /api/auth/me 호출
+			const userResponse = await fetch('/api/auth/me', { credentials: 'include' });
+			if (userResponse.ok) {
+				const userData = await userResponse.json();
+				console.log('Updated user data after nickname setup:', userData);
+				console.log('Profile complete status:', userData.profileComplete);
+				
+				currentUser = userData;
+				
+				if (userData.profileComplete) {
+					showAppScreen(userData);
+				} else {
+					// 여전히 incomplete라면 에러 표시
+					alert('Profile setup failed. Please try again.');
+				}
+			} else {
+				throw new Error('Failed to fetch updated user data');
+			}
+			
 		} catch (error) {
 			console.error('Error setting nickname:', error);
-			alert('Failed to set nickname. Please try again later.');
+			alert(`Failed to set nickname: ${error instanceof Error ? error.message : 'Unknown error'}`);
 		}
 	});
 }
+
 
 window.addEventListener('beforeunload', () => {
 	if (currentGame) {

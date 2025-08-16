@@ -2,7 +2,7 @@
 
 echo "🚀 Guide of Google OAuth settings"
 
-# IP 주소 가져오기
+# Take the IP address
 IP_MODE="private"
 if [ "$IP_MODE" = "private" ]; then
     HOST_IP=$(hostname -I | awk '{print $1}')
