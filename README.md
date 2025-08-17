@@ -76,14 +76,15 @@
 
 27. showing opponent nickname
 
-28. updating score-board (showing the score and player name also, it confusing) --> done
+28. updating score-board (showing the score and player name also, it confusing) --> FIX
 
-29.  'game loop stopped message'를 끊임 없이 보여줌 (stopGameLoop 함수와 관련이 있을 듯) --> IT MAKES BE FEEL BAD ㅡㅡ
+29.  'game loop stopped message'를 끊임 없이 보여줌 (stopGameLoop 함수와 관련이 있을 듯) --> IT MAKES BE FEEL BAD ㅡㅡ --> FIX
 
-30. when we sign up, at after it redirect to main page --> WHAT THE .... --> done
+30. when we sign up, at after it redirect to main page --> WHAT THE .... --> FIX
 
-31. 점수판 표시에 플레이어 닉네임이 아닌 그냥 플레이어 1, 플레이어 2로 표시함 (로컬에서, AI 에서는 player1 으로 표시) --> done
+31. 점수판 표시에 플레이어 닉네임이 아닌 그냥 플레이어 1, 플레이어 2로 표시함 (로컬에서, AI 에서는 player1 으로 표시) --> FIX
 
+32. 이제 토너먼트 기능 추가하기 (그 전에 선행 요건이 플레이어가 게임에 접속해 있는지를 확인할 수 있게 (공개 프로필 상에서) 만드는 기능임)
 
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인

@@ -11,6 +11,8 @@ class Enhanced3DPongGame {
 	public waitingPlayer: { playerId: string } | null = null;
 
 	private currentInputStates = new Map<string, Map<string, 'up' | 'down' | 'stop'>>();
+	
+	private gameLoopRunning = new Map<string, boolean>();
 	/***
 	 * Constructor for the Enhanced 3D Pong Game Engine
 	 */
@@ -76,6 +78,7 @@ class Enhanced3DPongGame {
 
 		this.games.set(gameId, gameState);
 		this.connectedPlayers.set(gameId, new Map());
+		this.gameLoopRunning.set(gameId, false);
 		// this.startGameLoop(gameId);
 		return gameId;
 	}
@@ -242,6 +245,7 @@ class Enhanced3DPongGame {
 			this.gameLoops.delete(gameId);
 		}
 
+		this.gameLoopRunning.set(gameId, false);
 		this.currentInputStates.delete(gameId);
 		console.log(`Game loop stopped for game ${gameId}`);
 	}
@@ -265,56 +269,76 @@ class Enhanced3DPongGame {
 	 * @param gameId - The ID of the game
 	 */
 	public startGameLoop(gameId: string): void {
-		const targetFPS = 60; // Target frames per second
-		const frameTime = 1000 / targetFPS; // Time per frame in milliseconds
+		if (this.gameLoopRunning.get(gameId)) {
+			console.log(`Game loop for ${gameId} is already running`);
+			return;
+		}
+
+		const game = this.games.get(gameId);
+		if (!game) {
+			console.log(`Game ${gameId} not found, cannot start loop`);
+			return;
+		}
+
+		this.gameLoopRunning.set(gameId, true);
+		console.log(`Starting game loop for game ${gameId}`);
+
+		const targetFPS = 60;
+		const frameTime = 1000 / targetFPS;
 		let lastFrameTime = Date.now();
 
-
 		const gameLoop = () => {
-			const game = this.games.get(gameId);
-			if (!game || game.status === 'finished') {
-            	this.stopGameLoop(gameId);
-            	return;
-        	}
+			if (!this.gameLoopRunning.get(gameId)) {
+				return;
+			}
+
+			const currentGame = this.games.get(gameId);
+			if (!currentGame || currentGame.status === 'finished') {
+				this.stopGameLoop(gameId);
+				return;
+			}
 
 			const currentTime = Date.now();
-			const deltaTime = (currentTime - lastFrameTime) / 1000; // Convert to seconds
+			const deltaTime = (currentTime - lastFrameTime) / 1000;
 			lastFrameTime = currentTime;
 
 			const gameInputs = this.currentInputStates.get(gameId);
 			if (gameInputs) {
 				gameInputs.forEach((direction, playerId) => {
-					gameLogics.processPlayerInput(game, playerId, direction);
+					gameLogics.processPlayerInput(currentGame, playerId, direction);
 				});
 			}
 
-			gameLogics.updatePhysics(game);
+			gameLogics.updatePhysics(currentGame);
 			
 			gameLogics.broadcastGameState(gameId);
-
 		};
 
 		const scheduleNextFrame = () => {
-			const timeToNextFrame = frameTime - (Date.now() - lastFrameTime);
-			this.gameLoops.set(gameId, setTimeout(() => {
+			if (!this.gameLoopRunning.get(gameId)) {
+				return;
+			}
+
+			const timeToNextFrame = Math.max(0, frameTime - (Date.now() - lastFrameTime));
+			
+			const timeoutId = setTimeout(() => {
 				gameLoop();
-				scheduleNextFrame();
-			}, timeToNextFrame));
+				scheduleNextFrame(); 
+			}, timeToNextFrame);
+
+			this.gameLoops.set(gameId, timeoutId);
 		};
 
 		scheduleNextFrame();
 	}
 
 	public async endGame(gameId: string): Promise<void> {
-		const loop = this.gameLoops.get(gameId);
-		if (loop) {
-			clearTimeout(loop);
-			this.gameLoops.delete(gameId);
-		}
+		console.log(`Ending game ${gameId}`);
+
+		this.stopGameLoop(gameId);
 
 		const game = this.games.get(gameId);
 		const players = this.connectedPlayers.get(gameId);
-
 
 		if (game) {
 			game.status = 'finished';
@@ -322,7 +346,7 @@ class Enhanced3DPongGame {
 
 			try {
 				const isP1User = game.player1Id !== 'AI' && game.player1Id !== 'Player2';
-            	const isP2User = game.player2Id !== 'AI' && game.player2Id !== 'Player2';
+				const isP2User = game.player2Id !== 'AI' && game.player2Id !== 'Player2';
 
 				if (isP1User || isP2User || game.gameMode === 'LOCAL_PVP') {
 					await dbRun(
@@ -339,27 +363,34 @@ class Enhanced3DPongGame {
 							new Date().toISOString()
 						]
 					);
-					console.log(`[DB] Game ${gameId} result saved,`)
+					console.log(`[DB] Game ${gameId} result saved`);
 				}
 			} catch (error) {
 				console.error(`Error saving game result for ${gameId}:`, error);
 			}
+
+			if (players) {
+				const message = JSON.stringify({ 
+					type: 'gameEnd', 
+					winner: winnerId 
+				});
+				players.forEach((ws) => {
+					if (ws.readyState === WebSocket.OPEN) {
+						ws.send(message);
+					}
+				});
+			}
 		}
 
-		if (game && players) {
-			const message = JSON.stringify({ type: 'gameEnd', winner: game.player1.score > game.player2.score ? game.player1Id : game.player2Id });
-			players.forEach((ws) => {
-				if (ws.readyState === WebSocket.OPEN) {
-					ws.send(message);
-				}
-			});
-		}
+		console.log(`Game ${gameId} ended successfully`);
 
-		console.log(`Game ${gameId} ended`);
 		setTimeout(() => {
 			this.games.delete(gameId);
 			this.connectedPlayers.delete(gameId);
-		}, 30000); // Cleanup after 30 seconds
+			this.gameLoopRunning.delete(gameId);
+			this.currentInputStates.delete(gameId);
+			console.log(`Game ${gameId} data cleaned up`);
+		}, 30000);
 	}
 }
 

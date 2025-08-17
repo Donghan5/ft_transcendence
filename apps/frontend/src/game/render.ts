@@ -315,27 +315,80 @@ export class PongGame3D {
             return;
         }
 
-        this.disposed = true;
         console.log('PongGame3D disposing...');
+        this.disposed = true;
 
-        if (this.engine) {
-            this.engine.stopRenderLoop();
-            console.log('Render loop stopped');
+        try {
+            if (this.engine) {
+                this.engine.stopRenderLoop();
+                console.log('Render loop stopped');
+            }
+        } catch (error) {
+            console.error('Error stopping render loop:', error);
         }
 
-        if (this.connection) {
-            this.connection.disconnect();
-            console.log('Connection disconnected');
+        try {
+            if (this.connection) {
+                this.connection.disconnect();
+                console.log('Connection disconnected');
+            }
+        } catch (error) {
+            console.error('Error disconnecting connection:', error);
         }
 
-        if (this.scene) {
-            this.scene.dispose();
-            console.log('Scene disposed');
+        try {
+            if (this.resizeHandler) {
+                window.removeEventListener('resize', this.resizeHandler);
+                console.log('Resize handler removed');
+            }
+        } catch (error) {
+            console.error('Error removing resize handler:', error);
         }
-        if (this.engine) {
-            this.engine.dispose();
-            console.log('Engine disposed');
+
+        try {
+            if (this.scene) {
+                if (this.ball) {
+                    this.ball.dispose();
+                    console.log('Ball mesh disposed');
+                }
+                if (this.player1Paddle) {
+                    this.player1Paddle.dispose();
+                    console.log('Player1 paddle disposed');
+                }
+                if (this.player2Paddle) {
+                    this.player2Paddle.dispose();
+                    console.log('Player2 paddle disposed');
+                }
+                if (this.particleSystem) {
+                    this.particleSystem.dispose();
+                    console.log('Particle system disposed');
+                }
+
+                this.scene.dispose();
+                console.log('Scene disposed');
+            }
+        } catch (error) {
+            console.error('Error disposing scene:', error);
         }
+
+        try {
+            if (this.engine) {
+                this.engine.dispose();
+                console.log('Engine disposed');
+            }
+        } catch (error) {
+            console.error('Error disposing engine:', error);
+        }
+
+        this.ball = null as any;
+        this.player1Paddle = null as any;
+        this.player2Paddle = null as any;
+        this.particleSystem = null as any;
+        this.scene = null as any;
+        this.engine = null as any;
+        this.connection = null as any;
+        this.state = null;
+        this.previousState = null;
 
         console.log('PongGame3D fully disposed');
     }

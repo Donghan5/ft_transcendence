@@ -933,15 +933,15 @@ function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnect
 
 document.addEventListener('keydown', (event) => {
 	if (event.key === 'Escape' && currentGame) {
+		console.log('ESC pressed, returning to menu');
 		returnToMainMenu();
-		console.log("ESC game")
 	}
 
-	if (event.key === 'F11') {   // toggle fullscreen function
-		event.preventDefault()
-		toggleFullscreen()
+	if (event.key === 'F11') {
+		event.preventDefault();
+		toggleFullscreen();
 	}
-})
+});
 
 function toggleFullscreen() {
 	if (!document.fullscreenElement) {
@@ -954,23 +954,35 @@ function toggleFullscreen() {
 }
 
 function returnToMainMenu() {
+	console.log('Returning to main menu...');
+	
 	showSection('hero');
 
-	const gameOverModal = document.getElementById('gameOverModal')
+	const gameOverModal = document.getElementById('gameOverModal');
 	if (gameOverModal) {
-		gameOverModal.classList.add('hidden')
+		gameOverModal.classList.add('hidden');
 	}
 
+	cleanupCurrentGame();
+
+	console.log('Returned to main menu');
+}
+
+function cleanupCurrentGame() {
 	if (currentGame) {
 		console.log('Disposing current game...');
-		currentGame.dispose();
-		currentGame = null;
-		console.log('Current game set to null');
+		try {
+			currentGame.dispose();
+			console.log('Current game disposed successfully');
+		} catch (error) {
+			console.error('Error disposing current game:', error);
+		} finally {
+			currentGame = null;
+			console.log('Current game reference cleared');
+		}
 	} else {
-		console.log('No game to dispose')
+		console.log('No game to dispose');
 	}
-
-	console.log('Returned to main menu')
 }
 
 export { returnToMainMenu };
@@ -1006,18 +1018,28 @@ async function updateLoginStatus() {
 }
 
 async function cancelMatchmaking() {
+	console.log('Cancelling matchmaking...');
+
+	// 웹소켓 연결 정리
 	if (matchmakingWs) {
-		matchmakingWs.close();
-		matchmakingWs = null;
-		console.log('Matchmaking cancelled');
+		try {
+			matchmakingWs.close();
+			console.log('Matchmaking WebSocket closed');
+		} catch (error) {
+			console.error('Error closing matchmaking WebSocket:', error);
+		} finally {
+			matchmakingWs = null;
+		}
 	}
 
+	// 현재 유저 확인
 	if (!currentUser || !currentUser.id) {
 		console.error('Current user is not logged in. Cannot cancel matchmaking.');
 		returnToMainMenu();
 		return;
 	}
 
+	// 서버에 매치메이킹 취소 요청
 	try {
 		const response = await fetch('/api/games/cancel', {
 			method: 'POST',
@@ -1034,10 +1056,10 @@ async function cancelMatchmaking() {
 
 		const data = await response.json();
 		console.log('Matchmaking cancelled:', data);
-		returnToMainMenu();
 	} catch (error) {
 		console.error('Error cancelling matchmaking:', error);
 		alert('Failed to cancel matchmaking. Please try again later.');
+	} finally {
 		returnToMainMenu();
 	}
 }
@@ -1053,7 +1075,6 @@ function showNicknameSetupScreen() {
 		return;
 	}
 	
-	// 기존 이벤트 리스너 제거 (중복 방지)
 	const newForm = nicknameForm.cloneNode(true) as HTMLFormElement;
 	nicknameForm.parentNode?.replaceChild(newForm, nicknameForm);
 	
@@ -1087,8 +1108,6 @@ function showNicknameSetupScreen() {
 			const data = await response.json();
 			console.log('Nickname set successfully:', data);
 
-			// 닉네임 설정 완료 후 사용자 정보 다시 가져오기
-			// AuthService 대신 직접 /api/auth/me 호출
 			const userResponse = await fetch('/api/auth/me', { credentials: 'include' });
 			if (userResponse.ok) {
 				const userData = await userResponse.json();
@@ -1100,7 +1119,6 @@ function showNicknameSetupScreen() {
 				if (userData.profileComplete) {
 					showAppScreen(userData);
 				} else {
-					// 여전히 incomplete라면 에러 표시
 					alert('Profile setup failed. Please try again.');
 				}
 			} else {
@@ -1116,16 +1134,16 @@ function showNicknameSetupScreen() {
 
 
 window.addEventListener('beforeunload', () => {
-	if (currentGame) {
-		currentGame.dispose()
-		console.log("Game disposed")
+	console.log('Page unloading, cleaning up game');
+	cleanupCurrentGame();
+	
+	if (matchmakingWs) {
+		try {
+			matchmakingWs.close();
+		} catch (error) {
+			console.error('Error closing matchmaking WebSocket on unload:', error);
+		}
 	}
-})
-
-window.addEventListener('resize', () => {
-	if (currentGame) {
-		console.log("Resize game")
-	}
-})
+});
 
 console.log('Frontend main.ts loaded successfully')
