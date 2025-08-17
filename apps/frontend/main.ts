@@ -962,8 +962,12 @@ function returnToMainMenu() {
 	}
 
 	if (currentGame) {
-		currentGame.dispose()
-		currentGame = null
+		console.log('Disposing current game...');
+		currentGame.dispose();
+		currentGame = null;
+		console.log('Current game set to null');
+	} else {
+		console.log('No game to dispose')
 	}
 
 	console.log('Returned to main menu')

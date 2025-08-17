@@ -76,13 +76,13 @@
 
 27. showing opponent nickname
 
-28. updating score-board (showing the score and player name also, it confusing)
+28. updating score-board (showing the score and player name also, it confusing) --> done
 
 29.  'game loop stopped message'를 끊임 없이 보여줌 (stopGameLoop 함수와 관련이 있을 듯) --> IT MAKES BE FEEL BAD ㅡㅡ
 
-30. when we sign up, at after it redirect to main page --> WHAT THE ....
+30. when we sign up, at after it redirect to main page --> WHAT THE .... --> done
 
-31. 점수판 표시에 플레이어 닉네임이 아닌 그냥 플레이어 1, 플레이어 2로 표시함 (로컬에서, AI 에서는 player1 으로 표시)
+31. 점수판 표시에 플레이어 닉네임이 아닌 그냥 플레이어 1, 플레이어 2로 표시함 (로컬에서, AI 에서는 player1 으로 표시) --> done
 
 
 ## ----- LOGIN Flow -----

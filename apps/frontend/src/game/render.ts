@@ -38,6 +38,8 @@ export class PongGame3D {
 
     private paddleSpeed = 0.5;
 
+    private resizeHandler: () => void;
+
     constructor(canvas: HTMLCanvasElement, gameId: string, playerId: string = 'player1', gameMode: string = 'PVP', playerNickname: string = 'Player') {
         this.engine = new Engine(canvas, true);
         this.scene = new Scene(this.engine);
@@ -57,6 +59,7 @@ export class PongGame3D {
         this.connection.connect().catch(err => console.error('Connection failed:', err));
 
         this.engine.runRenderLoop(() => {
+            if (this.disposed) return;
 			this.scene.render(true, true);
 
 			if (this.gameMode === 'quick') {
@@ -68,9 +71,8 @@ export class PongGame3D {
 			this.interpolatePositions();
         });
 
-        window.addEventListener('resize', () => {
-            this.engine.resize();
-        });
+    this.resizeHandler = () => this.engine.resize();
+        window.addEventListener('resize', this.resizeHandler);
     }
 
     private setupConnectionHandlers(): void {
@@ -308,25 +310,34 @@ export class PongGame3D {
     }
 
     public dispose(): void {
-        if (this.disposed) return;
+        if (this.disposed) {
+            console.warn('PongGame3D already disposed, skipping');
+            return;
+        }
 
         this.disposed = true;
+        console.log('PongGame3D disposing...');
 
         if (this.engine) {
             this.engine.stopRenderLoop();
+            console.log('Render loop stopped');
         }
+
         if (this.connection) {
             this.connection.disconnect();
+            console.log('Connection disconnected');
         }
 
         if (this.scene) {
             this.scene.dispose();
+            console.log('Scene disposed');
         }
         if (this.engine) {
             this.engine.dispose();
+            console.log('Engine disposed');
         }
 
-       console.log('PongGame3D disposed');
+        console.log('PongGame3D fully disposed');
     }
 }
 
