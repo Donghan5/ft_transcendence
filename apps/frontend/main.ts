@@ -195,6 +195,12 @@ async function handleLocalRegister(e: Event) {
 	if (result.success) {
 		showAuthSuccess('registerSuccess', result.message);
 
+		(e.target as HTMLFormElement).reset(); // Reset the form
+
+		setTimeout(() => {
+			showAuthTab('login'); // Switch to login tab after successful registration
+			showAuthSuccess('registerSuccess', 'Please login to continue.');
+		}, 2000);
 		try {
 			const userResponse = await fetch('/api/auth/me', { credentials: 'include' });
 			if (userResponse.ok) {
@@ -770,12 +776,13 @@ async function createNewGame(gameMode: string) {
 			case 'quick':
 				requestBody = {
 					player1Id: currentUser.id,
+					player1Nickname: currentUser.nickname,
 					player2Id: 'Player2',
+					player2Nickname: 'Player2',
 					gameMode: 'LOCAL_PVP'
 				};
 				break;
 			case 'ai':
-				// TODO: SELECT AI LEVEL (INPUT OF SELECT UI)
 				const selectedAiLevel = await selectingAiLevel(); // temp set
 
 				if (!selectedAiLevel) {
@@ -785,6 +792,7 @@ async function createNewGame(gameMode: string) {
 
 				requestBody = {
 					player1Id: currentUser.id,
+					player1Nickname: currentUser.nickname,
 					player2Id: 'AI',
 					gameMode: 'AI',
 					aiLevel: selectedAiLevel

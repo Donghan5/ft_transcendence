@@ -95,6 +95,8 @@ export function updatePhysics(game: GameState): void {
         resetBall(updatedState);
 
         if (isGameOver(updatedState)) {
+            updatedState.status = 'finished';
+            gameEngine.getGames().set(game.gameId, updatedState);
             gameEngine.endGame(game.gameId);
         }
     }

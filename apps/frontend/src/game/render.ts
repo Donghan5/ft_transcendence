@@ -21,6 +21,8 @@ export class PongGame3D {
     private lastStateTimestamp: number = 0;
     private localPlayerId: string;
 
+    private disposed: boolean = false; // tracking disposal state
+
     private lastSentInputStateP1: 'up' | 'down' | 'stop' = 'stop';
     private lastSentInputStateP2: 'up' | 'down' | 'stop' = 'stop';
 
@@ -131,7 +133,7 @@ export class PongGame3D {
      * const lerp = (start: number, end: number, t: number) => start * (1 - t) + end * t;
 	 */
     private interpolatePositions(): void {
-        if (!this.state || !this.previousState) return;
+        if (this.disposed || !this.state || !this.previousState) return;
 
         const now = Date.now();
         const timeSinceUpdate = now - this.state.lastUpdate;
@@ -187,13 +189,13 @@ export class PongGame3D {
     }
 
     private updateSinglePlayerPaddlePosition(): void {
-        if (!this.state) return;
+        if (this.disposed || !this.state) return;
 
         this.sendPlayer1InputState();
     }
 
 	private updateMultiPlayerPaddlePosition(): void {
-		if (!this.state) return;
+		if (this.disposed || !this.state) return;
 
         this.sendPlayer1InputState();
         this.sendPlayer2InputState();
@@ -241,8 +243,19 @@ export class PongGame3D {
         if (!this.state) return;
         const scoreText = document.getElementById('score-display');
         if (scoreText) {
-            const player1Name = this.state.player1.nickname || this.state.player1Id;
-            const player2Name = this.state.player2.nickname || this.state.player2Id;
+            let player1Name: string;
+            let player2Name: string;
+
+            if (this.gameMode === 'quick') {
+                player1Name = this.localPlayerNickname;
+                player2Name = 'Player 2';
+            } else if (this.gameMode === 'ai') {
+                player1Name = this.localPlayerNickname;
+                player2Name = 'AI';
+            } else {
+                player1Name = this.state.player1.nickname || this.localPlayerNickname;
+                player2Name = this.state.player2.nickname || 'Opponent';
+            }
             
             scoreText.textContent = `${player1Name} ${this.state.player1.score} ${this.state.player2.score} ${player2Name}`;
         }
@@ -295,9 +308,25 @@ export class PongGame3D {
     }
 
     public dispose(): void {
-        this.connection.disconnect();
-        this.scene.dispose();
-        this.engine.dispose();
+        if (this.disposed) return;
+
+        this.disposed = true;
+
+        if (this.engine) {
+            this.engine.stopRenderLoop();
+        }
+        if (this.connection) {
+            this.connection.disconnect();
+        }
+
+        if (this.scene) {
+            this.scene.dispose();
+        }
+        if (this.engine) {
+            this.engine.dispose();
+        }
+
+       console.log('PongGame3D disposed');
     }
 }
 

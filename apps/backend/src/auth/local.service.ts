@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import { dbGet, dbRun } from '../database/helpers';
 
 class LocalAuthService {
-	public static async register(nickname: string, email: string, password: string): Promise<string> {
+	public static async register(nickname: string, email: string, password: string): Promise<void> {
 		const existingUser = await dbGet(
 			`SELECT * FROM users WHERE email = ? OR nickname = ?`,
 			[email, nickname]
@@ -26,18 +26,6 @@ class LocalAuthService {
 			`INSERT INTO users (nickname, email, password_hash, auth_provider, name, profile_setup_complete) VALUES (?, ?, ?, ?, ?, ?)`,
 			[nickname, email, passwordHash, 'local', nickname, true]
 		);
-
-		const jwtPayload = {
-			userId: result.lastID,
-			profileComplete: true,
-		};
-
-		const secret = process.env.JWT_SECRET;
-		if (!secret) {
-			throw new Error('JWT secret is not defined');
-		}
-
-		return jwt.sign(jwtPayload, secret, { expiresIn: '1h' });
 	}
 
 	public static async login(nickname: string, password: string): Promise<string> {

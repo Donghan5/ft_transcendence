@@ -72,7 +72,7 @@
 
 25. profile like change password
 
-26. injecting HTML each time
+26. injecting HTML each time --> FIX
 
 27. showing opponent nickname
 

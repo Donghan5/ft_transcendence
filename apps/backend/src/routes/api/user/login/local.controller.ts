@@ -34,16 +34,11 @@ export default async function (fastify: FastifyInstance) {
 
 			const token = await LocalAuthService.register(nickname, email, password);
 
-			reply.setCookie('auth_token', token, {
-				httpOnly: true,
-				secure: true,
-				path: '/',
-				sameSite: 'lax'
-			});
 
 			return reply.send({
 				success: true,
 				message: 'User registered successfully',
+				requiresLogin: true
 			});
 		}
 		catch (error) {
