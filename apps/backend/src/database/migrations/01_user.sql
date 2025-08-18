@@ -8,5 +8,6 @@ CREATE TABLE IF NOT EXISTS users (
     avatar_url TEXT,
 	password_hash VARCHAR(255),
 	auth_provider TEXT DEFAULT 'google',
-    profile_setup_complete BOOLEAN DEFAULT FALSE
+    profile_setup_complete BOOLEAN DEFAULT FALSE,
+    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

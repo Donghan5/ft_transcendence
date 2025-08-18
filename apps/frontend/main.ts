@@ -3,11 +3,16 @@ import { initializeGame } from './src/game/init'
 import { redirectGoogleLogin } from './auth/login/google'
 import { AuthService } from './auth/services/auth-service';
 import { PasswordChangeForm } from './components/password-change-form';
+import { StatusManager } from './src/status/status-manager';
+import { UserStats } from './src/status/status-manager';
+import { StatsManager } from './src/stats/stats-manager';
 
 let currentGame: PongGame3D | null = null;
 let currentGameId: string | null = null;
 let currentUser: any | null = null;
 let matchmakingWs: WebSocket | null = null;
+let statusManager: StatusManager;
+let statsManager: StatsManager;
 
 document.addEventListener('DOMContentLoaded', () => {
 	setupLocalAuthHandlers();
@@ -396,17 +401,28 @@ async function showFriendsScreen() {
 
             const data = await response.json();
 
+			const friendStatuses = statusManager.getFriends();
+			console.log('Friend statuses:', friendStatuses);
+
             // Render Friends List
-            friendsListEl.innerHTML = data.friends.map((friend: any) => `
+            friendsListEl.innerHTML = data.friends.map((friend: any) => {
+            // Find matching status from friendStatuses
+            const statusInfo = friendStatuses.find(f => f.userId === friend.id);
+            const status = statusInfo ? statusInfo.status : 'offline'; // Default to offline if not found
+            const statusColor = getStatusColor(status); // Reuse existing getStatusColor function
+
+            return `
                 <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-					<img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full mr-3">
-					<span>${friend.nickname}</span>
-					<div class="flex items-center gap-x-2">
-						<button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
-						<button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
-					</div
-				</li>
-            `).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
+                    <img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full mr-3">
+                    <span>${friend.nickname}</span>
+                    <div class="flex items-center gap-x-2">
+						<div class="status-text ${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</div>
+                        <button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
+                        <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
+                    </div>
+                </li>
+            `;
+       		 }).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
 
             // Render Received Requests
             receivedRequestsListEl.innerHTML = data.receivedRequests.map((req: any) => `
@@ -1003,6 +1019,25 @@ async function updateLoginStatus() {
 		console.log('User data:', user);
 
 		currentUser = user;
+
+		if (!statusManager) {
+            statusManager = StatusManager.getInstance();
+            await statusManager.initializeStatusConnection('', user);
+            
+            statusManager.onStatusUpdate((friends) => {
+                updateFriendsDisplay(friends);
+            });
+        }
+        
+        if (!statsManager) {
+            statsManager = StatsManager.getInstance();
+        }
+
+		await statusManager.initializeStatusConnection('', user);
+
+		statusManager.onStatusUpdate((friends) => {
+			updateFriendsDisplay(friends);
+		});
 		
 		console.log('Profile complete status from /api/auth/me:', user.profileComplete);
 		
@@ -1017,10 +1052,150 @@ async function updateLoginStatus() {
 	}
 }
 
+(window as any).viewProfile = viewProfile;
+(window as any).inviteToGame = inviteToGame;
+
+function updateFriendsDisplay(friends: any[]): void {
+	console.log('Updating friends display with data:', friends); 
+    const friendsList = document.getElementById('friendsList');
+    if (!friendsList) return;
+
+    friendsList.innerHTML = friends.map(friend => `
+        <div class="friend-item bg-white p-3 border-thick shadow-sharp mb-2 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="status-indicator w-3 h-3 rounded-full ${getStatusColor(friend.status)}"></div>
+                <div>
+                    <div class="font-bold">${friend.nickname}</div>
+                    <div class="text-sm text-gray-600">${getStatusText(friend.status)}</div>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="viewProfile(${friend.userId})" 
+                        class="bg-blue-500 text-white px-3 py-1 text-sm border-thick hover-anarchy">
+                    Profile
+                </button>
+                ${friend.status === 'online' ? `
+                    <button onclick="inviteToGame(${friend.userId})" 
+                            class="bg-green-500 text-white px-3 py-1 text-sm border-thick hover-anarchy">
+                        Invite
+                    </button>
+                ` : ''}
+            </div>
+        </div>
+    `).join('');
+
+	friendsList.querySelectorAll('.view-profile-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const userId = parseInt((e.target as HTMLElement).dataset.userId!);
+            viewProfile(userId);
+        });
+    });
+
+    friendsList.querySelectorAll('.invite-game-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const userId = parseInt((e.target as HTMLElement).dataset.userId!);
+            inviteToGame(userId);
+        });
+    });
+}
+
+function getStatusColor(status: string): string {
+    switch (status) {
+        case 'online': return 'bg-green-500';
+        case 'in_game': return 'bg-yellow-500';
+        case 'away': return 'bg-orange-500';
+        case 'offline': return 'bg-gray-500';
+        default: return 'bg-gray-500';
+    }
+}
+
+function getStatusText(status: string): string {
+    switch (status) {
+        case 'online': return 'Online';
+        case 'in_game': return 'In Game';
+        case 'away': return 'Away';
+        case 'offline': return 'Offline';
+        default: return 'Unknown';
+    }
+}
+
+async function viewProfile(userId: number): Promise<void> {
+    try {
+        const stats = await statsManager.getPublicStats(userId);
+        if (stats) {
+            showUserStatsModal(stats);
+        }
+    } catch (error) {
+        console.error('Error viewing profile:', error);
+    }
+}
+
+function showUserStatsModal(stats: UserStats): void {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white p-6 border-thick shadow-sharp max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold mb-4">${stats.nickname}'s Stats</h2>
+            <div class="space-y-2">
+                <div class="flex justify-between">
+                    <span>Rank:</span>
+                    <span class="font-bold">${stats.rank} (${stats.rankPoints} RP)</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Total Games:</span>
+                    <span>${stats.totalGames}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Wins/Losses:</span>
+                    <span>${stats.wins}/${stats.losses}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Win Rate:</span>
+                    <span>${stats.winRate}%</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Current Streak:</span>
+                    <span>${stats.currentStreak}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Max Streak:</span>
+                    <span>${stats.maxStreak}</span>
+                </div>
+            </div>
+            
+            <h3 class="text-lg font-bold mt-4 mb-2">Recent Games</h3>
+            <div class="space-y-1 max-h-32 overflow-y-auto">
+                ${stats.recentGames.map(game => `
+                    <div class="text-sm flex justify-between ${game.result === 'win' ? 'text-green-600' : 'text-red-600'}">
+                        <span>vs ${game.opponentNickname}</span>
+                        <span>${game.result.toUpperCase()}</span>
+                    </div>
+                `).join('')}
+            </div>
+            
+            <button onclick="this.parentElement.parentElement.remove()" 
+                    class="w-full mt-4 bg-gray-500 text-white py-2 border-thick hover-anarchy">
+                Close
+            </button>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+
+	modal.querySelector('.close-modal-btn')?.addEventListener('click', () => {
+        modal.remove();
+    });
+    
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
+
 async function cancelMatchmaking() {
 	console.log('Cancelling matchmaking...');
 
-	// 웹소켓 연결 정리
 	if (matchmakingWs) {
 		try {
 			matchmakingWs.close();
@@ -1032,14 +1207,12 @@ async function cancelMatchmaking() {
 		}
 	}
 
-	// 현재 유저 확인
 	if (!currentUser || !currentUser.id) {
 		console.error('Current user is not logged in. Cannot cancel matchmaking.');
 		returnToMainMenu();
 		return;
 	}
 
-	// 서버에 매치메이킹 취소 요청
 	try {
 		const response = await fetch('/api/games/cancel', {
 			method: 'POST',
@@ -1132,6 +1305,13 @@ function showNicknameSetupScreen() {
 	});
 }
 
+/**
+ * @description Invite a user to a game to Tournament
+ */
+function inviteToGame(userId: number): void {
+	console.log(`Inviting user ${userId} to game...`);
+	// call invite API or open a modal to confirm invitation
+}
 
 window.addEventListener('beforeunload', () => {
 	console.log('Page unloading, cleaning up game');
@@ -1143,6 +1323,10 @@ window.addEventListener('beforeunload', () => {
 		} catch (error) {
 			console.error('Error closing matchmaking WebSocket on unload:', error);
 		}
+	}
+
+	if (statusManager) {
+		statusManager.disconnect();
 	}
 });
 

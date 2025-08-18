@@ -2,6 +2,9 @@ import { WebSocket } from 'ws';
 import { GameState, GameDTO } from '@trans/common-types';
 import * as gameLogics from './logic';
 import { dbRun } from '../../database/helpers';
+import { OnlineStatusManager } from '../../core/status/online-status-manager';
+import { UserStatsManager } from '../../core/stats/user-stats-manager';
+
 
 class Enhanced3DPongGame {
 	private games = new Map<string, GameState>();
@@ -9,6 +12,9 @@ class Enhanced3DPongGame {
 	private connectedPlayers = new Map<string, Map<string, WebSocket>>();
 	private matchmakingSockets = new Map<string, WebSocket>();
 	public waitingPlayer: { playerId: string } | null = null;
+
+	private statusManager: OnlineStatusManager;
+	private statsManager: UserStatsManager;
 
 	private currentInputStates = new Map<string, Map<string, 'up' | 'down' | 'stop'>>();
 	
@@ -18,6 +24,9 @@ class Enhanced3DPongGame {
 	 */
 	constructor() {
 		console.log('Enhanced 3D Pong Game Engine Initialized');
+
+		this.statusManager = OnlineStatusManager.getInstance();
+		this.statsManager = UserStatsManager.getInstance();
 	}
 
 	/***
@@ -96,6 +105,8 @@ class Enhanced3DPongGame {
 		if (players && game) {
 			players.set(playerId, ws);
 			console.log(`Player ${playerId} joined game ${gameId}`);
+
+			this.statusManager.setUserInGame(parseInt(playerId), gameId);
 
 			const isReadyToStart = (game.player2Id !== 'AI' && players.size === 2) || (game.player2Id === 'AI' && players.size === 1) || (game.gameMode === 'LOCAL_PVP');
 			if (isReadyToStart && game.status === 'waiting') {
@@ -262,6 +273,8 @@ class Enhanced3DPongGame {
 			gameInputs.delete(playerId);
 			console.log(`Input state for player ${playerId} removed from game ${gameId}`);
 		}
+
+		this.statusManager.setUserBackOnline(parseInt(playerId));
 	}
 
 	/**
@@ -344,6 +357,9 @@ class Enhanced3DPongGame {
 			game.status = 'finished';
 			const winnerId = game.player1.score > game.player2.score ? game.player1Id : game.player2Id;
 
+			await this.updatePlayersStats(game, winnerId);
+			await this.setPlayersBackOnline(game);
+
 			try {
 				const isP1User = game.player1Id !== 'AI' && game.player1Id !== 'Player2';
 				const isP2User = game.player2Id !== 'AI' && game.player2Id !== 'Player2';
@@ -392,6 +408,65 @@ class Enhanced3DPongGame {
 			console.log(`Game ${gameId} data cleaned up`);
 		}, 30000);
 	}
+
+	 private async updatePlayersStats(game: GameState, winnerId: string): Promise<void> {
+        try {
+            const player1Id = parseInt(game.player1Id);
+            const player2Id = parseInt(game.player2Id);
+
+            if (game.player1Id !== 'AI' && !isNaN(player1Id)) {
+                const isWinner = winnerId === game.player1Id;
+                const pointsChange = this.calculateRankPoints(isWinner, game.player1.score, game.player2.score);
+                await this.statsManager.updateRankPoints(player1Id, pointsChange);
+            }
+
+            if (game.player2Id !== 'AI' && !isNaN(player2Id)) {
+                const isWinner = winnerId === game.player2Id;
+                const pointsChange = this.calculateRankPoints(isWinner, game.player2.score, game.player1.score);
+                await this.statsManager.updateRankPoints(player2Id, pointsChange);
+            }
+        } catch (error) {
+            console.error('Error updating player stats:', error);
+        }
+    }
+
+    /**
+     * Sets players back online after a game ends
+     */
+    private async setPlayersBackOnline(game: GameState): Promise<void> {
+        try {
+            if (game.player1Id !== 'AI') {
+                const player1Id = parseInt(game.player1Id);
+                if (!isNaN(player1Id)) {
+                    await this.statusManager.setUserBackOnline(player1Id);
+                }
+            }
+
+            if (game.player2Id !== 'AI') {
+                const player2Id = parseInt(game.player2Id);
+                if (!isNaN(player2Id)) {
+                    await this.statusManager.setUserBackOnline(player2Id);
+                }
+            }
+        } catch (error) {
+            console.error('Error setting players back online:', error);
+        }
+    }
+
+    /**
+     * Rank points calculation based on game outcome
+     */
+    private calculateRankPoints(isWinner: boolean, playerScore: number, opponentScore: number): number {
+        const basePoints = 25;
+        const scoreDifference = playerScore - opponentScore;
+        
+        if (isWinner) {
+            return Math.max(15, basePoints + Math.floor(scoreDifference / 2));
+        } else {
+            return Math.min(-15, -basePoints + Math.floor(scoreDifference / 2));
+        }
+    }
+
 }
 
 // Sigleton instance of the game engine

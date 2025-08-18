@@ -18,6 +18,7 @@ import googleLoginRoute from './routes/api/user/login/google.controller';
 import authStatusRoute from './routes/api/auth/status.controller';
 import friendsRoute from './routes/api/user/friends.controller';
 import localLoginRoute from './routes/api/user/login/local.controller';
+import statusRoute from './routes/api/user/status.controller';
 
 async function buildServer(): Promise<FastifyInstance> {
     const server = fastify({ logger: true, trustProxy: true });
@@ -57,6 +58,7 @@ async function buildServer(): Promise<FastifyInstance> {
     server.register(authStatusRoute, { prefix: '/api/auth' });
 	server.register(profileRoute, { prefix: '/api/user' });
 	server.register(friendsRoute, { prefix: '/api/user' });
+    server.register(statusRoute, { prefix: '/api/user' });
 	server.register(localLoginRoute, { prefix: '/api/users/login/local' });
 
     server.setErrorHandler((error, request, reply) => {

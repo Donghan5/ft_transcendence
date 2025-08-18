@@ -2,6 +2,7 @@
 import { FastifyInstance, FastifyRequest } from 'fastify';
 import { WebSocket } from 'ws';
 import { gameEngine } from '../../../core/game/game-engine';
+import { OnlineStatusManager } from '../../../core/status/online-status-manager';
 
 import createGameRoutes from './create';
 import gameStatusRoutes from './status';
@@ -11,6 +12,7 @@ import matchmakingRoutes from './matchmaking';
 
 
 export default async function gameRoutes(fastify: FastifyInstance) {
+	const statusManager = OnlineStatusManager.getInstance();
 
 	fastify.register(createGameRoutes);
 	fastify.register(cancelRoutes);
@@ -22,6 +24,8 @@ export default async function gameRoutes(fastify: FastifyInstance) {
 		const playerId = (req.query as Record<string, string>).playerId ?? `player_${Date.now()}`;
 
 		fastify.log.info(`WebSocket connection established for game ${gameId} with player ${playerId}`);
+
+		statusManager.setUserInGame(parseInt(playerId), gameId);
 
 		gameEngine.addPlayer(gameId, playerId, connection as unknown as WebSocket);
 
@@ -57,11 +61,13 @@ export default async function gameRoutes(fastify: FastifyInstance) {
 
 		connection.on('close', () => {
 			fastify.log.info(`WebSocket connection closed for player ${playerId}`);
+			statusManager.setUserBackOnline(parseInt(playerId));
 			gameEngine.removePlayer(gameId, playerId);
 		});
 
 		connection.on('error', (error: Error) => {
 			fastify.log.error(`WebSocket error for player ${playerId}: ${error.message}`);
+			statusManager.setUserBackOnline(parseInt(playerId));
 			gameEngine.removePlayer(gameId, playerId);
 		});
 	});
