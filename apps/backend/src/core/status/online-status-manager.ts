@@ -137,7 +137,7 @@ export class OnlineStatusManager {
                         WHEN uf.user_id = ? THEN uf.friend_id
                         ELSE uf.user_id
                     END as friend_id
-                FROM user_friends uf
+                FROM users_friends uf
                 WHERE (uf.user_id = ? OR uf.friend_id = ?)
                 AND uf.status = 'accepted'
                 `, [userId, userId, userId]);
@@ -184,7 +184,7 @@ export class OnlineStatusManager {
                         WHEN uf.user_id = ? THEN uf.friend_id
                         ELSE uf.user_id
                     END as friend_id
-                    FROM user_friends uf
+                    FROM users_friends uf
                     JOIN users u ON u.id = CASE
                         WHEN uf.user_id = ? THEN uf.friend_id
                         ELSE uf.user_id

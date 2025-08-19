@@ -412,18 +412,17 @@ async function showFriendsScreen() {
             const statusColor = getStatusColor(status); // Reuse existing getStatusColor function
 
             return `
-                <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-                    <img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full mr-3">
-                    <span>${friend.nickname}</span>
-                    <div class="flex items-center gap-x-2">
-						<div class="status-text ${status}">${status.charAt(0).toUpperCase() + status.slice(1)}</div>
-                        <button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
-                        <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
-                    </div>
-                </li>
-            `;
-       		 }).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
-
+					<li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+						<img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full mr-3">
+						<span class="text-black font-bold">${friend.nickname}</span>
+						<div class="flex items-center gap-x-2">
+							<div class="status-text ${status} text-black">${status.charAt(0).toUpperCase() + status.slice(1)}</div>
+							<button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
+							<button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
+						</div>
+					</li>
+				`;
+			}).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
             // Render Received Requests
             receivedRequestsListEl.innerHTML = data.receivedRequests.map((req: any) => `
                 <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
@@ -1060,29 +1059,20 @@ function updateFriendsDisplay(friends: any[]): void {
     const friendsList = document.getElementById('friendsList');
     if (!friendsList) return;
 
-    friendsList.innerHTML = friends.map(friend => `
-        <div class="friend-item bg-white p-3 border-thick shadow-sharp mb-2 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="status-indicator w-3 h-3 rounded-full ${getStatusColor(friend.status)}"></div>
-                <div>
-                    <div class="font-bold">${friend.nickname}</div>
-                    <div class="text-sm text-gray-600">${getStatusText(friend.status)}</div>
-                </div>
-            </div>
-            <div class="flex gap-2">
-                <button onclick="viewProfile(${friend.userId})" 
-                        class="bg-blue-500 text-white px-3 py-1 text-sm border-thick hover-anarchy">
-                    Profile
-                </button>
-                ${friend.status === 'online' ? `
-                    <button onclick="inviteToGame(${friend.userId})" 
-                            class="bg-green-500 text-white px-3 py-1 text-sm border-thick hover-anarchy">
-                        Invite
-                    </button>
-                ` : ''}
-            </div>
-        </div>
-    `).join('');
+	friendsList.innerHTML = friends.map(friend => {
+		const status = friend.status || 'offline';
+		return `
+					<li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+						<img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full mr-3">
+						<span class="text-black font-bold">${friend.nickname}</span>
+						<div class="flex items-center gap-x-2">
+							<div class="status-text ${status} text-black">${status.charAt(0).toUpperCase() + status.slice(1)}</div>
+							<button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
+							<button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
+						</div>
+					</li>
+				`;
+	}).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
 
 	friendsList.querySelectorAll('.view-profile-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {

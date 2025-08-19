@@ -19,8 +19,10 @@ async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
 }
 
 export default async function statusRoute(fastify: FastifyInstance) {
+    console.log('Registering statusRoute...');
     const statusManager = OnlineStatusManager.getInstance();
     const statsManager = UserStatsManager.getInstance();
+
 
     fastify.get('/status/ws', { websocket: true}, (connection, req) => {
         const token = (req.cookies as any).auth_token;
