@@ -239,11 +239,11 @@ function setupEventListeners() {
 		})
 	}
 
-	const tournamentButton = document.getElementById('tournamentBtn')
-	if (tournamentButton) {
-		tournamentButton.addEventListener('click', () => {
-			console.log("Tournament play!")
-			handleGameStart('tournament')
+	const pvpPlayButton = document.getElementById('pvpPlayBtn')
+	if (pvpPlayButton) {
+		pvpPlayButton.addEventListener('click', () => {
+			console.log("PVP play!")
+			handleGameStart('pvp')
 		})
 	}
 
@@ -413,12 +413,17 @@ async function showFriendsScreen() {
 
             return `
 					<li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-						<img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full mr-3">
-						<span class="text-black font-bold">${friend.nickname}</span>
+						<div class="flex items-center gap-x-3">
+							<div class="w-3 h-3 rounded-full ${statusColor}" title="${status.charAt(0).toUpperCase() + status.slice(1)}"></div>
+							<img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full">
+							<span class="text-black font-bold">${friend.nickname}</span>
+						</div>
 						<div class="flex items-center gap-x-2">
-							<div class="status-text ${status} text-black">${status.charAt(0).toUpperCase() + status.slice(1)}</div>
-							<button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
-							<button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
+							<button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
+							<button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg border-thick hover-anarchy">REMOVE</button>
+							<button onclick="viewProfile(${friend.id})" class="bg-blue-500 text-white px-3 py-1 text-lg border-thick hover-anarchy">
+								View Stats
+							</button>
 						</div>
 					</li>
 				`;
@@ -562,11 +567,9 @@ async function showPublicProfileScreen(nickname: string) {
                 ${data.gameHistory.map((game: any) => `
                     <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
                         <span>vs ${game.opponent_nickname} (${game.game_type})</span>
-                        <span class="font-bold ${game.result === 'Win' ? 'text-green-600' : 'text-red-600'}">
-                            ${game.result} (${game.player1_score} - ${game.player2_score})
-                        </span>
+                        <span class="font-bold ${game.result === 'Win' ? 'text-green-600' : 'text-red-600'}">${game.result}</span>
                     </li>
-                `).join('') || '<li class="bg-white p-3 border-thick text-black">No games played yet.</li>'}
+                `).join('')}
             </ul>
         `;
 	} catch (error) {
@@ -813,7 +816,7 @@ async function createNewGame(gameMode: string) {
 					aiLevel: selectedAiLevel
 				};
 				break;
-			case 'tournament':
+			case 'pvp':
 				requestBody = {
 					player1Id: currentUser.id,
 					gameMode: 'PVP',
@@ -882,7 +885,7 @@ function connectingMatchmaking() {
 			}
 
 			showGameScreen();
-			startGame(data.gameId, String(currentUser.id), 'tournament');
+			startGame(data.gameId, String(currentUser.id), 'pvp');
 		}
 	};
 
@@ -1059,20 +1062,28 @@ function updateFriendsDisplay(friends: any[]): void {
     const friendsList = document.getElementById('friendsList');
     if (!friendsList) return;
 
-	friendsList.innerHTML = friends.map(friend => {
-		const status = friend.status || 'offline';
-		return `
-					<li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-						<img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full mr-3">
-						<span class="text-black font-bold">${friend.nickname}</span>
-						<div class="flex items-center gap-x-2">
-							<div class="status-text ${status} text-black">${status.charAt(0).toUpperCase() + status.slice(1)}</div>
-							<button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
-							<button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg hover-anarchy">REMOVE</button>
-						</div>
-					</li>
-				`;
-	}).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
+   friendsList.innerHTML = friends.map(friend => {
+        const status = friend.status || 'offline';
+        const statusColor = getStatusColor(status);
+
+        return `
+            <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+                <div class="flex items-center gap-x-3">
+                    <div class="w-3 h-3 rounded-full ${statusColor}" title="${status.charAt(0).toUpperCase() + status.slice(1)}"></div>
+                    <img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full">
+                    <span class="text-black font-bold">${friend.nickname}</span>
+                </div>
+                <div class="flex items-center gap-x-2">
+                    <button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
+                    <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg border-thick hover-anarchy">REMOVE</button>
+                    <button onclick="viewProfile(${friend.userId})" class="bg-blue-500 text-white px-3 py-1 text-lg border-thick hover-anarchy">
+                        View Stats
+                    </button>
+                </div>
+            </li>
+        `;
+    }).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
+
 
 	friendsList.querySelectorAll('.view-profile-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -1081,12 +1092,21 @@ function updateFriendsDisplay(friends: any[]): void {
         });
     });
 
-    friendsList.querySelectorAll('.invite-game-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const userId = parseInt((e.target as HTMLElement).dataset.userId!);
-            inviteToGame(userId);
+	friendsList.querySelectorAll('.friend-item').forEach(item => {
+        item.addEventListener('click', async (e) => {
+            const nickname = (e.currentTarget as HTMLElement).dataset.nickname;
+            if (nickname) {
+                await showPublicProfileScreen(nickname);
+            }
         });
     });
+
+    // friendsList.querySelectorAll('.invite-game-btn').forEach(btn => {
+    //     btn.addEventListener('click', (e) => {
+    //         const userId = parseInt((e.target as HTMLElement).dataset.userId!);
+    //         inviteToGame(userId);
+    //     });
+    // });
 }
 
 function getStatusColor(status: string): string {

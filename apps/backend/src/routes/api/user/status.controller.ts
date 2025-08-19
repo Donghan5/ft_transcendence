@@ -1,7 +1,6 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { OnlineStatusManager } from '../../../core/status/online-status-manager';
-import { UserStatsManager } from '../../../core/stats/user-stats-manager';
 
 async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
     try {
@@ -21,7 +20,6 @@ async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
 export default async function statusRoute(fastify: FastifyInstance) {
     console.log('Registering statusRoute...');
     const statusManager = OnlineStatusManager.getInstance();
-    const statsManager = UserStatsManager.getInstance();
 
 
     fastify.get('/status/ws', { websocket: true}, (connection, req) => {
@@ -93,87 +91,6 @@ export default async function statusRoute(fastify: FastifyInstance) {
             return reply.send({ status: userStatus });
         } catch (error) {
             fastify.log.error('Error getting user status:', error);
-            return reply.code(500).send({ error: 'Internal server error' });
-        }
-    });
-
-    fastify.get('/stats', { preHandler: [verifyJwt] }, async (request: FastifyRequest, reply: FastifyReply) => {
-        const userId = request.user?.userId;
-        
-        if (typeof userId !== 'number') {
-            return reply.code(401).send({ error: 'Unauthorized' });
-        }
-        
-        try {
-            const stats = await statsManager.getUserStats(userId);
-            if (!stats) {
-                return reply.code(404).send({ error: 'User stats not found' });
-            }
-            
-            return reply.send({ stats });
-        } catch (error) {
-            fastify.log.error('Error getting user stats:', error);
-            return reply.code(500).send({ error: 'Internal server error' });
-        }
-    });
-
-    fastify.get('/stats/:userId', { preHandler: [verifyJwt] }, async (request: FastifyRequest, reply: FastifyReply) => {
-        const { userId: targetUserId } = request.params as { userId: string };
-        
-        try {
-            const stats = await statsManager.getUserStats(parseInt(targetUserId));
-            if (!stats) {
-                return reply.code(404).send({ error: 'User stats not found' });
-            }
-            
-            const publicStats = {
-                userId: stats.userId,
-                nickname: stats.nickname,
-                totalGames: stats.totalGames,
-                wins: stats.wins,
-                losses: stats.losses,
-                winRate: stats.winRate,
-                rank: stats.rank,
-                rankPoints: stats.rankPoints,
-                currentStreak: stats.currentStreak,
-                maxStreak: stats.maxStreak,
-                recentGames: stats.recentGames.slice(0, 5) 
-            };
-            
-            return reply.send({ stats: publicStats });
-        } catch (error) {
-            fastify.log.error('Error getting public user stats:', error);
-            return reply.code(500).send({ error: 'Internal server error' });
-        }
-    });
-
-    fastify.get('/leaderboard', async (request: FastifyRequest, reply: FastifyReply) => {
-        const { limit = 50 } = request.query as { limit?: number };
-        
-        try {
-            const leaderboard = await statsManager.getLeaderboard(limit);
-            return reply.send({ leaderboard });
-        } catch (error) {
-            fastify.log.error('Error getting leaderboard:', error);
-            return reply.code(500).send({ error: 'Internal server error' });
-        }
-    });
-
-    fastify.get('/metrics', async (request: FastifyRequest, reply: FastifyReply) => {
-        try {
-            const systemMetrics = await statsManager.getSystemMetrics();
-            const onlineUsers = statusManager.getAllOnlineUsers();
-            
-            const metrics = {
-                ...systemMetrics,
-                current_online_users: onlineUsers.length,
-                users_in_game: onlineUsers.filter(u => u.status === 'in_game').length,
-                users_away: onlineUsers.filter(u => u.status === 'away').length
-            };
-            
-            return reply.send({ metrics });
-        } catch (error) {
-            fastify.log.error('Error getting system metrics:', error);
             return reply.code(500).send({ error: 'Internal server error' });
         }
     });
