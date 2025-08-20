@@ -11,8 +11,8 @@ export interface ConnectionEvenets {
 
 export class Connection {
 	private ws: WebSocket | null = null
-	private gameId: string
-	private playerId: string
+	public gameId: string	// changed from private to public for easier access
+	public playerId: string // changed from private to public for easier access
 	private reconnectAttempts: number = 0
 	private maxReconnectAttempts: number = 5
 	private reconnectDelay: number = 1000

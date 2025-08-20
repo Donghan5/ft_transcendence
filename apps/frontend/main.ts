@@ -951,8 +951,11 @@ function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnect
 
 document.addEventListener('keydown', (event) => {
 	if (event.key === 'Escape' && currentGame) {
-		console.log('ESC pressed, returning to menu');
-		returnToMainMenu();
+		if (confirm('Are you sure you want to exit the game? You are going to forfeit the current game.')) {
+			cancelCurrentGame();
+		}
+		// console.log('ESC pressed, returning to menu');
+		// returnToMainMenu();
 	}
 
 	if (event.key === 'F11') {
@@ -960,6 +963,32 @@ document.addEventListener('keydown', (event) => {
 		toggleFullscreen();
 	}
 });
+
+async function cancelCurrentGame() {
+	if (!currentGame || !currentUser) return;
+
+	try {
+		const response = await fetch(`/api/games/forfeit`, {
+			method: 'POST',
+			headers : { 'Content-Type': 'application/json' },
+			body: JSON.stringify({
+				gameId: currentGame.state?.gameId,
+				playerId: currentUser.id
+			}),
+			credentials: 'include'
+		});
+
+		if (response.ok) {
+			const result = await response.json();
+			returnToMainMenu();
+		}
+	} catch (error) {
+		console.error('Error canceling current game:', error);
+		alert('Failed to cancel the game. Please try again later.');
+	}
+
+	cleanupCurrentGame();
+}
 
 function toggleFullscreen() {
 	if (!document.fullscreenElement) {

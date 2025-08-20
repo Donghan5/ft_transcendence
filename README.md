@@ -86,7 +86,9 @@
 
 32. 이제 토너먼트 기능 추가하기 (그 전에 선행 요건이 플레이어가 게임에 접속해 있는지를 확인할 수 있게 (공개 프로필 상에서) 만드는 기능임)
 
-33. 웹소켓 관련 문제 (404) / 맨 처음에 친구 목록 불러오는데 (FAIL TO LOAD DATA)가 나오고 그 다음에 바로 새로고침을 하면 데이터가 불러와짐 --> 내가 생각하는 문제는 웹소켓 관련 404 에러 때문에 처음에 못 불러 오는 것 같음
+33. 웹소켓 관련 문제 (404) / 맨 처음에 친구 목록 불러오는데 (FAIL TO LOAD DATA)가 나오고 그 다음에 바로 새로고침을 하면 데이터가 불러와짐 --> 내가 생각하는 문제는 웹소켓 관련 404 에러 때문에 처음에 못 불러 오는 것 같음  --> FIX
+
+34. 게임 캔슬 시 (Esc,  캔슬 버튼) --> 게임 종료, 캔슬 한 사람 몰수패처리
 
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
@@ -105,3 +107,11 @@
 4. (Front) if accept --> send the post request to backend
 5. (Back) gameEngine.createGame() --> create game of both player, send a signal "Game Start" via websocket
 6. Enter to game id, when they receive the signals
+
+
+## -------- 토너먼트 기능 ----------
+1. 토너먼트 대기방 입장
+2. 친구 초대 가능 최소 3명
+3. 어떤 기준(?)으로 대진표 만듬. 인원이 홀수인 경우에는 부전승
+4. 대진표를 기준으로 경기 진행
+5. 경기 결과를 기준으로 랭킹 반영해서 리더보드에 기록

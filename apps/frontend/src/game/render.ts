@@ -16,7 +16,7 @@ export class PongGame3D {
     private ball: Mesh;
     private particleSystem: ParticleSystem;
 
-    private state: GameState | null = null;
+    public state: GameState | null = null;
     private previousState: GameState | null = null;
     private lastStateTimestamp: number = 0;
     private localPlayerId: string;
@@ -73,6 +73,36 @@ export class PongGame3D {
 
     this.resizeHandler = () => this.engine.resize();
         window.addEventListener('resize', this.resizeHandler);
+    }
+
+    private createGameUI(): void {
+        const cancelBtn = document.getElementById('button');
+
+        if (!cancelBtn) {
+            console.error('Cancel button not found');
+            return;
+        }
+
+        cancelBtn.id = 'game-cancel-btn';
+        cancelBtn.textContent = 'Quit Game';
+        cancelBtn.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400';
+        cancelBtn.style.zIndex = '1000';
+
+        cancelBtn.addEventListener('click', () => {
+            if (confirm('Are you sure you want to quit and forfeit the game?')) {
+                this.forfeitGame();
+            }
+        });
+        document.getElementById('game-container')?.appendChild(cancelBtn);
+    }
+
+    private forfeitGame(): void {
+        if (this.connection) {
+            this.connection.sendGameAction('forfeit', { 
+                gameId: this.connection.gameId,
+                playerId: this.connection.playerId
+             });
+        }
     }
 
     private setupConnectionHandlers(): void {

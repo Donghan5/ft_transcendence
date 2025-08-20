@@ -9,5 +9,9 @@ CREATE TABLE IF NOT EXISTS games (
     game_type TEXT DEFAULT 'casual',
     tournament_id INTEGER,
     finished_at DATETIME,
-    game_data TEXT
+    game_data TEXT,
+    is_forfeit BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (player1_id) REFERENCES users(id),
+    FOREIGN KEY (player2_id) REFERENCES users(id),
+    FOREIGN KEY (winner_id) REFERENCES users(id)
 );

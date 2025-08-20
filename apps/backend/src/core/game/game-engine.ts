@@ -345,6 +345,34 @@ class Enhanced3DPongGame {
 		scheduleNextFrame();
 	}
 
+	/**
+	 * @description Broadcast a message to all players in a game
+	 * @param gameId 
+	 * @param type 
+	 * @param payload 
+	 * @returns 
+	 */
+	public broadcastToGame(gameId: string, type: string, payload: any): void {
+		const players = this.connectedPlayers.get(gameId);
+		if (!players) {
+			console.warn(`No players found for game ${gameId}`);
+			return;
+		}
+
+		const message = JSON.stringify({
+			type,
+			...payload
+		});
+
+		players.forEach((ws, playerId) => {
+			if (ws.readyState === 1) { // WebSocket.OPEN
+				ws.send(message);
+			} else {
+				console.warn(`WebSocket for player ${playerId} is not open`);
+			}
+		});
+	}
+
 	public async endGame(gameId: string): Promise<void> {
 		console.log(`Ending game ${gameId}`);
 
