@@ -6,7 +6,7 @@ export default async function forfeitRoutes(fastify: FastifyInstance) {
     fastify.post('/forfeit', async (request: FastifyRequest, reply) => {
         const { gameId, playerId } = request.body as { gameId: string; playerId: string };
 
-        const game = gameEngine.getGame(gameId);
+        const game = gameEngine.getGameState(gameId);
         if (!game) {
             return reply.code(404).send({ error: 'Game not found' });
         }
@@ -14,8 +14,8 @@ export default async function forfeitRoutes(fastify: FastifyInstance) {
         const winnerId = game.player1Id === playerId ? game.player2Id : game.player1Id;
 
         game.status = 'finished';
-        game.player1.score = game.player1.id === playerId ? 0 : 7;
-        game.player2.score = game.player2.id === playerId ? 0 : 7;
+        game.player1.score = game.player1Id === playerId ? 0 : 7;
+        game.player2.score = game.player2Id === playerId ? 0 : 7;
 
         await dbRun(`
             UPDATE games
@@ -26,7 +26,7 @@ export default async function forfeitRoutes(fastify: FastifyInstance) {
                 player2_score = ?,
                 is_forfeited = 1
             WHERE id = ?
-        `, [parseInt(winnerId), game.player1.score, game.player2.score, game.id]);
+        `, [parseInt(winnerId), game.player1.score, game.player2.score, game.gameId]);
     
         await updateRankings(winnerId, playerId);
 

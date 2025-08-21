@@ -53,7 +53,7 @@ export class TournamentManager {
     }
 
 
-    async joinTournament(tournamentId: string, playerId: string): Promise<boolean> {
+    public async joinTournament(tournamentId: string, playerId: string): Promise<boolean> {
         const tournament = this.tournaments.get(tournamentId);
         if (!tournament || tournament.status !== 'waiting') {
             console.error(`Tournament with ID ${tournamentId} not found.`);
@@ -218,7 +218,7 @@ export class TournamentManager {
         return gameId;
     }
 
-    private startGameEndPolling(gameId: string, tournamentId: string, matchId: string) {
+    private startGameEndPolling(gameId: string, tournamentId: string, match: Match) {
         const checkInterval = setInterval(() => {
             const gameState = gameEngine.getGameState(gameId);
             
@@ -229,7 +229,7 @@ export class TournamentManager {
 
             if (gameState.status === 'finished') {
                 clearInterval(checkInterval);
-                this.handleGameEnd(gameId, tournamentId, matchId, gameState);
+                this.handleGameEnd(gameId, tournamentId, match.id, gameState);
             }
         }, 1000);
 
@@ -238,7 +238,7 @@ export class TournamentManager {
         }, 10 * 60 * 1000);
     }
  
-    private async handleGameEnd(gameId: string, tournamentId: string, matchId: Match, gameState: any) {
+    private async handleGameEnd(gameId: string, tournamentId: string, matchId: string, gameState: any) {
         const tournament = this.tournaments.get(tournamentId);
         
         if (!tournament) return;
@@ -311,19 +311,6 @@ export class TournamentManager {
 
     private async saveTournamentResults(tournament: Tournament) {
         try {
-            // Create tournament if not exists (commit for now)
-            // await dbRun(`
-            //     CREATE TABLE IF NOT EXISTS tournaments (
-            //         id TEXT PRIMARY KEY,
-            //         name TEXT NOT NULL,
-            //         winner_id INTEGER,
-            //         bracket TEXT,
-            //         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            //         ended_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            //         FOREIGN KEY (winner_id) REFERENCES users(id)
-            //     )
-            // `);
-
             await dbRun(
                 `INSERT OR REPLACE INTO tournaments (id, name, winner_id, bracket, ended_at)
                 VALUES (?, ?, ?, ?, datetime('now'))`,
@@ -337,7 +324,6 @@ export class TournamentManager {
 
             console.log(`Tournament ${tournament.name} results saved successfully.`);
 
-            // Create participants table if not exists (skip for now)
 
             for (let i = 0; i < tournament.players.length; i++) {
                 await dbRun(

@@ -236,7 +236,7 @@ function setupEventListeners() {
 		quickPlayButton.addEventListener('click', () => {
 			console.log("Quickly play!")
 			handleGameStart('quick')
-		})
+		});
 	}
 
 	const pvpPlayButton = document.getElementById('pvpPlayBtn')
@@ -244,7 +244,7 @@ function setupEventListeners() {
 		pvpPlayButton.addEventListener('click', () => {
 			console.log("PVP play!")
 			handleGameStart('pvp')
-		})
+		});
 	}
 
 	// AI play have to think implement
@@ -253,7 +253,15 @@ function setupEventListeners() {
 		aiPlayButton.addEventListener('click', () => {
 			console.log("AI play!")
 			handleGameStart('ai')
-		})
+		});
+	}
+
+	const tournamentPlayButton = document.getElementById('tournamentPlayBtn');
+	if (tournamentPlayButton) {
+		tournamentPlayButton.addEventListener('click', () => {
+			console.log("Tournament play!");
+			handleGameStart('tournament');
+		});
 	}
 
 	const logoutButton = document.getElementById('logoutBtn')
@@ -261,7 +269,7 @@ function setupEventListeners() {
 		logoutButton.addEventListener('click', () => {
 			window.location.href = '/api/auth/logout'
 			console.log('Logout action needed')
-		})
+		});
 	}
 
 	const cancelMatchmakingButton = document.getElementById('cancelMatchmakingBtn');
@@ -824,6 +832,13 @@ async function createNewGame(gameMode: string) {
 
 				connectingMatchmaking();
 				break;
+			case 'tournament':
+				requestBody = {
+					player1Id: currentUser.id,
+					player1Nickname: currentUser.nickname,
+					gameMode: 'TOURNAMENT'
+				};
+				break;
 			default:
 				throw new Error('Invalid game mode selected');
 		}
@@ -853,10 +868,6 @@ async function createNewGame(gameMode: string) {
 		} else {
 			throw new Error('Unexpected response format')
 		}
-
-
-
-
 	} catch (error) {
 		console.error('Failed to create game:', error)
 		throw error
