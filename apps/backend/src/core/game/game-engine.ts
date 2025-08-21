@@ -388,6 +388,11 @@ class Enhanced3DPongGame {
 			await this.updatePlayersStats(game, winnerId);
 			await this.setPlayersBackOnline(game);
 
+			if (game.isTournamentGame) {
+				console.log(`Game ${gameId} is a tournament game, updating tournament status`);
+				// check with polling system
+			}
+
 			try {
 				const isP1User = game.player1Id !== 'AI' && game.player1Id !== 'Player2';
 				const isP2User = game.player2Id !== 'AI' && game.player2Id !== 'Player2';

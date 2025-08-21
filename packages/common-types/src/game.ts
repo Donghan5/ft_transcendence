@@ -31,11 +31,12 @@ export interface GameState {
   aiLevel?: 'EASY' | 'MIDDLE' | 'HARD';
   countdownValue?: number;
   gameMode: string;
+  isTournamentGame?: boolean;
 }
 
 export interface GameDTO {
   id: number;
-  mode: 'LOCAL_PVP' | 'PVP' | 'AI';
+  mode: 'LOCAL_PVP' | 'PVP' | 'AI' | 'TOURNAMENT';
   status: GameStatus;
   players: { id: number; nickname: string; score: number }[];
   createdAt: string;

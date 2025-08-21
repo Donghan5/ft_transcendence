@@ -109,4 +109,72 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
             });
         }
     });
+
+    fastify.get('/:tournamentId', async (request, reply) => {
+        try {
+            const { tournamentId } = request.params as { tournamentId: string };
+
+            if (!tournamentId) {
+                return reply.code(400).send({ error: 'Tournament ID is required' });
+            }
+
+            const tournament = tournamentManager.getTournamentInfo(tournamentId);
+
+            if (!tournament) {
+                return reply.code(404).send({ error: 'Tournament not found' });
+            }
+
+            return reply.send(tournament);
+        } catch (error) {
+            fastify.log.error('Get tournament info error:', error);
+            return reply.code(500).send({
+                error: 'Failed to retrieve tournament information',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    fastify.get('/active/list', async (request, reply) => {
+        try {
+            const activeTournaments = tournamentManager.getActiveTournaments();
+
+            return reply.send({
+                tournaments: activeTournaments,
+                count: activeTournaments.length
+            })
+        } catch (error) {
+            fastify.log.error('Get active tournaments error:', error);
+            return reply.code(500).send({
+                error: 'Failed to retrieve active tournaments',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    fastify.get('/:tournamentId/matches/current', async (request, reply) => {
+        try {
+            const { tournamentId } = request.params as { tournamentId: string };
+
+            if (!tournamentId) {
+                return reply.code(400).send({ error: 'Tournament ID is required' });
+            }
+
+            const currentMatches = tournamentManager.getCurrentMatches(tournamentId);
+
+            if (!currentMatches) {
+                return reply.code(404).send({ error: 'No current matches found for this tournament' });
+            }
+
+            return reply.send({
+                matches: currentMatches,
+                count: currentMatches.length
+            });
+        } catch (error) {
+            fastify.log.error('Get current matches error:', error);
+            return reply.code(500).send({
+                error: 'Failed to retrieve current matches',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
 }

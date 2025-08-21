@@ -9,7 +9,7 @@ const createGameBodySchema = {
   properties: {
     player1Id: { type: 'string', minLength: 1 },
     player2Id: { type: 'string' },
-    gameMode: { type: 'string', enum: ['PVP', 'AI', 'LOCAL_PVP'] },
+    gameMode: { type: 'string', enum: ['PVP', 'AI', 'LOCAL_PVP', 'TOURNAMENT'] },
 	aiLevel: { type: 'string', enum: ['EASY', 'MIDDLE', 'HARD'] },
   },
 };
@@ -57,6 +57,15 @@ export default async function createGameRoute(fastify: FastifyInstance) {
 			case 'AI':
 				gameId = gameEngine.createGame(player1Id, player2Id || 'AI' , 'AI', aiLevel, player1Nickname);
 				break;
+      case 'TOURNAMENT':
+        if (!player2Id) {
+          return reply.code(400).send({
+            error: 'Player 2 ID is required for tournament games',
+          });
+        }
+
+        gameId = gameEngine.createGame(player1Id, player2Id, 'TOURNAMENT', undefined, player1Nickname, player2Nickname);
+        break;
 			case 'PVP':
 				if (gameEngine.waitingPlayer) {
 					const player2Id = gameEngine.waitingPlayer.playerId;
