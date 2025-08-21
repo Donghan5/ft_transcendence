@@ -79,6 +79,47 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
+    // invite a player to a tournament
+    // how to check if the user is already invited? --> check in inviteToTournament method
+    fastify.post('/:tournamentId/invite', { preHandler: [authMiddleware] }, async (request, reply) => {
+        try {
+            const { tournamentId } = request.params as { tournamentId: string };
+            const userId = (request as any).user?.id;
+
+            if (!userId) {
+                return reply.code(401).send({ error: 'Unauthorized' });
+            }
+
+            if (!tournamentId) {
+                return reply.code(400).send({ error: 'Tournament ID is required' });
+            }
+
+            const tournament = await tournamentManager.getTournamentInfo(tournamentId);
+
+            if (!tournament) {
+                return reply.code(404).send({ error: 'Tournament not found' });
+            }
+
+            
+            const isInvited = tournamentManager.inviteToTournament(tournamentId, userId.toString());
+            if (!isInvited) {
+                return reply.code(400).send({ error: 'You are already invited to this tournament' });
+            }
+
+            return reply.send({
+                success: true,
+                message: 'Invitation sent successfully',
+                tournament: tournamentManager.getTournamentInfo(tournamentId)
+            });
+        } catch (error) {
+            fastify.log.error('Tournament invite error:', error);
+            return reply.code(500).send({
+                error: 'Failed to invite player to tournament',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
     fastify.post('/start', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { tournamentId } = request.body as { tournamentId: string };

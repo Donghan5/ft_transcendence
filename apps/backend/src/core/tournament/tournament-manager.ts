@@ -375,6 +375,44 @@ export class TournamentManager {
         }
     }
 
+    // I'm not sure of the return value
+    public async inviteToTournament(tournamentId: string, playerId: string): Promise<boolean> {
+        const tournament = this.tournaments.get(tournamentId);
+        if (!tournament || tournament.status !== 'waiting') {
+            console.error(`Tournament with ID ${tournamentId} not found or already started.`);
+            return false;
+        }
+
+        if (tournament.players.some(p => p.id === playerId)) {
+            console.error(`Player ${playerId} is already in the tournament.`);
+            return false;
+        }
+
+        const user = await dbGet(
+            `SELECT id, nickname, rating FROM users WHERE id = ?`, [parseInt(playerId)]
+        );
+
+        if (!user) {
+            console.error(`User with ID ${playerId} not found.`);
+            return false;
+        }
+
+        if (this.playerTournamentMap.has(playerId)) {
+            console.error(`Player ${playerId} is already in another tournament.`);
+            return false;
+        }
+
+        tournament.players.push({
+            id: playerId,
+            nickname: user.nickname,
+            rating: user.rating || 1000, // Default rating if not set
+            seed: 0
+        });
+
+        this.playerTournamentMap.set(playerId, tournamentId);
+        return true;
+    }
+
     getTournamentInfo(tournamentId: string): Tournament | null {
         return this.tournaments.get(tournamentId) || null;
     }
