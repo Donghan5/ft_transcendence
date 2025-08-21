@@ -1,11 +1,24 @@
 import { FastifyInstance } from 'fastify';
 import { tournamentManager } from '../../../core/tournament/tournament-manager';
+import { authMiddleware } from '../../../middleware/auth.middleware';
 
 export default async function tournamentRoutes(fastify: FastifyInstance) {
-    fastify.post('/create', async (request, reply) => {
+    fastify.post('/create', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { name } = request.body as { name: string };
-            const userId = (request as any).user?.id;
+           
+            console.log('=== TOURNAMENT CREATE DEBUG ===');
+            console.log('Tournament create - request.user:', (request as any).user);
+            console.log('Tournament create - typeof request.user:', typeof (request as any).user);
+            console.log('Tournament create - request.user keys:', (request as any).user ? Object.keys((request as any).user) : 'null');
+            console.log('Tournament create - request.user.userId:', (request as any).user?.userId);
+            console.log('Tournament create - request === authMiddleware request?', request.id || 'no id');
+            console.log('================================');
+            
+            const userId = (request as any).user?.userId;
+
+            console.log('Creating tournament with name:', name);
+            console.log('User ID from request:', userId);
 
             if (!userId) {
                 return reply.code(401).send({ error: 'Unauthorized' });
@@ -34,7 +47,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     });
 
 
-    fastify.post('/join', async (request, reply) => {
+    fastify.post('/join', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { tournamentId } = request.body as { tournamentId: string };
             const userId = (request as any).user?.id;
@@ -66,7 +79,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
-    fastify.post('/start', async (request, reply) => {
+    fastify.post('/start', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { tournamentId } = request.body as { tournamentId: string };
             const userId = (request as any).user?.id;
@@ -110,7 +123,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
-    fastify.get('/:tournamentId', async (request, reply) => {
+    fastify.get('/:tournamentId', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { tournamentId } = request.params as { tournamentId: string };
 
@@ -134,7 +147,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
-    fastify.get('/active/list', async (request, reply) => {
+    fastify.get('/active/list', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const activeTournaments = tournamentManager.getActiveTournaments();
 
@@ -151,7 +164,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
-    fastify.get('/:tournamentId/matches/current', async (request, reply) => {
+    fastify.get('/:tournamentId/matches/current', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { tournamentId } = request.params as { tournamentId: string };
 

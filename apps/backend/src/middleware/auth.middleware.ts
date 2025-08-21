@@ -26,11 +26,15 @@ export const authMiddleware = async (request: AuthenticatedRequest, reply: Fasti
 
          const decoded = jwt.verify(token, secret) as { userId: number; profileComplete: boolean };
 
-        request.user = {
-            userId: decoded.userId,
-            profileComplete: decoded.profileComplete
-        };
+        // request.user = {
+        //     userId: decoded.userId,
+        //     profileComplete: decoded.profileComplete
+        // };
 
+        request.user = decoded;
+
+        console.log('Auth middleware - decoded token:', decoded);
+        console.log('Auth middleware - request.user:', request.user);
 
     } catch (error) {
         console.error('JWT verification error:', error);

@@ -68,10 +68,16 @@ export class TournamentUI {
                         Invite Friends
                     </button>
                     <button id="start-tournament" 
-                            class="flex-1 bg-green-500 text-white py-3 border-thick hover-anarchy"
+                            class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy"
                             disabled>
-                        Start Tournament (at least 3 players required)
+                        Start Tournament
                     </button>
+                </div>
+
+                <div class="mt-6"> 
+                    <p class="text-lg">Tournament Description:</p>
+                    <p class="text-sm text-gray-600">Create a tournament and invite your friends to join! 
+                    Once enough players have joined (at least 3), you can start the tournament and see the bracket unfold.</p>
                 </div>
 
                 <div id="tournament-status" class="mt-4 p-3 bg-gray-100 border-thick hidden">
