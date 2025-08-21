@@ -17,7 +17,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
 
             const tournamentId = tournamentManager.createTournament(userId.toString(), name.trim());
         
-            await tournamentManager.joinTournament(userId.toString(), tournamentId);
+            await tournamentManager.joinTournament(tournamentId, userId.toString());
         
             return reply.code(201).send({
                 success: true,

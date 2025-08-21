@@ -6,6 +6,7 @@ import { PasswordChangeForm } from './components/password-change-form';
 import { StatusManager } from './src/status/status-manager';
 import { UserStats } from './src/status/status-manager';
 import { StatsManager } from './src/stats/stats-manager';
+import { TournamentUI } from './src/tournament/tournament-ui';
 
 let currentGame: PongGame3D | null = null;
 let currentGameId: string | null = null;
@@ -13,6 +14,7 @@ let currentUser: any | null = null;
 let matchmakingWs: WebSocket | null = null;
 let statusManager: StatusManager;
 let statsManager: StatsManager;
+let tournamentUI: TournamentUI | null = null;
 
 document.addEventListener('DOMContentLoaded', () => {
 	setupLocalAuthHandlers();
@@ -323,8 +325,8 @@ function setupEventListeners() {
  * @param sectionId - The ID of the section to show
  * @description Show a specific section by ID and hide others
  */
-function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting') {
-    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection', 'publicProfileSection', 'waitingSection'];
+function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting' | 'tournamentLobby') {
+    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection', 'publicProfileSection', 'waitingSection', 'tournamentLobbySection'];
     sections.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -384,6 +386,15 @@ function showAppScreen(user: any) {
 	const widgetNickname = document.getElementById('widgetNickname') as HTMLSpanElement;
 	if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
 	if (widgetNickname) widgetNickname.textContent = user.nickname || user.name;
+}
+
+function showTournamentLobby() {
+	showSection('tournamentLobby');
+	if (!tournamentUI) {
+		tournamentUI = new TournamentUI('tournamentLobbySection');
+	}
+
+	tournamentUI.showTournamentLobby();
 }
 
 /**
@@ -831,14 +842,10 @@ async function createNewGame(gameMode: string) {
 				};
 
 				connectingMatchmaking();
-				break;
+				return;
 			case 'tournament':
-				requestBody = {
-					player1Id: currentUser.id,
-					player1Nickname: currentUser.nickname,
-					gameMode: 'TOURNAMENT'
-				};
-				break;
+				showTournamentLobby();
+				return;
 			default:
 				throw new Error('Invalid game mode selected');
 		}
@@ -1286,6 +1293,7 @@ async function cancelMatchmaking() {
 		returnToMainMenu();
 	}
 }
+
 
 /**
  * @description Show nickname setup screen if user profile is not complete

@@ -34,7 +34,7 @@ export class TournamentManager {
     private playerTournamentMap: Map<string, string> = new Map();
 
     createTournament(creatorId: string, name: string): string {
-        const tournamentId = 'tournament_${Date.now()}';
+        const tournamentId = `tournament_${Date.now()}`;
 
         const tournament: Tournament = {
             id: tournamentId,
