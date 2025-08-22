@@ -1102,7 +1102,7 @@ async function updateLoginStatus() {
 }
 
 (window as any).viewProfile = viewProfile;
-(window as any).inviteToGame = inviteToGame;
+// (window as any).inviteToGame = inviteToGame;
 
 function updateFriendsDisplay(friends: any[]): void {
 	console.log('Updating friends display with data:', friends); 
@@ -1366,10 +1366,10 @@ function showNicknameSetupScreen() {
 /**
  * @description Invite a user to a game to Tournament
  */
-function inviteToGame(userId: number): void {
-	console.log(`Inviting user ${userId} to game...`);
-	// call invite API or open a modal to confirm invitation
-}
+// function inviteToGame(userId: number): void {
+// 	console.log(`Inviting user ${userId} to game...`);
+// 	// call invite API or open a modal to confirm invitation
+// }
 
 window.addEventListener('beforeunload', () => {
 	console.log('Page unloading, cleaning up game');
@@ -1389,3 +1389,104 @@ window.addEventListener('beforeunload', () => {
 });
 
 console.log('Frontend main.ts loaded successfully')
+
+
+function showTournamentScreen() {
+	const appContainer = document.getElementById('app');
+	if (!appContainer) return;
+
+	appContainer.innerHTML = `
+		<div class="min-h-screen bg-gray-100 p-8">
+			<div class="max-w-7xl mx-auto">
+				<div vlass="flex justify-between items-center mb-8">
+					<h1 class="text-4xl font-bold text-center">Tournament Mode</h1>
+					<button onclick="returnToMainMenu()" class="bg-red-600 text-white px-4 py-2 text-lg border-thick hover-anarchy">
+						Back to Menu
+					</button>
+				</div>
+
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+					<div class="lg:col-span-2">
+						<div id="tournament-container"></div>
+					</div>
+					
+					<div class="bg-white p-4 border-thick shadow-sharp">
+						<h3 class="text-2xl uppercase font-bold mb-4">Active Tournaments</h3>
+						<div id="active-tournaments-list">
+							<p>Loading tournaments...</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	`;
+
+	if (!tournamentUI) {
+		tournamentUI = new TournamentUI('tournament-container', statusManager);
+		(window as any).tournamentUI = tournamentUI;
+	}
+
+	tournamentUI.showTournamentLobby();
+
+	loadActiveTournaments();
+
+	document.getElementById('back-to-main')?.addEventListener('click', () => {
+        showAppScreen(currentUser);
+    });
+}
+
+
+async function loadActiveTournaments(): Promise<void> {
+	try {
+		const response = await fetch('/api/tournaments/active/list', {
+			credentials: 'include'
+		});
+
+		if (response.ok) {
+			const data = await response.json();
+			displayActiveTournaments(data.tournaments);
+		}
+	} catch (error) {
+		console.error('Error loading active tournaments:', error);
+	}
+}
+
+function displayActiveTournaments(tournaments: any[]): void {
+    const listContainer = document.getElementById('active-tournaments-list');
+    if (!listContainer) return;
+    
+    if (tournaments.length === 0) {
+        listContainer.innerHTML = '<p class="text-gray-600">No active tournaments</p>';
+        return;
+    }
+    
+    listContainer.innerHTML = tournaments.map(tournament => `
+        <div class="mb-4 p-4 bg-gray-50 border-thick">
+            <h4 class="font-bold text-lg">${tournament.name}</h4>
+            <p class="text-sm text-gray-600">
+                Players: ${tournament.players.length} | 
+                Status: ${tournament.status}
+            </p>
+            ${tournament.status === 'waiting' ? `
+                <button onclick="joinExistingTournament('${tournament.id}')" 
+                        class="mt-2 w-full bg-blue-500 text-white py-2 border-thick hover-anarchy">
+                    Join Tournament
+                </button>
+            ` : `
+                <button onclick="spectTournament('${tournament.id}')" 
+                        class="mt-2 w-full bg-purple-500 text-white py-2 border-thick hover-anarchy">
+                    Spectate
+                </button>
+            `}
+        </div>
+    `).join('');
+}
+
+(window as any).joinExistingTournament = async function(tournamentId: string) {
+    if (tournamentUI) {
+        const success = await tournamentUI.joinTournament(tournamentId);
+        if (success) {
+            loadActiveTournaments(); 
+        }
+    }
+};

@@ -238,4 +238,64 @@ export class OnlineStatusManager {
     public getAllOnlineUsers(): OnlineUser[] {
         return Array.from(this.onlineUsers.values());
     }
+
+    /**
+     * @description Gets the WebSocket connection for a user.
+     * @param userId 
+     * @returns socket of User or null
+     */
+    public getUserSocket(userId: number): WebSocket | null {
+        return this.userSockets.get(userId) || null;
+    }
+
+    /**
+     * @description Sends a tournament invitation to a user if they are online.
+     * @param targetUserId 
+     * @param invitation 
+     * @returns boolean - true if sent successfully, false otherwise
+     */
+    public async sendTournamentInvitation(
+        targetUserId: number,
+        invitation : {
+            tournamentId: number,
+            tournamentName: string,
+            invitedBy: string,
+            invitedById: number,
+        }
+    ): Promise<boolean> {
+        const socket = this.userSockets.get(targetUserId);
+
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+            console.log(`User ${targetUserId} is not online. Cannot send tournament invitation.`);
+            return false;
+        }
+
+        try {
+            socket.send(JSON.stringify({
+                type: 'tournamentInvite', 
+                payload: invitation
+            }));
+            console.log(`Tournament invitation sent to user ${targetUserId}.`);
+            return true;
+        } catch (error) {
+            console.error(`Error sending tournament invitation to user ${targetUserId}:`, error);
+            return false;
+        }
+    }
+
+    /**
+     * @description Gets online friends who can be invited to a tournament.
+     * @param userId 
+     * @returns Promise<OnlineUser[]> - list of online friends
+     */
+    public async getInvitableFriends(userId: number): Promise<OnlineUser[]> {
+        try {
+            const friends = await this.getFriendsStatus(userId);
+
+            return friends.filter(friend => friend.status === 'online' || friend.status === 'away');
+        } catch (error) {
+            console.error(`Error getting invitable friends for user ${userId}:`, error);
+            return [];
+        }
+    }
 }

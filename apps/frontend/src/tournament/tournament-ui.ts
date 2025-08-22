@@ -1,4 +1,5 @@
 // frontend/src/tournament/tournament-ui.ts
+import { StatusManager } from '../status/status-manager';
 
 interface TournamentPlayer {
     id: string;
@@ -33,13 +34,15 @@ export class TournamentUI {
     private tournamentId: string | null = null;
     private websocket: WebSocket | null = null;
     private pollInterval: number | null = null;
+    private statusManager: any = null;
 
-    constructor(containerId: string) {
+    constructor(containerId: string, statusManager?: any) {
         const container = document.getElementById(containerId);
         if (!container) {
             throw new Error(`Container with id "${containerId}" not found`);
         }
         this.container = container;
+        this.statusManager = statusManager;
     }
 
     showTournamentLobby(): void {
@@ -67,6 +70,12 @@ export class TournamentUI {
                             class="flex-1 bg-blue-500 text-white py-3 border-thick hover-anarchy">
                         Invite Friends
                     </button>
+
+                    <button id="join-tournament"
+                            class="flex-1 bg-gray-500 text-white py-3 border-thick hover-anarchy">
+                        Join Tournament
+                    </button>
+                            
                     <button id="start-tournament" 
                             class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy"
                             disabled>
@@ -261,11 +270,34 @@ export class TournamentUI {
                 }
             });
         }
+        
+        // have to fix... I don't have any idea for now
+        const joinBtn = document.getElementById('join-tournament');
+        if (joinBtn) {
+            joinBtn.addEventListener('click', async () => {
+                const tournamentId = this.statusManager.getActiveTournaments();
+                if (!tournamentId) {
+                    this.showStatusMessage('Cannot join. Please Create or Wait for a Tournament.', 'error');
+                    return;
+                }
+                const success = await this.joinTournament(tournamentId);
+                if (success) {
+                    this.showStatusMessage('Joined tournament!', 'success');
+                } else {
+                    this.showStatusMessage('Failed to join tournament.', 'error');
+                    return;
+                }
+            });
+        }
 
         const inviteBtn = document.getElementById('invite-friends');
         if (inviteBtn) {
             inviteBtn.addEventListener('click', () => {
-                this.showStatusMessage('Currently working...', 'info');
+                if (!this.tournamentId) {
+                    this.showStatusMessage('Please Create Tournament first.', 'error');
+                    return;
+                }
+                this.showInviteFriendsModal();
             });
         }
     }
@@ -377,10 +409,10 @@ export class TournamentUI {
 
         const startBtn = document.getElementById('start-tournament') as HTMLButtonElement;
         if (startBtn) {
-            startBtn.disabled = players.length < 3;
-            startBtn.textContent = players.length < 3 
-                ? `Start Tournament (${players.length}/3 Participants)` 
-                : `Start Tournament (${players.length}Participants)`;
+            startBtn.disabled = players.length < 3 || players.length > 10;
+            startBtn.textContent = players.length < 3 || players.length > 10
+                ? `Start Tournament (${players.length}/10 Participants)` 
+                : `Start Tournament (${players.length} Participants)`;
         }
     }
 
@@ -443,9 +475,30 @@ export class TournamentUI {
         }
     }
 
-    public joinTournament(tournamentId: string): void {
-        this.tournamentId = tournamentId;
-        this.connectToTournament(tournamentId);
+    public async joinTournament(tournamentId: string): Promise<boolean> {
+        try {
+            const response = await fetch('/api/tournament/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tournamentId }),
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                this.tournamentId = tournamentId;
+                this.connectToTournament(tournamentId);
+                this.showStatusMessage('Joined tournament!', 'success');
+                return true;
+            } else {
+                const error = await response.json();
+                this.showStatusMessage(`Join tournament failed: ${error.message || 'Unknown error'}`, 'error');
+                return false;
+            }
+        } catch (error) {
+            console.error('Join tournament error:', error);
+            this.showStatusMessage(`Join tournament error: ${error}`, 'error');
+            return false;
+        }
     }
 
     public leaveTournament(): void {
@@ -465,4 +518,144 @@ export class TournamentUI {
     public cleanup(): void {
         this.leaveTournament();
     }
+
+    private showInviteFriendsModal(): void {
+        const onlineFriends = this.statusManager?.getFriends() || [];
+
+        const invitableFriends = onlineFriends.filter((friend: any) => friend.stats === 'online' || friend.status === 'away');
+
+        const modalHtml = `
+            <div id="invite-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div class="bg-white border-thick shadow-sharp p-8 max-w-2xl w-full max-h-[80vh] overflow-auto">
+                    <h3 class="text-3xl uppercase mb-6">Invite Friends to Tournament</h3>
+                    
+                    <div id="friends-list" class="space-y-2 mb-6">
+                        ${invitableFriends.length > 0 ? invitableFriends.map((friend: any) => `
+                            <div class="flex justify-between items-center bg-gray-100 p-3 border-thick">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-3 h-3 rounded-full ${this.getStatusColor(friend.status)}" 
+                                         title="${friend.status}"></div>
+                                    <span class="font-bold">${friend.nickname}</span>
+                                    <span class="text-sm text-gray-600">${friend.status}</span>
+                                </div>
+                                <button class="invite-friend-btn bg-blue-500 text-white px-4 py-2 border-thick hover-anarchy"
+                                        data-user-id="${friend.userId}"
+                                        data-nickname="${friend.nickname}">
+                                    Invite
+                                </button>
+                            </div>
+                        `).join('') : `
+                            <p class="text-gray-600">No friends are currently online to invite.</p>
+                        `}
+                    </div>
+                    
+                    <div class="flex gap-4">
+                        <button id="refresh-friends" class="flex-1 bg-gray-500 text-white py-3 border-thick hover-anarchy">
+                            Refresh List
+                        </button>
+                        <button id="close-invite-modal" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">
+                            Close
+                        </button>
+                    </div>
+                    
+                    <div id="invite-status" class="mt-4"></div>
+                </div>
+            </div>
+        `;
+
+        document.body.insertAdjacentHTML('beforeend', modalHtml);
+
+        this.setupInviteModalEventListeners();
+    }
+
+    private setupInviteModalEventListeners(): void {
+        document.querySelectorAll('.invite-friend-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const button = e.target as HTMLButtonElement;
+                const userId = button.dataset.userId;
+                const nickname = button.dataset.nickname;
+
+                if (!userId || !this.tournamentId) return;
+
+                button.disabled = true;
+                button.textContent = 'Inviting...';
+
+                try {
+                    const response = await fetch(`api/tournament/${this.tournamentId}/invite`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ targetUserId: userId }),
+                        credentials: 'include'
+                    });
+
+                    if (response.ok) {
+                        button.textContent = 'Invited';
+                        button.classList.remove('bg-blue-500');
+                        button.classList.add('bg-green-500');
+                        this.showInviteStatus(`Invitation sent to ${nickname}!`, 'success');
+                    }
+                    else {
+                        const error = await response.json();
+                        button.disabled = false;
+                        button.textContent = 'Invite';
+                        this.showInviteStatus(`Failed to invite ${nickname}: ${error.message || 'Unknown error'}`, 'error');
+                    }
+                } catch (error) {                    
+                    button.disabled = false;
+                    button.textContent = 'Invite';
+                    this.showInviteStatus(`Error inviting ${nickname}: ${error}`, 'error');
+                }
+            });
+        });
+
+        const refreshBtn = document.getElementById('refresh-friends');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.closeInviteModal();
+                this.showInviteFriendsModal();
+            });
+        }
+
+        const closeBtn = document.getElementById('close-invite-modal');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => {
+                this.closeInviteModal();
+            });
+        }
+
+        const modal = document.getElementById('invite-modal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.closeInviteModal();
+                }
+            });
+        }
+    }
+
+    private closeInviteModal(): void {
+        const modal = document.getElementById('invite-modal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+
+    /**
+     * Show invite status message (success or error) in the modal
+     * @param message 
+     * @param type 
+     */
+    private showInviteStatus(message: string, type: 'success' | 'error'): void {
+        const statusDiv = document.getElementById('invite-status');
+        if (statusDiv) {
+            const colorClass = type === 'success' ? 'text-green-600' : 'text-red-600';
+            statusDiv.innerHTML = `<p class="${colorClass} font-bold">${message}</p>`;
+            
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 3000);
+        }
+    }
+
 }

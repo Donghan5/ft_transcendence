@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { tournamentManager } from '../../../core/tournament/tournament-manager';
 import { authMiddleware } from '../../../middleware/auth.middleware';
+import { OnlineStatusManager } from '../../../core/status/online-status-manager';
 
 export default async function tournamentRoutes(fastify: FastifyInstance) {
     fastify.post('/create', { preHandler: [authMiddleware] }, async (request, reply) => {
@@ -84,13 +85,14 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     fastify.post('/:tournamentId/invite', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { tournamentId } = request.params as { tournamentId: string };
+            const { targetUserId } = request.body as { targetUserId: string };
             const userId = (request as any).user?.id;
 
             if (!userId) {
                 return reply.code(401).send({ error: 'Unauthorized' });
             }
 
-            if (!tournamentId) {
+            if (!tournamentId || !targetUserId) {
                 return reply.code(400).send({ error: 'Tournament ID is required' });
             }
 
@@ -100,16 +102,42 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(404).send({ error: 'Tournament not found' });
             }
 
-            
-            const isInvited = tournamentManager.inviteToTournament(tournamentId, userId.toString());
-            if (!isInvited) {
-                return reply.code(400).send({ error: 'You are already invited to this tournament' });
+            if (tournament.createdBy !== userId.toString()) {
+                return reply.code(403).send({ error: 'Only the tournament creator can invite players' });
+            }
+
+            if (tournament.players.some(p => p.id === targetUserId)) {
+                return reply.code(400).send({ error: 'Player is already in the tournament' });
+            }
+
+            const onlineStatusManager = OnlineStatusManager.getInstance();
+            const targetUserStatus = onlineStatusManager.getUserStatus(parseInt(targetUserId));
+
+            if (!targetUserStatus || targetUserStatus.status === 'offline') {
+                return reply.code(400).send({ error: 'Target user is not online' });
+            }
+
+            if (targetUserStatus.status === 'in_game') {
+                return reply.code(400).send({ error: 'Target user is currently in a game' });
+            }
+
+            const targetSocket = onlineStatusManager.getUserSocket(parseInt(targetUserId));
+            if (targetSocket && targetSocket.readyState === WebSocket.OPEN) {
+                targetSocket.send(JSON.stringify({
+                    type: 'tournamentInvite',
+                    payload: {
+                        tournamentId: tournament.id,
+                        tournamentName: tournament.name,
+                        invitedBy: (request as any).user?.nickname || 'Unknown',
+                        invitedById: userId
+                    }
+                }));
             }
 
             return reply.send({
                 success: true,
                 message: 'Invitation sent successfully',
-                tournament: tournamentManager.getTournamentInfo(tournamentId)
+                tournament: tournament
             });
         } catch (error) {
             fastify.log.error('Tournament invite error:', error);
