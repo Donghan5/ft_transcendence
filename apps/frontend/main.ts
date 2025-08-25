@@ -46,6 +46,16 @@ async function checkAuthStatus() {
     }
 }
 
+function setupPongLogoRedirect(): void {
+	const pongLogo = document.getElementById('pongLogo');
+	if (pongLogo) {
+		pongLogo.addEventListener('click', () => {
+			console.log('Pong logo clicked, returning to main menu');
+			showSection('hero');
+		});
+	}
+}
+
 /**
  * @description handler setting up local authentication handlers
  */
@@ -319,6 +329,8 @@ function setupEventListeners() {
 	document.getElementById('friendsReturnBtn')?.addEventListener('click', returnToMainMenu);
 
 	document.getElementById('publicProfileReturnBtn')?.addEventListener('click', showFriendsScreen);
+
+	setupPongLogoRedirect();
 }
 
 /**
