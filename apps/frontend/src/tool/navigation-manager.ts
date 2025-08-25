@@ -11,9 +11,15 @@ export class NavigationManager {
     private static instance: NavigationManager;
     private currentState: NavigationState | null = null;
     private showSectionCallback: ((sectionId: SectionId) => void) | null = null;
-
+    private navigationGuards: ((from: SectionId, to: SectionId) => boolean)[] = [];
+    private navigationListeners: ((state: NavigationState) => void)[] = [];
+    
     private constructor() {
         this.initializeHistoryListener();
+    }
+
+    public addNavigationGuard(guard: (from: SectionId, to: SectionId) => boolean): void {
+        this.navigationGuards.push(guard);
     }
 
     /**
@@ -44,7 +50,17 @@ export class NavigationManager {
             data
         };
 
+        const canNavigate = this.navigationGuards.every(guard =>
+            guard(this.currentState?.sectionId || 'hero', sectionId)
+        );
+
+        if (!canNavigate) {
+            console.log('Navigation blocked by guard');
+            return;
+        }
+
         if (this.currentState && this.currentState.sectionId === sectionId) {
+            console.log('Prevent redundant navigation');
             return; // Prevent redundant navigation
         }
 
@@ -199,5 +215,14 @@ export class NavigationManager {
     public replaceStateWithDefaultTitle(sectionId: SectionId, data?: any): void {
         const title = this.getTitleForSection(sectionId);
         this.replaceState(sectionId, title, data);
+    }
+
+    
+    public onNavigate(listener: (state: NavigationState) => void): void {
+        this.navigationListeners.push(listener);
+    }
+    
+    private emitNavigationEvent(state: NavigationState): void {
+        this.navigationListeners.forEach(listener => listener(state));
     }
 }
