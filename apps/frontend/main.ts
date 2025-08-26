@@ -15,8 +15,24 @@ let matchmakingWs: WebSocket | null = null;
 let statusManager: StatusManager;
 let statsManager: StatsManager;
 let tournamentUI: TournamentUI | null = null;
+let currentSection: string | null = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+	const path = window.location.pathname;
+	let initialSection: any = 'hero';
+
+	if (path === '/game') initialSection = 'game';
+	else if (path === '/profile') initialSection = 'profile';
+	else if (path === '/login') initialSection = 'login';
+	else if (path === '/nickname-setup') initialSection = 'nicknameSetup';
+	else if (path === '/friends') initialSection = 'friends';
+	else if (path === '/public-profile') initialSection = 'publicProfile';
+	else if (path === '/waiting') initialSection = 'waiting';
+	else if (path === '/tournament-lobby') initialSection = 'tournamentLobby';
+	const state = { sectionId: initialSection };
+	history.replaceState(state, document.title, path);
+	currentSection = initialSection;
+	
 	setupLocalAuthHandlers();
 	updateLoginStatus();
 
@@ -334,10 +350,45 @@ function setupEventListeners() {
 }
 
 /**
+ * Mapping URL and Section ID
+ * @param sectionId 
+ * @returns 
+ */
+function getUrlForSection(sectionId: string): string {
+	const urlMap: Record<string, string> = {
+		'hero': '/',
+		'game': '/game',
+		'profile': '/profile',
+		'login': '/login',
+		'nicknameSetup': '/nickname-setup',
+		'friends': '/friends',
+		'publicProfile': '/public-profile',
+		'waiting': '/waiting',
+		'tournamentLobby': '/tournament-lobby'
+	};
+	return urlMap[sectionId] || '/';
+}
+
+function getTitleForSection(sectionId: string): string {
+	const titles: Record<string, string> = {
+		'hero': 'PONG - Pick Your Battle',
+        'game': 'PONG - Game in Progress',
+        'profile': 'PONG - Profile',
+        'login': 'PONG - Login',
+        'nicknameSetup': 'PONG - Set Up Nickname',
+        'friends': 'PONG - Friends',
+        'publicProfile': 'PONG - User Profile',
+        'waiting': 'PONG - Waiting for Opponent',
+        'tournamentLobby': 'PONG - Tournament Lobby'
+	};
+	return titles[sectionId] || 'PONG';
+}
+
+/**
  * @param sectionId - The ID of the section to show
  * @description Show a specific section by ID and hide others
  */
-function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting' | 'tournamentLobby') {
+function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting' | 'tournamentLobby', pushToHistory: boolean = true) {
     const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection', 'publicProfileSection', 'waitingSection', 'tournamentLobbySection'];
     sections.forEach(id => {
         const el = document.getElementById(id);
@@ -367,7 +418,45 @@ function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknam
             appContainer.classList.remove('hidden');
         }
     }
+
+	if (pushToHistory && currentSection !== sectionId) {
+		const url = getUrlForSection(sectionId);
+		const title = getTitleForSection(sectionId);
+
+		const state = { sectionId };
+
+		history.pushState(state, title, url);
+		document.title = title;
+	}
+
+	currentSection = sectionId;
 }
+
+/**
+ * @description popstate event listener for browser navigation
+ */
+window.addEventListener('popstate', (event) => {
+    console.log('Browser navigation detected:', event.state);
+    
+    if (event.state && event.state.sectionId) {
+        showSection(event.state.sectionId, false);
+    } else {
+        const path = window.location.pathname;
+        let sectionId: any = 'hero';
+        
+        if (path === '/game') sectionId = 'game';
+        else if (path === '/profile') sectionId = 'profile';
+        else if (path === '/login') sectionId = 'login';
+        else if (path === '/nickname-setup') sectionId = 'nicknameSetup';
+        else if (path === '/friends') sectionId = 'friends';
+        else if (path === '/public-profile') sectionId = 'publicProfile';
+        else if (path === '/waiting') sectionId = 'waiting';
+        else if (path === '/tournament-lobby') sectionId = 'tournamentLobby';
+        
+        showSection(sectionId, false);
+    }
+});
+
 
 /**
  * showing login screen
@@ -1102,10 +1191,14 @@ async function updateLoginStatus() {
 		
 		console.log('Profile complete status from /api/auth/me:', user.profileComplete);
 		
-		if (!user.profileComplete) {
-			showNicknameSetupScreen();
+		const urlParams = new URLSearchParams(window.location.search);
+		if (urlParams.has('auth') && urlParams.get('auth') === 'success') {
+			window.history.replaceState({ sectionId: 'hero' }, '', '/');
+			showSection('hero', false);
+		} else if (!user.profileComplete) {
+			showSection('nicknameSetup');
 		} else {
-			showAppScreen(user);
+			showSection('hero');
 		}
 	} catch (error) {
 		console.error('Not logged in or session expired');
