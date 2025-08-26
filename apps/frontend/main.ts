@@ -1122,7 +1122,12 @@ function toggleFullscreen() {
 function returnToMainMenu() {
 	console.log('Returning to main menu...');
 	
-	showSection('hero');
+	if (currentSection === 'hero') {
+		return;
+	}
+
+	history.back();
+	// showSection('hero');
 
 	const gameOverModal = document.getElementById('gameOverModal');
 	if (gameOverModal) {
@@ -1194,11 +1199,13 @@ async function updateLoginStatus() {
 		const urlParams = new URLSearchParams(window.location.search);
 		if (urlParams.has('auth') && urlParams.get('auth') === 'success') {
 			window.history.replaceState({ sectionId: 'hero' }, '', '/');
-			showSection('hero', false);
+			// showSection('hero', false);
+			showAppScreen(user);
 		} else if (!user.profileComplete) {
 			showSection('nicknameSetup');
 		} else {
-			showSection('hero');
+			// showSection('hero');
+			showAppScreen(user);
 		}
 	} catch (error) {
 		console.error('Not logged in or session expired');
