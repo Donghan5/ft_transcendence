@@ -32,6 +32,16 @@ document.addEventListener('DOMContentLoaded', () => {
 	const state = { sectionId: initialSection };
 	history.replaceState(state, document.title, path);
 	currentSection = initialSection;
+
+	// checking to hash
+	window.addEventListener('hashchange', (e) => {
+        console.log('Hash changed:', {
+            oldURL: e.oldURL,
+            newURL: e.newURL,
+            hash: window.location.hash
+        });
+        console.trace(); // check
+    });
 	
 	setupLocalAuthHandlers();
 	updateLoginStatus();
@@ -422,13 +432,21 @@ function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknam
         }
     }
 
+	if (currentSection === sectionId && pushToHistory) {
+        console.log(`Already in section ${sectionId}, skipping history push`);
+        return;
+    }
+
 	if (pushToHistory && currentSection !== sectionId) {
 		const url = getUrlForSection(sectionId);
 		const title = getTitleForSection(sectionId);
 
+		// clean the hash
+		const cleanUrl = url.replace(/#.*$/, '');
+
 		const state = { sectionId };
 
-		history.pushState(state, title, url);
+		history.pushState(state, title, cleanUrl);
 		document.title = title;
 	}
 
