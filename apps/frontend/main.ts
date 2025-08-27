@@ -390,7 +390,10 @@ function getTitleForSection(sectionId: string): string {
  */
 function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting' | 'tournamentLobby', pushToHistory: boolean = true) {
     const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection', 'publicProfileSection', 'waitingSection', 'tournamentLobbySection'];
-    sections.forEach(id => {
+    
+	console.log(`SHOW SECTION with ${sectionId}, ${pushToHistory}`);
+
+	sections.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
 			if ('loginSection' === id || 'nicknameSetupSection' === id) {
@@ -436,12 +439,18 @@ function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknam
  * @description popstate event listener for browser navigation
  */
 window.addEventListener('popstate', (event) => {
-    console.log('Browser navigation detected:', event.state);
-    
+	console.log('Browser navigation detected:', {
+        state: event.state,
+        url: window.location.href,
+        hash: window.location.hash
+    });
+
     if (event.state && event.state.sectionId) {
+		console.log('event.state.sectionId:', event.state.sectionId);
         showSection(event.state.sectionId, false);
-    } else {
-        const path = window.location.pathname;
+    } 
+	else {
+		const path = window.location.pathname;
         let sectionId: any = 'hero';
         
         if (path === '/game') sectionId = 'game';
@@ -452,8 +461,13 @@ window.addEventListener('popstate', (event) => {
         else if (path === '/public-profile') sectionId = 'publicProfile';
         else if (path === '/waiting') sectionId = 'waiting';
         else if (path === '/tournament-lobby') sectionId = 'tournamentLobby';
-        
-        showSection(sectionId, false);
+		
+		console.log('sectionId:', sectionId);
+
+		// if (window.location.hash) {
+        //     history.replaceState({ sectionId }, document.title, path);
+        // }
+		showSection(sectionId, false);
     }
 });
 
@@ -502,7 +516,7 @@ function showTournamentLobby() {
  * @description Show friends screen
  */
 async function showFriendsScreen() {
-    showSection('friends');
+    showSection('friends', true);
 
     const friendsListEl = document.getElementById('friendsList');
     const receivedRequestsListEl = document.getElementById('receivedRequestsList');
@@ -737,7 +751,7 @@ async function showPublicProfileScreen(nickname: string) {
  * @description Show the profile screen
  */
 async function showProfileScreen() {
-	showSection('profile');
+	showSection('profile', true);
 
 	const profileContent = document.getElementById('profileContent');
 	if (!profileContent) return;
@@ -754,7 +768,7 @@ async function showProfileScreen() {
 
 		const data = await response.json();
 
-		profileContent.innerHTML = `
+		 profileContent.innerHTML = `
             <div class="flex flex-col md:flex-row items-center gap-x-6 mb-6">
                 <img id="profileAvatar" src="${data.user.avatar_url || '/default-avatar.png'}" alt="User Avatar" class="w-24 h-24 rounded-full border-thick shadow-sharp mb-4 md:mb-0">
                 <div class="text-center md:text-left">
@@ -772,6 +786,50 @@ async function showProfileScreen() {
                     </button>
                 </form>
             </div>
+            
+            ${data.stats ? `
+                <div class="bg-white p-6 border-thick shadow-sharp mb-6">
+                    <h3 class="text-3xl uppercase mb-4 text-center">YOUR STATS</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                        <div class="bg-pink-500 text-white p-4 border-thick">
+                            <div class="text-2xl font-bold">${data.stats.rank}</div>
+                            <div class="text-sm uppercase">Rank</div>
+                            <div class="text-xs">${data.stats.rankPoints} RP</div>
+                        </div>
+                        <div class="bg-yellow-400 text-black p-4 border-thick">
+                            <div class="text-2xl font-bold">${data.stats.totalGames}</div>
+                            <div class="text-sm uppercase">Total Games</div>
+                        </div>
+                        <div class="bg-green-500 text-white p-4 border-thick">
+                            <div class="text-2xl font-bold">${data.stats.winRate}%</div>
+                            <div class="text-sm uppercase">Win Rate</div>
+                            <div class="text-xs">${data.stats.wins}W / ${data.stats.losses}L</div>
+                        </div>
+                        <div class="bg-red-500 text-white p-4 border-thick">
+                            <div class="text-2xl font-bold">${data.stats.currentStreak}</div>
+                            <div class="text-sm uppercase">Current Streak</div>
+                            <div class="text-xs">Max: ${data.stats.maxStreak}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 grid grid-cols-2 gap-4 text-center">
+                        <div class="bg-blue-500 text-white p-3 border-thick">
+                            <div class="text-xl font-bold">${data.stats.averageScore.toFixed(1)}</div>
+                            <div class="text-xs uppercase">Average Score</div>
+                        </div>
+                        <div class="bg-purple-500 text-white p-3 border-thick">
+                            <div class="text-xl font-bold">${data.stats.maxScore}</div>
+                            <div class="text-xs uppercase">Max Score</div>
+                        </div>
+                    </div>
+                </div>
+            ` : `
+                <div class="bg-white p-6 border-thick shadow-sharp mb-6">
+                    <h3 class="text-3xl uppercase text-center">YOUR STATS</h3>
+                    <p class="text-center text-gray-500 mt-4">No games played yet. Start playing to see your stats!</p>
+                </div>
+            `}
+            
             <div>
                 <h3 class="text-4xl text-outline-white text-center mb-4">Game History</h3>
                 <ul class="space-y-2 font-teko text-2xl uppercase">
@@ -782,11 +840,11 @@ async function showProfileScreen() {
                                 <span class="text-lg text-black/70">(${game.game_type})</span>
                             </div>
                             <div class="text-right ${game.result === 'Win' ? 'text-green-600' : 'text-red-600'}">
-                                ${game.result}
-                                <span class="ml-2 text-black font-mono">(${game.player1_score} - ${game.player2_score})</span>
+                                <span class="text-3xl font-bold">${game.result}</span>
+                                <div class="text-sm">${game.player1_score} - ${game.player2_score}</div>
                             </div>
                         </li>
-                    `).join('') || '<li class="bg-white p-3 border-thick shadow-sharp text-black">No games played yet.</li>'}
+                    `).join('') || '<li class="bg-white p-3 border-thick text-center text-black">No games played yet.</li>'}
                 </ul>
             </div>
         `;
@@ -977,7 +1035,7 @@ async function createNewGame(gameMode: string) {
 				};
 
 				connectingMatchmaking();
-				return;
+				break;
 			case 'tournament':
 				showTournamentLobby();
 				return;
@@ -1236,7 +1294,8 @@ async function updateLoginStatus() {
 			// showSection('hero', false);
 			showAppScreen(user);
 		} else if (!user.profileComplete) {
-			showSection('nicknameSetup');
+			showNicknameSetupScreen();
+			// showSection('nicknameSetup');
 		} else {
 			// showSection('hero');
 			showAppScreen(user);
