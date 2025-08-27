@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { dbGet, dbAll, dbRun, getDatabase } from '../../../database/helpers';
 import path from 'path';
 import { promises as fs } from 'fs';
+import { UserStatsManager } from '../../../core/stats/user-stats-manager';
 
 /**
  * @param request
@@ -270,8 +271,12 @@ export default async function profileRoute(fastify: FastifyInstance) {
                 LIMIT 10
             `, [user.id, user.id, user.id, user.id]);
 
+			const statsManager = UserStatsManager.getInstance();
+			const stats = await statsManager.getUserStats(user.id);
+
 			const publicProfile = {
 				user: {
+					id: user.id,
 					nickname: user.nickname,
 					avatar_url: user.avatar_url,
 				},
@@ -279,6 +284,18 @@ export default async function profileRoute(fastify: FastifyInstance) {
 					...game,
 					opponent_nickname: game.opponent_nickname || (game.game_type === 'AI' ? 'AI' : 'Local Player'),
 				})),
+
+				stats: stats ? {
+					totalGames: stats.totalGames,
+					wins: stats.wins,
+					losses: stats.losses,
+					winRate: stats.winRate,
+					rank: stats.rank,
+					rankPoints: stats.rankPoints,
+					currentStreak: stats.currentStreak,
+					maxStreak: stats.maxStreak,
+					recentGames: stats.recentGames.slice(0, 5)
+           		} : null
 			};
 
 			return reply.send(publicProfile);

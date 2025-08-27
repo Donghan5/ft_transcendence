@@ -539,11 +539,8 @@ async function showFriendsScreen() {
 							<span class="text-black font-bold">${friend.nickname}</span>
 						</div>
 						<div class="flex items-center gap-x-2">
-							<button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
+							<button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE & STATS</button>
 							<button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg border-thick hover-anarchy">REMOVE</button>
-							<button onclick="viewProfile(${friend.id})" class="bg-blue-500 text-white px-3 py-1 text-lg border-thick hover-anarchy">
-								View Stats
-							</button>
 						</div>
 					</li>
 				`;
@@ -664,24 +661,61 @@ async function showFriendsScreen() {
 }
 
 async function showPublicProfileScreen(nickname: string) {
-	showSection('publicProfile');
-	const publicProfileContent = document.getElementById('publicProfileContent');
-	if (!publicProfileContent) return;
+    showSection('publicProfile');
+    const publicProfileContent = document.getElementById('publicProfileContent');
+    if (!publicProfileContent) return;
 
-	publicProfileContent.innerHTML = '<p>Loading profile...</p>';
+    publicProfileContent.innerHTML = '<p>Loading profile...</p>';
 
-	try {
-		const response = await fetch(`/api/user/profile/${nickname}`);
+    try {
+        const response = await fetch(`/api/user/profile/${nickname}`);
 
-		if (!response.ok) throw new Error('Failed to fetch profile');
+        if (!response.ok) throw new Error('Failed to fetch profile');
 
-		const data = await response.json();
+        const data = await response.json();
 
-		publicProfileContent.innerHTML = `
-            <div class="flex items-center gap-x-4 mb-4">
+        publicProfileContent.innerHTML = `
+            <div class="flex items-center gap-x-4 mb-6">
                 <img src="${data.user.avatar_url || '/default-avatar.png'}" class="w-16 h-16 rounded-full border-thick">
                 <h2 class="text-4xl uppercase">${data.user.nickname}</h2>
             </div>
+            
+            ${data.stats ? `
+                <div class="bg-white p-6 border-thick shadow-sharp mb-6">
+                    <h3 class="text-2xl font-bold mb-4">Player Stats</h3>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span>Rank:</span>
+                                <span class="font-bold">${data.stats.rank} (${data.stats.rankPoints} RP)</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Total Games:</span>
+                                <span>${data.stats.totalGames}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Win Rate:</span>
+                                <span>${data.stats.winRate}%</span>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span>Wins/Losses:</span>
+                                <span>${data.stats.wins}/${data.stats.losses}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Current Streak:</span>
+                                <span>${data.stats.currentStreak}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span>Max Streak:</span>
+                                <span>${data.stats.maxStreak}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ` : '<div class="bg-white p-4 border-thick mb-6"><p>No stats available</p></div>'}
+            
             <h3 class="text-3xl uppercase mt-6 mb-3 border-t-4 border-black pt-4">Game History</h3>
             <ul class="space-y-2 font-teko text-2xl">
                 ${data.gameHistory.map((game: any) => `
@@ -692,11 +726,11 @@ async function showPublicProfileScreen(nickname: string) {
                 `).join('')}
             </ul>
         `;
-	} catch (error) {
-		publicProfileContent.innerHTML = `
-			<p class="text-red-500">Failed to load profile. Please try it later</p>`;
-		console.error('Error loading public profile:', error);
-	}
+    } catch (error) {
+        publicProfileContent.innerHTML = `
+            <p class="text-red-500">Failed to load profile. Please try again later.</p>`;
+        console.error('Error loading public profile:', error);
+    }
 }
 
 /**
@@ -1233,11 +1267,8 @@ function updateFriendsDisplay(friends: any[]): void {
                     <span class="text-black font-bold">${friend.nickname}</span>
                 </div>
                 <div class="flex items-center gap-x-2">
-                    <button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE</button>
+                    <button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE & STATS</button>
                     <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg border-thick hover-anarchy">REMOVE</button>
-                    <button onclick="viewProfile(${friend.userId})" class="bg-blue-500 text-white px-3 py-1 text-lg border-thick hover-anarchy">
-                        View Stats
-                    </button>
                 </div>
             </li>
         `;
