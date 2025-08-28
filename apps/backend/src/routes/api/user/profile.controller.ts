@@ -99,6 +99,13 @@ export default async function profileRoute(fastify: FastifyInstance) {
 				WHERE uf.user_id = ? AND uf.status = 'accepted'`
 			, [userId]);
 
+			if (!userId) {
+				return reply.code(401).send({ error: 'Unauthorized' });
+			}
+			
+			const statsManager = UserStatsManager.getInstance();
+			const stats = await statsManager.getUserStats(userId);
+
 			const profileData = {
 				user: {
 					id: user.id,
@@ -114,6 +121,7 @@ export default async function profileRoute(fastify: FastifyInstance) {
 					opponent_nickname: game.opponent_nickname || (game.game_type === 'AI' ? 'AI' : 'Local Player'),
 				})),
 				friends: friends,
+				stats: stats
 			};
 
 			return reply.send(profileData);
