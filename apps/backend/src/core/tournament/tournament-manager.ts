@@ -33,7 +33,7 @@ export class TournamentManager {
     private tournaments: Map<string, Tournament> = new Map();
     private playerTournamentMap: Map<string, string> = new Map();
 
-    createTournament(creatorId: string, name: string): string {
+    async createTournament(creatorId: string, name: string): Promise<string> {
         const tournamentId = `tournament_${Date.now()}`;
 
         const tournament: Tournament = {
@@ -47,7 +47,16 @@ export class TournamentManager {
             createdBy: creatorId
         };
 
+        // set in memory
         this.tournaments.set(tournamentId, tournament);
+
+        // set in database
+        await dbRun(
+        `INSERT INTO tournaments (id, name, created_by, status, created_at) 
+         VALUES (?, ?, ?, ?, datetime('now'))`,
+        [tournamentId, name, creatorId, 'waiting']
+        );
+
         console.log(`Tournament created: ${name} by ${creatorId}. Get ready to fight!`);
         return tournamentId;
     }
@@ -74,14 +83,23 @@ export class TournamentManager {
             return false;
         }
 
-        tournament.players.push({
-            id: playerId,
-            nickname: user.nickname,
-            rating: user.rating || 1000, // Default rating if not set
-            seed: 0
-        });
+        // tournament.players.push({
+        //     id: playerId,
+        //     nickname: user.nickname,
+        //     rating: user.rating || 1000, // Default rating if not set
+        //     seed: 0
+        // });
 
-        this.playerTournamentMap.set(playerId, tournamentId);
+        // this.playerTournamentMap.set(playerId, tournamentId);
+
+        // await dbRun(
+        //     `INSERT INTO tournament_participants (tournament_id, user_id, seed)
+        //     VALUES (?, ?, ?)`,
+        //     [tournamentId, parseInt(playerId), 0]
+        // );
+
+        await this.addPlayerToTournament(tournament, playerId, user);
+
         return true;
     }
 
@@ -402,14 +420,23 @@ export class TournamentManager {
             return false;
         }
 
-        tournament.players.push({
-            id: playerId,
-            nickname: user.nickname,
-            rating: user.rating || 1000, // Default rating if not set
-            seed: 0
-        });
+        // tournament.players.push({
+        //     id: playerId,
+        //     nickname: user.nickname,
+        //     rating: user.rating || 1000, // Default rating if not set
+        //     seed: 0
+        // });
 
-        this.playerTournamentMap.set(playerId, tournamentId);
+        // this.playerTournamentMap.set(playerId, tournamentId);
+
+        // await dbRun(
+        //     `INSERT INTO tournament_participants (tournament_id, user_id, seed)
+        //     VALUES (?, ?, ?)`,
+        //     [tournamentId, parseInt(playerId), 0]
+        // );
+
+        await this.addPlayerToTournament(tournament, playerId, user);
+
         return true;
     }
 
@@ -429,6 +456,51 @@ export class TournamentManager {
 
         const currentRound = tournament.bracket[tournament.currentRound - 1];
         return currentRound.filter(m => m.gameId && !m.winner);
+    }
+
+    async cancelTournament(tournamentId: string, userId: string): Promise<boolean> {
+        const tournament = this.tournaments.get(tournamentId);
+
+        if (!tournament || tournament.createdBy !== userId) {
+            return false;
+        }
+
+        if (tournament.status !== 'waiting') {
+            return false;
+        }
+
+        await dbRun(`DELETE FROM tournaments WHERE id = ?`, [tournamentId]);
+        await dbRun(`DELETE FROM tournament_participants WHERE tournament_id = ?`, [tournamentId]);
+
+        this.tournaments.delete(tournamentId);
+        return true;
+    }
+
+    /**
+     * @description tool to add a player to a tournament (both in memory and database)
+     * @param tournament 
+     * @param playerId 
+     * @param user 
+     */
+    private async addPlayerToTournament(
+        tournament: Tournament, 
+        playerId: string, 
+        user: any
+    ): Promise<void> {
+        tournament.players.push({
+            id: playerId,
+            nickname: user.nickname,
+            rating: user.rating || 1000,
+            seed: 0
+        });
+
+        this.playerTournamentMap.set(playerId, tournament.id);
+
+        await dbRun(
+            `INSERT INTO tournament_participants (tournament_id, user_id, seed)
+            VALUES (?, ?, ?)`,
+            [tournament.id, parseInt(playerId), 0]
+        );
     }
 }
 

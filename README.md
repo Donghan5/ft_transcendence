@@ -108,7 +108,7 @@
 
 43. 처음 로컬 유저 등록 시, FAIL TO LOAD USER PROFILE 나옴 (큰 버그는 아닌데 찜찜함) --> FIXED (바로 로그인 이후 화면으로 접근을 시도해서 그런 거였음)
 
-44. 가끔씩 처음으로 친구 창을 열 때도, 동일하게 FAIL TO LOAD 문제가 나옴
+44. 가끔씩 처음으로 친구 창을 열 때도, 동일하게 FAIL TO LOAD 문제가 나옴 --> FIXED
 
 45. 리프레쉬 시 메인 메뉴로 이동함
 
@@ -123,6 +123,8 @@
 50. 토너먼트 캔슬 기능의 부재
 
 51. 토너먼트를 만들고 리스트에 저장하지 않고 있었음. 결과만 저장하고 있었음...
+
+52. implementing cancel API (in tournament)
 
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인

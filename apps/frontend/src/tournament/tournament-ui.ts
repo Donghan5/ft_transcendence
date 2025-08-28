@@ -522,7 +522,10 @@ export class TournamentUI {
     private showInviteFriendsModal(): void {
         const onlineFriends = this.statusManager?.getFriends() || [];
 
-        const invitableFriends = onlineFriends.filter((friend: any) => friend.stats === 'online' || friend.status === 'away');
+       const invitableFriends = onlineFriends.filter((friend: any) => {
+            const status = friend.status || friend.stats;
+            return status === 'online' || status === 'away';
+        });
 
         const modalHtml = `
             <div id="invite-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
