@@ -244,25 +244,6 @@ async function handleLocalRegister(e: Event) {
 			showAuthTab('login'); // Switch to login tab after successful registration
 			showAuthSuccess('registerSuccess', 'Please login to continue.');
 		}, 2000);
-		try {
-			const userResponse = await fetch('/api/auth/me', { credentials: 'include' });
-			if (userResponse.ok) {
-				const userData = await userResponse.json();
-				console.log('User data after register:', userData);
-				currentUser = userData;
-				
-				if (!userData.profileComplete) {
-					showNicknameSetupScreen();
-				} else {
-					showAppScreen(userData);
-				}
-			} else {
-				throw new Error('Failed to fetch user data');
-			}
-		} catch (error) {
-			console.error('Error fetching user data:', error);
-			showAuthError('registerError', 'Failed to load user profile');
-		}
 	} else {
 		showAuthError('registerError', result.error || 'Registration failed.');
 	}

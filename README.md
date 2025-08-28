@@ -106,7 +106,7 @@
 
 42. pvp 매치 메이킹 관련 로직에 문제가 생김 (원래 보이던 waiting opponent (cancel 버튼)이 안보임) --> 토너먼트 기능 추가한 이후에 이렇게 된건가? --> FIX
 
-43. 처음 유저 등록 시, FAIL TO LOAD USER PROFILE 나옴 (큰 버그는 아닌데 찜찜함)
+43. 처음 로컬 유저 등록 시, FAIL TO LOAD USER PROFILE 나옴 (큰 버그는 아닌데 찜찜함) --> FIXED (바로 로그인 이후 화면으로 접근을 시도해서 그런 거였음)
 
 44. 가끔씩 처음으로 친구 창을 열 때도, 동일하게 FAIL TO LOAD 문제가 나옴
 
