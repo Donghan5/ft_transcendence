@@ -500,6 +500,8 @@ function showAppScreen(user: any) {
 	const widgetNickname = document.getElementById('widgetNickname') as HTMLSpanElement;
 	if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
 	if (widgetNickname) widgetNickname.textContent = user.nickname || user.name;
+
+	loadHomeTournaments();
 }
 
 function showTournamentLobby() {
@@ -1652,6 +1654,11 @@ async function loadActiveTournaments(): Promise<void> {
 	}
 }
 
+/**
+ * @description Display active tournaments in the sidebar
+ * @param tournaments 
+ * @returns 
+ */
 function displayActiveTournaments(tournaments: any[]): void {
     const listContainer = document.getElementById('active-tournaments-list');
     if (!listContainer) return;
@@ -1681,6 +1688,122 @@ function displayActiveTournaments(tournaments: any[]): void {
             `}
         </div>
     `).join('');
+}
+
+/**
+ * @description Load tournaments for the home screen
+ * @returns {Promise<void>}
+ */
+async function loadHomeTournaments(): Promise<void> {
+	try {
+		const response = await fetch('/api/tournaments/active/list', {
+			credentials: 'include'
+		});
+
+		if (response.ok) {
+			const data = await response.json();
+			displayHomeTournaments(data.tournaments);
+		}
+	} catch (error) {
+		console.error('Error loading home tournaments:', error);
+		const listContainer = document.getElementById('homeTournamentsList');
+		if (listContainer) {
+			listContainer.innerHTML = '<p class="text-red-500">Failed to load tournaments</p>';
+		}
+	}
+}
+
+/**
+ * @description Display tournaments on the home screen
+ * @param tournaments 
+ * @returns 
+ */
+function displayHomeTournaments(tournaments: any[]): void {
+	const listContainer = document.getElementById('homeTournamentsList');
+	if (!listContainer) return;
+
+	if (tournaments.length === 0) {
+		listContainer.innerHTML = `
+			<div class="text-center py-8">
+				<p class="text-gray-600 mb-4">No active tournaments at the moment</p>
+				<p class="text-black font-teko text-lg">Create your own tournament and invite friends!</p>
+			</div>
+		`;
+		return;
+	}
+
+	listContainer.innerHTML = tournaments.map(tournament => `
+        <div class="bg-gray-50 border-thick p-4 mb-4">
+            <div class="flex justify-between items-center">
+                <div class="text-left">
+                    <h4 class="font-bold text-xl text-black font-teko uppercase">${tournament.name}</h4>
+                    <p class="text-sm text-gray-600 font-teko">
+                        Players: ${tournament.players.length} | Status: ${tournament.status.toUpperCase()}
+                    </p>
+                </div>
+                <div class="flex gap-2">
+                    ${tournament.status === 'waiting' ? `
+                        <button onclick="joinHomeTournament('${tournament.id}')" 
+                                class="bg-blue-500 text-white px-4 py-2 border-thick hover-anarchy font-teko uppercase">
+                            JOIN
+                        </button>
+                    ` : `
+                        <button onclick="spectateHomeTournament('${tournament.id}')" 
+                                class="bg-purple-500 text-white px-4 py-2 border-thick hover-anarchy font-teko uppercase">
+                            SPECTATE
+                        </button>
+                    `}
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+/**
+ * @description To join a tournament from home screen
+ */
+(window as any).joinHomeTournament = async function(tournamentId: string) {
+    try {
+        console.log('Joining tournament from home:', tournamentId);
+        
+        const response = await fetch('/api/tournament/join', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tournamentId }),
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            console.log('Successfully joined tournament');
+            
+            if (!tournamentUI) {
+                tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
+            }
+            
+            await tournamentUI.joinTournament(tournamentId);
+            showSection('tournamentLobby');
+            
+            loadHomeTournaments();
+            
+        } else {
+            const error = await response.json();
+            alert(`Failed to join tournament: ${error.error || error.message || 'Unknown error'}`);
+        }
+    } catch (error) {
+        console.error('Error joining tournament:', error);
+        alert('Network error occurred while joining tournament');
+    }
+};
+
+/**
+ * @description Start polling for home tournaments every 30 seconds to refresh the list
+ */
+function startHomeTournamentPolling(): void {
+    setInterval(() => {
+        if (currentSection === 'hero') {
+            loadHomeTournaments();
+        }
+    }, 30000);
 }
 
 (window as any).joinExistingTournament = async function(tournamentId: string) {

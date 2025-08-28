@@ -168,30 +168,37 @@
 		</nav>
 
         <main class="flex-1 py-8 px-4">
-            <section id="heroSection">
-                <div class="max-w-4xl mx-auto text-center">
-                    <h2 class="text-6xl md:text-7xl text-white text-outline-black mb-8 animate-pop">PICK YOUR BATTLE</h2>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <!-- FIX: Reduced padding and font sizes on buttons -->
-                        <button id="quickPlayBtn" class="animate-pop bg-pink-500 text-white p-6 border-thick shadow-sharp hover-anarchy" style="animation-delay: 0.1s;">
-                            <h3 class="text-3xl uppercase mb-1">Quick Play</h3>
-                            <p class="font-teko text-xl uppercase">Jump into the chaos</p>
-                        </button>
-                        <button id="pvpPlayBtn" class="animate-pop bg-yellow-300 text-black p-6 border-thick shadow-sharp hover-anarchy" style="animation-delay: 0.2s;">
-                            <h3 class="text-3xl uppercase mb-1">PVP (REMOTE)</h3>
-                            <p class="font-teko text-xl uppercase">Fight for glory</p>
-                        </button>
-                        <button id="aiPlayBtn" class="animate-pop bg-black text-white p-6 border-thick shadow-sharp hover-anarchy" style="animation-delay: 0.3s;">
-                            <h3 class="text-3xl uppercase mb-1">vs AI</h3>
-                            <p class="font-teko text-xl uppercase">Smash the machine</p>
-                        </button>
-						<button id="tournamentPlayBtn" class="animate-pop bg-red-600 text-white p-6 border-thick shadow-sharp hover-anarchy" style="animation-delay: 0.4s;">
-							<h3 class="text-3xl uppercase mb-1">Tournament</h3>
-							<p class="font-teko text-xl uppercase">Prove your skills</p>
-						</button>
-                    </div>
-                </div>
-            </section>
+            <section id="heroSection" class="py-12 bg-blue-400">
+			<div class="max-w-5xl mx-auto text-center px-4">
+				<h2 class="text-5xl md:text-6xl text-black font-bold uppercase mb-12 animate-pop tracking-wider" style="animation-delay: 0s;">
+					PICK YOUR BATTLE
+				</h2>
+				<div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-16">
+					<button id="quickPlayBtn" class="animate-pop bg-pink-500 text-white p-6 border-4 border-black shadow-sharp hover:bg-pink-600 transition-colors duration-200" style="animation-delay: 0.1s;">
+						<h3 class="text-2xl font-bold uppercase mb-2">Quick Play</h3>
+						<p class="font-teko text-lg uppercase tracking-wide">Jump into the chaos</p>
+					</button>
+					<button id="pvpPlayBtn" class="animate-pop bg-yellow-300 text-black p-6 border-4 border-black shadow-sharp hover:bg-yellow-400 transition-colors duration-200" style="animation-delay: 0.2s;">
+						<h3 class="text-2xl font-bold uppercase mb-2">PVP (REMOTE)</h3>
+						<p class="font-teko text-lg uppercase tracking-wide">Fight for glory</p>
+					</button>
+					<button id="aiPlayBtn" class="animate-pop bg-black text-white p-6 border-4 border-black shadow-sharp hover:bg-gray-800 transition-colors duration-200" style="animation-delay: 0.3s;">
+						<h3 class="text-2xl font-bold uppercase mb-2">vs AI</h3>
+						<p class="font-teko text-lg uppercase tracking-wide">Smash the machine</p>
+					</button>
+					<button id="tournamentPlayBtn" class="animate-pop bg-red-600 text-white p-6 border-4 border-black shadow-sharp hover:bg-red-700 transition-colors duration-200" style="animation-delay: 0.4s;">
+						<h3 class="text-2xl font-bold uppercase mb-2">Tournament</h3>
+						<p class="font-teko text-lg uppercase tracking-wide">Prove your skills</p>
+					</button>
+				</div>
+				<div class="bg-white border-4 border-black shadow-sharp p-8 animate-pop rounded-lg" style="animation-delay: 0.5s;">
+					<h3 class="text-3xl font-bold text-black uppercase mb-6">ACTIVE TOURNAMENT</h3>
+					<div id="homeTournamentsList" class="space-y-4">
+						<p class="text-gray-500 font-teko text-lg italic">Loading tournaments...</p>
+					</div>
+				</div>
+			</div>
+		</section>
 
             <section id="profileSection" class="hidden max-w-4xl mx-auto animate-pop">
                 <button id="profileReturnBtn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
