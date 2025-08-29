@@ -1601,7 +1601,7 @@ function showTournamentScreen() {
 	appContainer.innerHTML = `
 		<div class="min-h-screen bg-gray-100 p-8">
 			<div class="max-w-7xl mx-auto">
-				<div vlass="flex justify-between items-center mb-8">
+				<div class="flex justify-between items-center mb-8">
 					<h1 class="text-4xl font-bold text-center">Tournament Mode</h1>
 					<button onclick="returnToMainMenu()" class="bg-red-600 text-white px-4 py-2 text-lg border-thick hover-anarchy">
 						Back to Menu
@@ -1618,6 +1618,9 @@ function showTournamentScreen() {
 						<div id="active-tournaments-list">
 							<p>Loading tournaments...</p>
 						</div>
+						<button id="refresh-tournaments" class="w-full mt-4 bg-blue-500 text-white py-2 border-thick hover-anarchy">
+							Refresh List
+						</button>
 					</div>
 				</div>
 			</div>
@@ -1633,9 +1636,13 @@ function showTournamentScreen() {
 
 	loadActiveTournaments();
 
+	document.getElementById('refresh-tournaments')?.addEventListener('click', () => {
+		loadActiveTournaments();
+	});
+
 	document.getElementById('back-to-main')?.addEventListener('click', () => {
-        showAppScreen(currentUser);
-    });
+		showAppScreen(currentUser);
+	});
 }
 
 

@@ -271,24 +271,45 @@ export class TournamentUI {
             });
         }
         
-        // have to fix... I don't have any idea for now
         const joinBtn = document.getElementById('join-tournament');
         if (joinBtn) {
-            joinBtn.addEventListener('click', async () => {
-                const tournamentId = this.statusManager.getActiveTournaments();
-                if (!tournamentId) {
-                    this.showStatusMessage('Cannot join. Please Create or Wait for a Tournament.', 'error');
-                    return;
-                }
-                const success = await this.joinTournament(tournamentId);
-                if (success) {
-                    this.showStatusMessage('Joined tournament!', 'success');
+        joinBtn.addEventListener('click', async () => {
+            try {
+                const response = await fetch('/api/tournament/active/list', {
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const activeTournaments = data.tournaments;
+
+                    if (activeTournaments.length === 0) {
+                        this.showStatusMessage('No active tournaments available to join.', 'info');
+                        return;
+                    }
+
+                    const waitingTournament = activeTournaments.find((t: any) => t.status === 'waiting');
+                    
+                    if (!waitingTournament) {
+                        this.showStatusMessage('No tournaments waiting for players.', 'info');
+                        return;
+                    }
+
+                    const success = await this.joinTournament(waitingTournament.id);
+                    if (success) {
+                        this.showStatusMessage('Successfully joined tournament!', 'success');
+                    } else {
+                        this.showStatusMessage('Failed to join tournament.', 'error');
+                    }
                 } else {
-                    this.showStatusMessage('Failed to join tournament.', 'error');
-                    return;
+                    this.showStatusMessage('Failed to get active tournaments.', 'error');
                 }
-            });
-        }
+            } catch (error) {
+                console.error('Error getting active tournaments:', error);
+                this.showStatusMessage('Error getting tournaments list.', 'error');
+            }
+        });
+    }
 
         const inviteBtn = document.getElementById('invite-friends');
         if (inviteBtn) {
@@ -311,10 +332,12 @@ export class TournamentUI {
     }
 
     private setupBracketEventListeners(): void {
+        const tournamentId = this.tournamentId;
+        if (!tournamentId) return;
         const refreshBtn = document.getElementById('refresh-bracket');
         if (refreshBtn) {
             refreshBtn.addEventListener('click', () => {
-                this.refreshTournament();
+                this.refreshTournament(tournamentId);
             });
         }
 
@@ -328,7 +351,27 @@ export class TournamentUI {
     }
 
     private connectToTournament(tournamentId: string): void {
+        this.refreshTournament(tournamentId);
         this.startTournamentPolling(tournamentId);
+    }
+
+    private async refreshTournament(tournamentId: string): Promise<void> {
+        try {
+            const response = await fetch(`/api/tournament/${tournamentId}`, {
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const tournament = await response.json();
+                this.updateParticipantsList(tournament.players);
+
+                if (tournament.status === 'in_progress') {
+                    this.showBracket(tournament);
+                }
+            }
+        } catch (error) {
+            console.error('Error refreshing tournament:', error);
+        }
     }
 
     private startTournamentPolling(tournamentId: string): void {
@@ -364,7 +407,7 @@ export class TournamentUI {
         }
 
         this.pollInterval = window.setInterval(() => {
-            this.refreshTournament();
+            this.refreshTournament(this.tournamentId!);
         }, 3000); 
     }
 
@@ -375,31 +418,7 @@ export class TournamentUI {
         }
     }
 
-    private async refreshTournament(): Promise<void> {
-        if (!this.tournamentId) return;
 
-        try {
-            const response = await fetch(`/api/tournament/${this.tournamentId}`, {
-                credentials: 'include'
-            });
-
-            if (response.ok) {
-                const tournament: Tournament = await response.json();
-                
-                const bracketContainer = document.getElementById('bracket-container');
-                if (bracketContainer) {
-                    bracketContainer.innerHTML = this.generateBracketHTML(tournament.bracket);
-                    
-                    if (tournament.status === 'finished') {
-                        this.stopBracketPolling();
-                        this.showTournamentComplete(tournament);
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error refreshing tournament:', error);
-        }
-    }
 
     private updateParticipantsList(players: TournamentPlayer[]): void {
         const list = document.getElementById('participants');

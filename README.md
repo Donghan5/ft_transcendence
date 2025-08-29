@@ -134,9 +134,17 @@
 
 56. 중복되는 토너먼트 이름은 거부하는 로직을 추가해야할 것 같음 --> DONE
 
-57. active tournament 에 아무런 토너먼트 목록도 없음 --> FIX (join기능도 잘 작동하긴 하는데 수정이 필요함, UI 연결, 이건 새롭게 추가한 UI사용하면 될 듯?)
+57. active tournament 에 아무런 토너먼트 목록도 없음 --> FIX
 
-58. 초대받은 유저 창에는 QUIT TOURNAMENT 나오게 함. (우선적으로 57이 고쳐저야함)
+58. active tournament으로 조인할 시 tournament-lobby 가 아무것도 안보임
+
+59. 초대받은 유저 창에는 QUIT TOURNAMENT 나오게 함. (우선적으로 58이 고쳐저야함)
+
+60. 토너먼트 --> 폴링에서 웹소켓으로 변경 (차후 구현)
+
+61. match-making system && waiting players (when multiple-demanded)
+
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2

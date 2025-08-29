@@ -71,6 +71,36 @@ export class TournamentManager {
         }
     }
 
+    private async updateTournamentInDB(tournament: Tournament): Promise<void> {
+        try {
+            await dbRun(
+                `UPDATE tournaments SET
+                status = ?, 
+                current_round = ?, 
+                bracket = ?
+                WHERE id = ?`,
+                [
+                    tournament.status,
+                    tournament.currentRound,
+                    JSON.stringify(tournament.bracket),
+                    tournament.id
+                ]
+            );
+
+            for (const player of tournament.players) {
+                await dbRun(
+                    `UPDATE tournament_participants 
+                    SET seed = ?
+                    WHERE tournament_id = ? AND user_id = ?`,
+                    [player.seed, tournament.id, parseInt(player.id)]
+                );
+            }
+
+            console.log(`Tournament ${tournament.id} updated successfully in DB.`);
+        } catch (error) {
+            console.error(`Error updating tournament ${tournament.id} in DB: ${error}`);
+        }
+    }
 
     async createTournament(creatorId: string, name: string): Promise<string> {
         const tournamentId = `tournament_${Date.now()}`;
@@ -122,21 +152,6 @@ export class TournamentManager {
             return false;
         }
 
-        // tournament.players.push({
-        //     id: playerId,
-        //     nickname: user.nickname,
-        //     rating: user.rating || 1000, // Default rating if not set
-        //     seed: 0
-        // });
-
-        // this.playerTournamentMap.set(playerId, tournamentId);
-
-        // await dbRun(
-        //     `INSERT INTO tournament_participants (tournament_id, user_id, seed)
-        //     VALUES (?, ?, ?)`,
-        //     [tournamentId, parseInt(playerId), 0]
-        // );
-
         await this.addPlayerToTournament(tournament, playerId, user);
 
         return true;
@@ -163,6 +178,8 @@ export class TournamentManager {
         this.generateBracket(tournament);
         tournament.status = 'in_progress';
         tournament.currentRound = 1;
+
+        this.updateTournamentInDB(tournament);
 
         this.startNextMatch(tournamentId);
         return true;
@@ -350,6 +367,7 @@ export class TournamentManager {
 
         if (tournament.currentRound <= tournament.bracket.length) {
             console.log(`Advancing to round ${tournament.currentRound} of tournament ${tournament.name}`);
+            this.updateTournamentInDB(tournament);
             this.startNextMatch(tournament.id);
         } else {
             tournament.status = 'finished';
