@@ -1696,7 +1696,7 @@ function displayActiveTournaments(tournaments: any[]): void {
  */
 async function loadHomeTournaments(): Promise<void> {
 	try {
-		const response = await fetch('/api/tournaments/active/list', {
+		const response = await fetch('/api/tournament/active/list', {
 			credentials: 'include'
 		});
 
@@ -1712,6 +1712,30 @@ async function loadHomeTournaments(): Promise<void> {
 		}
 	}
 }
+
+function joinExistingTournament(tournamentId: string): void {
+	if (!tournamentUI) {
+		console.error('Tournament UI not initialized');
+		return;
+	}
+	
+	tournamentUI.joinTournament(tournamentId)
+		.then((success) => {
+			if (success) {
+				showTournamentScreen();
+				setTimeout(() => {
+					loadActiveTournaments();
+				}, 500);
+			}
+		})
+		.catch((error) => {
+			console.error('Failed to join tournament:', error);
+			alert('Failed to join tournament: ' + error.message);
+		});
+}
+
+// Expose joinExistingTournament to global scope for button onclick
+(window as any).joinExistingTournament = joinExistingTournament;
 
 /**
  * @description Display tournaments on the home screen
