@@ -33,6 +33,45 @@ export class TournamentManager {
     private tournaments: Map<string, Tournament> = new Map();
     private playerTournamentMap: Map<string, string> = new Map();
 
+    async initializeTournaments(): Promise<void> {
+        const activeTournaments = await dbAll(
+            `SELECT * FROM tournaments WHERE status IN ('waiting', 'in_progress')`
+        );
+        
+        for (const dbTournament of activeTournaments) {
+            const participants = await dbAll(
+                `SELECT u.id, u.nickname, u.rating, tp.seed
+                FROM tournament_participants tp
+                JOIN users u ON tp.user_id = u.id
+                WHERE tp.tournament_id = ?`,
+                [dbTournament.id]
+            );
+            
+            const tournament: Tournament = {
+                id: dbTournament.id,
+                name: dbTournament.name,
+                players: participants.map(p => ({
+                    id: p.id.toString(),
+                    nickname: p.nickname,
+                    rating: p.rating || 1000,
+                    seed: p.seed || 0
+                })),
+                bracket: dbTournament.bracket ? JSON.parse(dbTournament.bracket) : [],
+                status: dbTournament.status,
+                currentRound: dbTournament.current_round || 0,
+                winner: null,
+                createdBy: dbTournament.created_by.toString()
+            };
+            
+            this.tournaments.set(tournament.id, tournament);
+            
+            tournament.players.forEach(player => {
+                this.playerTournamentMap.set(player.id, tournament.id);
+            });
+        }
+    }
+
+
     async createTournament(creatorId: string, name: string): Promise<string> {
         const tournamentId = `tournament_${Date.now()}`;
 
@@ -461,19 +500,44 @@ export class TournamentManager {
     async cancelTournament(tournamentId: string, userId: string): Promise<boolean> {
         const tournament = this.tournaments.get(tournamentId);
 
-        if (!tournament || tournament.createdBy !== userId) {
+        console.log('Cancelling tournament:', tournamentId);
+        console.log('Tournament found:', tournament);
+        console.log('Tournament createdBy:', tournament?.createdBy);
+        console.log('User ID:', userId);
+
+        if (!tournament) {
+            console.error('Tournament not found');
+            return false;
+        }
+
+        if (tournament.createdBy !== userId) {
+            console.error('User is not the creator');
             return false;
         }
 
         if (tournament.status !== 'waiting') {
+            console.error('Tournament already started');
             return false;
         }
 
-        await dbRun(`DELETE FROM tournaments WHERE id = ?`, [tournamentId]);
-        await dbRun(`DELETE FROM tournament_participants WHERE tournament_id = ?`, [tournamentId]);
+        try {
+            await dbRun(`DELETE FROM tournaments WHERE id = ?`, [tournamentId]);
+            await dbRun(`DELETE FROM tournament_participants WHERE tournament_id = ?`, [tournamentId]);
 
-        this.tournaments.delete(tournamentId);
-        return true;
+            this.tournaments.delete(tournamentId);
+            
+            tournament.players.forEach(player => {
+                if (this.playerTournamentMap.get(player.id) === tournamentId) {
+                    this.playerTournamentMap.delete(player.id);
+                }
+            });
+
+            console.log('Tournament cancelled successfully');
+            return true;
+        } catch (error) {
+            console.error('Error cancelling tournament:', error);
+            return false;
+        }
     }
 
     /**

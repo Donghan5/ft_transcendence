@@ -93,6 +93,11 @@ async function start() {
         console.log('Initializing database...');
         const db = await initializeDatabase();
 
+        console.log('Initializing tournament manager...');
+        const { tournamentManager } = await import('./core/tournament/tournament-manager');
+        await tournamentManager.initializeTournaments();
+        console.log('Tournament manager initialized successfully');
+
         // Temporary: Force check if users table exists
         try {
             const result = await new Promise((resolve, reject) => {

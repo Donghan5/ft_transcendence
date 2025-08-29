@@ -29,7 +29,13 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(400).send({ error: 'Tournament name is required' });
             }
 
-            const tournamentId = tournamentManager.createTournament(userId.toString(), name.trim());
+            // name double check (should be unique)
+            const existingTournaments = tournamentManager.getActiveTournaments();
+            if (existingTournaments.some(t => t.name.toLowerCase() === name.trim().toLowerCase())) {
+                return reply.code(400).send({ error: 'Tournament name already exists' });
+            }
+
+            const tournamentId = await tournamentManager.createTournament(userId.toString(), name.trim());
         
             await tournamentManager.joinTournament(tournamentId, userId.toString());
         
@@ -51,7 +57,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     fastify.post('/join', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { tournamentId } = request.body as { tournamentId: string };
-            const userId = (request as any).user?.id;
+            const userId = (request as any).user?.userId;
 
             if (!userId) {
                 return reply.code(401).send({ error: 'Unauthorized' });
@@ -86,7 +92,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         try {
             const { tournamentId } = request.params as { tournamentId: string };
             const { targetUserId } = request.body as { targetUserId: string };
-            const userId = (request as any).user?.id;
+            const userId = (request as any).user?.userId;
 
             if (!userId) {
                 return reply.code(401).send({ error: 'Unauthorized' });
@@ -148,10 +154,15 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
+    /**
+     * @description Start a tournament (only by creator)
+     * @param tournamentId - ID of the tournament to start
+     * @returns { success: boolean, message: string, tournament: Tournament }
+     */
     fastify.post('/start', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { tournamentId } = request.body as { tournamentId: string };
-            const userId = (request as any).user?.id;
+            const userId = (request as any).user?.userId;
 
             if (!userId) {
                 return reply.code(401).send({ error: 'Unauthorized' });
@@ -192,6 +203,11 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
+    /**
+     * @description Get tournament information by ID
+     * @param tournamentId - ID of the tournament
+     * @returns { tournament: Tournament }
+     */
     fastify.get('/:tournamentId', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { tournamentId } = request.params as { tournamentId: string };
@@ -216,6 +232,10 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
+    /**
+     * @description Get list of active tournaments
+     * @returns { tournaments: Tournament[], count: number }
+     */
     fastify.get('/active/list', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const activeTournaments = tournamentManager.getActiveTournaments();
@@ -233,6 +253,11 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         }
     });
 
+    /**
+     * @description Get current matches of a tournament
+     * @param tournamentId - ID of the tournament
+     * @returns { matches: Match[], count: number }
+     */
     fastify.get('/:tournamentId/matches/current', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
             const { tournamentId } = request.params as { tournamentId: string };
@@ -255,6 +280,49 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
             fastify.log.error('Get current matches error:', error);
             return reply.code(500).send({
                 error: 'Failed to retrieve current matches',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
+
+    /**
+     * @description Cancel a tournament (only if not started)
+     * @param tournamentId - ID of the tournament to cancel
+     * @returns { success: boolean, message: string }
+     */
+    fastify.post('/cancel', { preHandler: [authMiddleware] }, async (request, reply) => {
+        try {
+            console.log('=== TOURNAMENT CANCEL DEBUG ===');
+            console.log('Cancel tournament - request.body:', request.body);
+            
+            const { tournamentId } = request.body as { tournamentId: string };
+            const userId = (request as any).user?.userId;
+
+            console.log('Cancel tournament - tournamentId:', tournamentId);
+            console.log('Cancel tournament - userId:', userId);
+    
+            if (!userId) {
+                return reply.code(401).send({ error: 'Unauthorized' });
+            }
+            if (!tournamentId) {
+                return reply.code(400).send({ error: 'Tournament ID is required' });
+            }
+
+            const success = tournamentManager.cancelTournament(tournamentId, userId.toString());
+
+            if (!success) {
+                return reply.code(403).send({ error: 'Cannot cancel tournament' });
+            }
+
+            return reply.send({
+                success: true,
+                message: 'Tournament cancelled successfully'
+            });
+
+        } catch (error) {
+            fastify.log.error('Tournament cancel error:', error);
+            return reply.code(500).send({
+                error: 'Failed to cancel tournament',
                 message: error instanceof Error ? error.message : 'Unknown error'
             });
         }

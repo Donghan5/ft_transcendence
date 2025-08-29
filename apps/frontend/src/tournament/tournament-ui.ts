@@ -71,13 +71,13 @@ export class TournamentUI {
                         Invite Friends
                     </button>
 
-                    <button id="join-tournament"
-                            class="flex-1 bg-gray-500 text-white py-3 border-thick hover-anarchy">
-                        Join Tournament
+                    <button id="cancel-tournament" 
+                            class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">
+                        Cancel Tournament
                     </button>
                             
                     <button id="start-tournament" 
-                            class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy"
+                            class="flex-1 bg-green-500 text-white py-3 border-thick hover-anarchy"
                             disabled>
                         Start Tournament
                     </button>
@@ -300,6 +300,14 @@ export class TournamentUI {
                 this.showInviteFriendsModal();
             });
         }
+
+        const cancelBtn = document.getElementById('cancel-tournament');
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => {
+                this.cancelTournament();
+                this.showTournamentLobby();
+            });
+        }
     }
 
     private setupBracketEventListeners(): void {
@@ -508,6 +516,41 @@ export class TournamentUI {
         if (this.websocket) {
             this.websocket.close();
             this.websocket = null;
+        }
+    }
+
+    public async cancelTournament(): Promise<void> {
+        if (!this.tournamentId) {
+            console.error('No tournament ID to cancel');
+            return;
+        }
+
+        this.stopBracketPolling();
+        
+        try {
+            const response = await fetch('/api/tournament/cancel', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ 
+                    tournamentId: this.tournamentId 
+                }),
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                console.log('Tournament cancelled successfully');
+                this.tournamentId = null;
+                this.showStatusMessage('Tournament cancelled successfully', 'success');
+            } else {
+                const error = await response.json();
+                console.error('Cancel failed:', error);
+                this.showStatusMessage(`Failed to cancel: ${error.error}`, 'error');
+            }
+        } catch (err) {
+            console.error('Cancel tournament error:', err);
+            this.showStatusMessage('Failed to cancel tournament', 'error');
         }
     }
 

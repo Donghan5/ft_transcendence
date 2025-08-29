@@ -126,6 +126,8 @@
 
 52. implementing cancel API (in tournament)
 
+53. 일단 토너먼트 생성 후 DB에 토너먼트 정보를 잘 저장함. 하지만 토너먼트 친구초대 기능 + active tournament 에 아무런 토너먼트 목록도 없음 + 중복되는 토너먼트 이름은 거부하는 로직을 추가해야할 것 같음 + 여기서 조인 버튼은 active tournament 와 함께 놔두기. 해당 토너먼트에 참가할 수 있게 함.
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2
