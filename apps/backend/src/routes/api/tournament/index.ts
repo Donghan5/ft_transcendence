@@ -30,7 +30,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
             }
 
             // name double check (should be unique)
-            const existingTournaments = tournamentManager.getActiveTournaments();
+            const existingTournaments = await tournamentManager.getActiveTournaments();
             if (existingTournaments.some(t => t.name.toLowerCase() === name.trim().toLowerCase())) {
                 return reply.code(400).send({ error: 'Tournament name already exists' });
             }
@@ -188,10 +188,12 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(400).send({ error: 'Tournament cannot be started' });
             }
 
+            const updatedTournament = await tournamentManager.getTournamentInfo(tournamentId);
+
             return reply.send({
                 success: true,
                 message: 'Tournament started successfully',
-                tournament: tournamentManager.getTournamentInfo(tournamentId)
+                tournament: updatedTournament
             });
 
         } catch (error) {
@@ -216,7 +218,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(400).send({ error: 'Tournament ID is required' });
             }
 
-            const tournament = tournamentManager.getTournamentInfo(tournamentId);
+            const tournament = await tournamentManager.getTournamentInfo(tournamentId);
 
             if (!tournament) {
                 return reply.code(404).send({ error: 'Tournament not found' });
@@ -238,7 +240,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
      */
     fastify.get('/active/list', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
-            const activeTournaments = tournamentManager.getActiveTournaments();
+            const activeTournaments = await tournamentManager.getActiveTournaments();
 
             return reply.send({
                 tournaments: activeTournaments,
@@ -266,7 +268,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(400).send({ error: 'Tournament ID is required' });
             }
 
-            const currentMatches = tournamentManager.getCurrentMatches(tournamentId);
+            const currentMatches = await tournamentManager.getCurrentMatches(tournamentId);
 
             if (!currentMatches) {
                 return reply.code(404).send({ error: 'No current matches found for this tournament' });
@@ -308,7 +310,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(400).send({ error: 'Tournament ID is required' });
             }
 
-            const success = tournamentManager.cancelTournament(tournamentId, userId.toString());
+            const success = await tournamentManager.cancelTournament(tournamentId, userId.toString());
 
             if (!success) {
                 return reply.code(403).send({ error: 'Cannot cancel tournament' });
@@ -340,7 +342,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(401).send({ error: 'Unauthorized' });
             }
 
-            const userTournamentId = tournamentManager.getUserCurrentTournament(userId);
+            const userTournamentId = await tournamentManager.getUserCurrentTournament(userId);
             
             if (!userTournamentId) {
                 return reply.send({
@@ -350,7 +352,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 });
             }
 
-            const tournament = tournamentManager.getTournamentInfo(userTournamentId);
+            const tournament = await tournamentManager.getTournamentInfo(userTournamentId);
 
             if (!tournament) {
                 reply.send({

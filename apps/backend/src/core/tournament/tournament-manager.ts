@@ -132,7 +132,7 @@ export class TournamentManager {
 
 
     public async joinTournament(tournamentId: string, playerId: string): Promise<boolean> {
-        const tournament = this.tournaments.get(tournamentId);
+        const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
         if (!tournament || tournament.status !== 'waiting') {
             console.error(`Tournament with ID ${tournamentId} not found.`);
             return false;
@@ -153,12 +153,11 @@ export class TournamentManager {
         }
 
         await this.addPlayerToTournament(tournament, playerId, user);
-
         return true;
     }
 
-    startTournament(tournamentId: string): boolean {
-        const tournament = this.tournaments.get(tournamentId);
+    async startTournament(tournamentId: string): Promise<boolean> {
+        const tournament = await this.getTournamentInfo(tournamentId);
         if (!tournament || tournament.status !== 'waiting') {
             console.error(`Tournament with ID ${tournamentId} not found or already started.`);
             return false;
@@ -179,9 +178,9 @@ export class TournamentManager {
         tournament.status = 'in_progress';
         tournament.currentRound = 1;
 
-        this.updateTournamentInDB(tournament);
+        await this.updateTournamentInDB(tournament);
 
-        this.startNextMatch(tournamentId);
+        await this.startNextMatch(tournamentId);
         return true;
     }
 
@@ -248,11 +247,10 @@ export class TournamentManager {
     }
 
     private async startNextMatch(tournamentId: string) {
-        const tournament = this.tournaments.get(tournamentId);
+        const tournament = await this.getTournamentInfo(tournamentId);
         if (!tournament) return;
 
         const currentRoundMatches = tournament.bracket[tournament.currentRound - 1];
-
         const nextMatch = currentRoundMatches.find(m => !m.winner && m.player1 && m.player2);
 
         if (nextMatch) {
@@ -264,7 +262,6 @@ export class TournamentManager {
             );
 
             nextMatch.gameId = gameId;
-
             this.startGameEndPolling(gameId, tournamentId, nextMatch);
 
         } else if (this.isRoundComplete(tournament)) {
@@ -313,7 +310,7 @@ export class TournamentManager {
     }
  
     private async handleGameEnd(gameId: string, tournamentId: string, matchId: string, gameState: any) {
-        const tournament = this.tournaments.get(tournamentId);
+        const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
         
         if (!tournament) return;
 
@@ -497,16 +494,86 @@ export class TournamentManager {
         return true;
     }
 
-    getTournamentInfo(tournamentId: string): Tournament | null {
-        return this.tournaments.get(tournamentId) || null;
+    async getTournamentInfo(tournamentId: string): Promise<Tournament | null> {
+        let tournament: Tournament | undefined | null = this.tournaments.get(tournamentId);
+
+        if (!tournament) {
+            tournament = await this.loadTournamentFromDB(tournamentId);
+            if (tournament) {
+                this.tournaments.set(tournamentId, tournament);
+            }
+        }
+        return tournament || null;
     }
 
-    getActiveTournaments(): Tournament[] {
-        return Array.from(this.tournaments.values()).filter(t => t.status !== 'finished');
+    private async loadTournamentFromDB(tournamentId: string): Promise<Tournament | null> {
+        const dbTournament = await dbGet(
+            `SELECT * FROM tournaments WHERE id = ? AND status IN ('waiting', 'in_progress')`,
+            [tournamentId]
+        );
+
+        if (!dbTournament) return null;
+
+        const participants = await dbAll(
+            `SELECT u.id, u.nickname, u.rating, tp.seed 
+            FROM tournament_participants tp
+            JOIN users u ON u.id = tp.user_id
+            WHERE tp.tournament_id = ?`,
+            [tournamentId]
+        );
+
+        const tournament: Tournament = {
+            id: dbTournament.id,
+            name: dbTournament.name,
+            players: participants.map(p => ({
+                id: p.id.toString(), 
+                nickname: p.nickname,
+                rating: p.rating || 1000,
+                seed: p.seed || 0
+            })),
+            bracket: dbTournament.bracket ? JSON.parse(dbTournament.bracket) : [], 
+            status: dbTournament.status,
+            currentRound: dbTournament.current_round || 0,
+            winner: null,
+            createdBy: dbTournament.created_by.toString()
+        };
+
+        if (tournament.id) {
+            tournament.players.forEach(player => {
+                this.playerTournamentMap.set(player.id, tournament.id);
+            });
+        }
+
+        return tournament;
     }
 
-    getCurrentMatches(tournamentId: string): Match[] {
-        const tournament = this.tournaments.get(tournamentId);
+    async getActiveTournaments(): Promise<Tournament[]> {
+        const activeTournaments = await dbAll(
+            `SELECT * FROM tournaments WHERE status IN ('waiting', 'in_progress')`
+        );
+        
+        const tournaments: Tournament[] = [];
+        
+        for (const dbTournament of activeTournaments) {
+            let tournament: Tournament | undefined | null = this.tournaments.get(dbTournament.id);
+            
+            if (!tournament) {
+                tournament = await this.loadTournamentFromDB(dbTournament.id);
+                if (tournament) {
+                    this.tournaments.set(dbTournament.id, tournament);
+                }
+            }
+            
+            if (tournament) {
+                tournaments.push(tournament);
+            }
+        }
+        
+        return tournaments;
+    }
+
+    async getCurrentMatches(tournamentId: string): Promise<Match[]> {
+        const tournament = await this.getTournamentInfo(tournamentId);
         if (!tournament || tournament.currentRound === 0) {
             return [];
         }
@@ -516,7 +583,7 @@ export class TournamentManager {
     }
 
     async cancelTournament(tournamentId: string, userId: string): Promise<boolean> {
-        const tournament = this.tournaments.get(tournamentId);
+        const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
 
         console.log('Cancelling tournament:', tournamentId);
         console.log('Tournament found:', tournament);
@@ -590,8 +657,26 @@ export class TournamentManager {
      * @param playerId 
      * @returns string | null - tournament ID or null if not participating
      */
-    getUserCurrentTournament(playerId: string): string | null {
-        return this.playerTournamentMap.get(playerId) || null;
+    async getUserCurrentTournament(playerId: string): Promise<string | null> {
+        let tournamentId = this.playerTournamentMap.get(playerId) || null;
+
+        if (!tournamentId) {
+            const result = await dbGet(
+                `SELECT tournament_id FROM tournament_participants tp
+                JOIN tournaments t ON tp.tournament_id = t.id
+                WHERE tp.user_id = ? AND t.status IN ('waiting', 'in_progress')`,
+                [parseInt(playerId)]
+            );
+            
+            if (result) {
+                tournamentId = result.tournament_id;
+                if (tournamentId) {
+                    this.playerTournamentMap.set(playerId, tournamentId);
+                }
+            }
+        }
+        
+        return tournamentId;
     }
 
     
@@ -601,10 +686,9 @@ export class TournamentManager {
      * @param userId 
      * @returns boolean
      */
-    public isUserTournamentCreator(tournamentId: string, userId: string): boolean {
-        const tournament = this.tournaments.get(tournamentId);
-        if (!tournament) return false;
-        return tournament.createdBy === userId;
+    async isUserTournamentCreator(tournamentId: string, userId: string): Promise<boolean> {
+        const tournament = await this.getTournamentInfo(tournamentId);
+        return tournament ? tournament.createdBy === userId : false;
     }
     
     /**
@@ -613,11 +697,11 @@ export class TournamentManager {
      * @param userId 
      * @returns boolean
      */
-    public isUserInTournament(tournamentId: string, userId: string): boolean {
-        const tournament = this.tournaments.get(tournamentId);
-        if (!tournament) return false;
-        return tournament.players.some(p => p.id === userId);
+    async isUserInTournament(tournamentId: string, userId: string): Promise<boolean> {
+        const tournament = await this.getTournamentInfo(tournamentId);
+        return tournament ? tournament.players.some(p => p.id === userId) : false;
     }
+
 }
 
 export const tournamentManager = new TournamentManager();
