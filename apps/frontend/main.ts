@@ -7,6 +7,7 @@ import { StatusManager } from './src/status/status-manager';
 import { UserStats } from './src/status/status-manager';
 import { StatsManager } from './src/stats/stats-manager';
 import { TournamentUI } from './src/tournament/tournament-ui';
+import StateManager from './src/utils/state-manager';
 
 let currentGame: PongGame3D | null = null;
 let currentGameId: string | null = null;
@@ -492,10 +493,11 @@ function showLoginScreen(){
  * showing app screen
  * @param user - User object containing user information
  */
-function showAppScreen(user: any) {
+async function showAppScreen(user: any) {
 	currentUser = user;
+    
 	showSection('hero');
-
+	
 	const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
 	const widgetNickname = document.getElementById('widgetNickname') as HTMLSpanElement;
 	if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
@@ -1305,6 +1307,63 @@ async function updateLoginStatus() {
 		console.error('Not logged in or session expired');
 		showLoginScreen();
 	}
+}
+
+/**
+ * @description Restore tournament state if user was in a tournament
+ * @param user 
+ */
+async function checkAndRestoreTournamentState(user: any): Promise<boolean> {
+    try {
+        const savedState = StateManager.getTournamentState();
+        console.log('Saved tournament state:', savedState);
+        
+        const tournamentResponse = await fetch('/api/tournament/me', {
+            credentials: 'include'
+        });
+        
+        if (tournamentResponse.ok) {
+            const tournamentData = await tournamentResponse.json();
+            console.log('Server tournament data:', tournamentData);
+            
+            if (tournamentData.participating && tournamentData.tournament) {
+                const tournament = tournamentData.tournament;
+                
+                StateManager.saveTournamentState(
+                    tournament.id, 
+                    tournamentData.isCreator, 
+                    tournament.name
+                );
+                
+                console.log('Restoring to tournament lobby for:', tournament.name);
+                
+                const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
+                const widgetNickname = document.getElementById('widgetNickname') as HTMLSpanElement;
+                if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
+                if (widgetNickname) widgetNickname.textContent = user.nickname || user.name;
+                
+                showTournamentScreen();
+                
+                if (tournamentUI) {
+                    tournamentUI.setTournamentId(tournament.id);
+                    tournamentUI.connectToExistingTournament(tournament.id);
+                }
+                
+                return true; 
+            }
+        }
+        
+    
+        if (savedState) {
+            StateManager.clearTournamentState();
+        }
+        
+        return false; 
+        
+    } catch (error) {
+        console.error('Error restoring tournament state:', error);
+        return false; 
+    }
 }
 
 (window as any).viewProfile = viewProfile;

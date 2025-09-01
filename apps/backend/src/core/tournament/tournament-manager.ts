@@ -584,6 +584,40 @@ export class TournamentManager {
             [tournament.id, parseInt(playerId), 0]
         );
     }
+
+    /**
+     * @description Get the tournament ID that a user is currently participating in
+     * @param playerId 
+     * @returns string | null - tournament ID or null if not participating
+     */
+    getUserCurrentTournament(playerId: string): string | null {
+        return this.playerTournamentMap.get(playerId) || null;
+    }
+
+    
+    /**
+     * @description check if a user is the creator of a tournament
+     * @param tournamentId 
+     * @param userId 
+     * @returns boolean
+     */
+    public isUserTournamentCreator(tournamentId: string, userId: string): boolean {
+        const tournament = this.tournaments.get(tournamentId);
+        if (!tournament) return false;
+        return tournament.createdBy === userId;
+    }
+    
+    /**
+     * @description Check if a suer is participating in a tournament
+     * @param tournamentId 
+     * @param userId 
+     * @returns boolean
+     */
+    public isUserInTournament(tournamentId: string, userId: string): boolean {
+        const tournament = this.tournaments.get(tournamentId);
+        if (!tournament) return false;
+        return tournament.players.some(p => p.id === userId);
+    }
 }
 
 export const tournamentManager = new TournamentManager();

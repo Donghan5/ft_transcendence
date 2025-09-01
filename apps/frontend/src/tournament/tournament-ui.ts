@@ -1,5 +1,6 @@
 // frontend/src/tournament/tournament-ui.ts
 import { StatusManager } from '../status/status-manager';
+import StateManager from '../utils/state-manager';
 
 interface TournamentPlayer {
     id: string;
@@ -43,6 +44,15 @@ export class TournamentUI {
         }
         this.container = container;
         this.statusManager = statusManager;
+    }
+
+    setTournamentId(tournamentId: string): void {
+        this.tournamentId = tournamentId;
+    }
+
+    connectToExistingTournament(tournamentId: string): void {
+        this.tournamentId = tournamentId;
+        this.connectToTournament(tournamentId);
     }
 
     showTournamentLobby(): void {
@@ -228,6 +238,13 @@ export class TournamentUI {
                     if (response.ok) {
                         const data = await response.json();
                         this.tournamentId = data.tournamentId;
+
+                        if (!this.tournamentId) {
+                            throw new Error('No tournament ID returned from server');
+                        }
+                        
+                        StateManager.saveTournamentState(this.tournamentId, true, name);
+                        
                         this.showStatusMessage('Tournament created!', 'success');
                         this.connectToTournament(data.tournamentId);
                     } else {
@@ -297,6 +314,7 @@ export class TournamentUI {
 
                     const success = await this.joinTournament(waitingTournament.id);
                     if (success) {
+                        StateManager.saveTournamentState(waitingTournament.id, false, waitingTournament.name);
                         this.showStatusMessage('Successfully joined tournament!', 'success');
                     } else {
                         this.showStatusMessage('Failed to join tournament.', 'error');
@@ -324,9 +342,33 @@ export class TournamentUI {
 
         const cancelBtn = document.getElementById('cancel-tournament');
         if (cancelBtn) {
-            cancelBtn.addEventListener('click', () => {
-                this.cancelTournament();
-                this.showTournamentLobby();
+            cancelBtn.addEventListener('click', async () => {
+                if (!this.tournamentId) return;
+
+                try {
+                    const response = await fetch('/api/tournament/cancel', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tournamentId: this.tournamentId }),
+                        credentials: 'include'
+                    });
+
+                    if (response.ok) {
+                        StateManager.clearTournamentState();
+                        
+                        this.tournamentId = null;
+                        this.stopBracketPolling();
+                        
+                        this.showStatusMessage('Tournament cancelled successfully!', 'success');
+                        this.showTournamentLobby(); 
+                    } else {
+                        const error = await response.json();
+                        throw new Error(error.message || 'Tournament cancellation failed');
+                    }
+                } catch (error) {
+                    console.error('Tournament cancellation error:', error);
+                    this.showStatusMessage(`Cancellation failed: ${error}`, 'error');
+                }
             });
         }
     }
@@ -374,6 +416,12 @@ export class TournamentUI {
         }
     }
 
+    private updateActivity(): void {
+        if (this.tournamentId) {
+            StateManager.updateTournamentActivity();
+        }
+    }
+
     private startTournamentPolling(tournamentId: string): void {
         if (this.pollInterval) {
             clearInterval(this.pollInterval);
@@ -389,6 +437,8 @@ export class TournamentUI {
                     const tournament: Tournament = await response.json();
                     this.updateParticipantsList(tournament.players);
                     
+                    this.updateActivity();
+
                     if (tournament.status === 'in_progress') {
                         this.showBracket(tournament);
                     }
@@ -502,7 +552,7 @@ export class TournamentUI {
         }
     }
 
-    public async joinTournament(tournamentId: string): Promise<boolean> {
+    async joinTournament(tournamentId: string): Promise<boolean> {
         try {
             const response = await fetch('/api/tournament/join', {
                 method: 'POST',
@@ -513,21 +563,25 @@ export class TournamentUI {
 
             if (response.ok) {
                 this.tournamentId = tournamentId;
+                
+                const infoResponse = await fetch(`/api/tournament/${tournamentId}`, {
+                    credentials: 'include'
+                });
+                
+                if (infoResponse.ok) {
+                    const tournament = await infoResponse.json();
+                    StateManager.saveTournamentState(tournamentId, false, tournament.name);
+                }
+                
                 this.connectToTournament(tournamentId);
-                this.showStatusMessage('Joined tournament!', 'success');
                 return true;
-            } else {
-                const error = await response.json();
-                this.showStatusMessage(`Join tournament failed: ${error.message || 'Unknown error'}`, 'error');
-                return false;
             }
+            return false;
         } catch (error) {
-            console.error('Join tournament error:', error);
-            this.showStatusMessage(`Join tournament error: ${error}`, 'error');
+            console.error('Error joining tournament:', error);
             return false;
         }
     }
-
     public leaveTournament(): void {
         this.stopBracketPolling();
         this.tournamentId = null;
@@ -723,4 +777,17 @@ export class TournamentUI {
         }
     }
 
+    destroy(): void {
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+            this.pollInterval = null;
+        }
+        
+        if (this.websocket) {
+            this.websocket.close();
+            this.websocket = null;
+        }
+        
+        this.container.innerHTML = '';
+    }
 }

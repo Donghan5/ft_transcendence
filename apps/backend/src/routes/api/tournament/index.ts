@@ -327,4 +327,52 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
             });
         }
     });
+
+    /**
+     * @description Get current user's tournaments
+     * @returns { tournament: Tournament | null, isCreator: boolean, participating: boolean }
+     */
+    fastify.get('/me', { preHandler: [authMiddleware] }, async (request, reply) => {
+        try {
+            const userId = (request as any).user?.userId?.toString();
+
+            if (!userId) {
+                return reply.code(401).send({ error: 'Unauthorized' });
+            }
+
+            const userTournamentId = tournamentManager.getUserCurrentTournament(userId);
+            
+            if (!userTournamentId) {
+                return reply.send({
+                    tournament: null,
+                    isCreator: false,
+                    participating: false
+                });
+            }
+
+            const tournament = tournamentManager.getTournamentInfo(userTournamentId);
+
+            if (!tournament) {
+                reply.send({
+                    tournament: null,
+                    isCreator: false,
+                    participating: false
+                });
+            }
+
+            const isCreator = tournament?.createdBy === userId;
+
+            return reply.send({
+                tournament, 
+                isCreator,
+                participating: true
+            });
+        } catch (error) {
+            fastify.log.error('Get user tournament error:', error);
+            return reply.code(500).send({
+                error: 'Failed to retrieve user tournament',
+                message: error instanceof Error ? error.message : 'Unknown error'
+            });
+        }
+    });
 }
