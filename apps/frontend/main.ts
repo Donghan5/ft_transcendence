@@ -516,31 +516,9 @@ async function showAppScreen(user: any) {
 function showTournamentLobby() {
     showSection('tournamentLobby');
     
-    const lobbySection = document.getElementById('tournamentLobbySection');
-    if (lobbySection && !lobbySection.innerHTML.trim()) {
-        lobbySection.innerHTML = `
-            <div class="min-h-screen bg-gray-100 p-8">
-                <div class="max-w-7xl mx-auto">
-                    <div class="flex justify-between items-center mb-8">
-                        <h1 class="text-4xl font-bold text-black font-teko uppercase">Tournament Lobby</h1>
-                        <button id="backToMenuBtn" class="bg-red-600 text-white px-4 py-2 text-lg border-thick hover-anarchy font-teko uppercase">
-                            Back to Menu
-                        </button>
-                    </div>
-                    <div id="tournamentContent" class="bg-white p-6 border-thick shadow-sharp">
-                        <!-- TournamentUI가 여기에 내용을 렌더링 -->
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        document.getElementById('backToMenuBtn')?.addEventListener('click', () => {
-            showSection('hero');
-        });
-    }
-    
     if (!tournamentUI) {
-        tournamentUI = new TournamentUI('tournamentContent');
+        // tournamentUI = new TournamentUI('tournamentContent');
+		tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
     }
     
     tournamentUI.showTournamentLobby();
