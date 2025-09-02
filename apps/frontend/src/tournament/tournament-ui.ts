@@ -398,23 +398,24 @@ export class TournamentUI {
     }
 
     private async refreshTournament(tournamentId: string): Promise<void> {
-        try {
-            const response = await fetch(`/api/tournament/${tournamentId}`, {
-                credentials: 'include'
-            });
+    try {
+        const url = `/api/tournament/${tournamentId}?_t=${Date.now()}`;
+        const response = await fetch(url, { credentials: 'include' });
+        
+        if (response.ok) {
+            const tournament = await response.json();
             
-            if (response.ok) {
-                const tournament = await response.json();
+            if (tournament.status === 'in_progress' || tournament.status === 'finished') {
+                this.showBracket(tournament);
+            } else {
+                this.showTournamentLobby();
                 this.updateParticipantsList(tournament.players);
-
-                if (tournament.status === 'in_progress') {
-                    this.showBracket(tournament);
-                }
             }
-        } catch (error) {
-            console.error('Error refreshing tournament:', error);
         }
+    } catch (error) {
+        console.error('Error refreshing tournament:', error);
     }
+}
 
     private updateActivity(): void {
         if (this.tournamentId) {
@@ -429,7 +430,8 @@ export class TournamentUI {
 
         this.pollInterval = window.setInterval(async () => {
             try {
-                const response = await fetch(`/api/tournament/${tournamentId}`, {
+                const url = `/api/tournament/${tournamentId}?_t=${Date.now()}`;
+                const response = await fetch(url, {
                     credentials: 'include'
                 });
 

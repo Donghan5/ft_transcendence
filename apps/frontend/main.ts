@@ -1352,42 +1352,15 @@ async function checkAndRestoreTournamentState(user: any): Promise<boolean> {
             if (tournamentData.participating && tournamentData.tournament) {
                 const tournament = tournamentData.tournament;
                 
-                // 위젯 업데이트
                 const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
                 const widgetNickname = document.getElementById('widgetNickname') as HTMLSpanElement;
                 if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
                 if (widgetNickname) widgetNickname.textContent = user.nickname || user.name;
                 
-                // 토너먼트 로비 섹션 준비
-                const lobbySection = document.getElementById('tournamentLobbySection');
-                if (lobbySection && !lobbySection.innerHTML.trim()) {
-                    lobbySection.innerHTML = `
-                        <div class="min-h-screen bg-gray-100 p-8">
-                            <div class="max-w-7xl mx-auto">
-                                <div class="flex justify-between items-center mb-8">
-                                    <h1 class="text-4xl font-bold text-black font-teko uppercase">Tournament: ${tournament.name}</h1>
-                                    <button id="backToMenuBtn" class="bg-red-600 text-white px-4 py-2 text-lg border-thick hover-anarchy font-teko uppercase">
-                                        Leave Tournament
-                                    </button>
-                                </div>
-                                <div id="tournamentContent" class="bg-white p-6 border-thick shadow-sharp">
-                                    <p class="text-center text-gray-600">Loading tournament...</p>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    
-                    document.getElementById('backToMenuBtn')?.addEventListener('click', () => {
-                        if (confirm('Are you sure you want to leave the tournament?')) {
-                            leaveTournament(tournament.id);
-                        }
-                    });
-                }
-                
                 showSection('tournamentLobby', false);
                 
                 if (!tournamentUI) {
-                    tournamentUI = new TournamentUI('tournamentContent');
+                    tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
                 }
                 
                 tournamentUI.setTournamentId(tournament.id);
@@ -1407,7 +1380,7 @@ async function checkAndRestoreTournamentState(user: any): Promise<boolean> {
 
 async function leaveTournament(tournamentId: string) {
 	try {
-		const response = await fetch('/api/tournament',  {
+		const response = await fetch('/api/tournament/leave',  {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ tournamentId }),
@@ -1416,9 +1389,11 @@ async function leaveTournament(tournamentId: string) {
 
 		if (response.ok) {
 			if (tournamentUI) {
-				statusManager.disconnect();
+				// statusManager.disconnect();
+				tournamentUI.cleanup();
 				tournamentUI = null;
 			}
+			StateManager.clearTournamentState();
 			showSection('hero');
 		}
 	} catch (error) {
