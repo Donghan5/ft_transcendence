@@ -144,6 +144,9 @@
 
 61. match-making system && waiting players (when multiple-demanded)
 
+62. 맨 처음 토너먼트 화면고 생성된 후의 토너먼트 화면 통일
+
+63. 참가자 수 옆이나 근처 다른 곳에 토너먼트 이름 보이게 하기
 
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
