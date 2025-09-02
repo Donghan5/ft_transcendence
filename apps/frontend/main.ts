@@ -14,7 +14,7 @@ let currentGameId: string | null = null;
 let currentUser: any | null = null;
 let matchmakingWs: WebSocket | null = null;
 let statusManager: StatusManager;
-let statsManager: StatsManager;
+let statsManager: StatsManager | null = null;
 let tournamentUI: TournamentUI | null = null;
 let currentSection: string | null = null;
 
@@ -476,7 +476,14 @@ window.addEventListener('popstate', (event) => {
  * showing login screen
  */
 function showLoginScreen(){
+	console.log('Showing login screen');
+	
+	if (window.location.pathname !== '/login') {
+        history.replaceState({ sectionId: 'login' }, 'PONG - Login', '/login');
+    }
+
 	showSection('login');
+	
 	document.getElementById('loginSection')?.classList.remove('hidden');
 	document.getElementById('appSection')?.classList.add('hidden');
 
@@ -507,12 +514,36 @@ async function showAppScreen(user: any) {
 }
 
 function showTournamentLobby() {
-	showSection('tournamentLobby');
-	if (!tournamentUI) {
-		tournamentUI = new TournamentUI('tournamentLobbySection');
-	}
-
-	tournamentUI.showTournamentLobby();
+    showSection('tournamentLobby');
+    
+    const lobbySection = document.getElementById('tournamentLobbySection');
+    if (lobbySection && !lobbySection.innerHTML.trim()) {
+        lobbySection.innerHTML = `
+            <div class="min-h-screen bg-gray-100 p-8">
+                <div class="max-w-7xl mx-auto">
+                    <div class="flex justify-between items-center mb-8">
+                        <h1 class="text-4xl font-bold text-black font-teko uppercase">Tournament Lobby</h1>
+                        <button id="backToMenuBtn" class="bg-red-600 text-white px-4 py-2 text-lg border-thick hover-anarchy font-teko uppercase">
+                            Back to Menu
+                        </button>
+                    </div>
+                    <div id="tournamentContent" class="bg-white p-6 border-thick shadow-sharp">
+                        <!-- TournamentUI가 여기에 내용을 렌더링 -->
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('backToMenuBtn')?.addEventListener('click', () => {
+            showSection('hero');
+        });
+    }
+    
+    if (!tournamentUI) {
+        tournamentUI = new TournamentUI('tournamentContent');
+    }
+    
+    tournamentUI.showTournamentLobby();
 }
 
 /**
@@ -1258,55 +1289,51 @@ export { returnToMainMenu };
  * And handle user login
  */
 async function updateLoginStatus() {
-	try {
-		const response = await fetch('/api/auth/me', { credentials: 'include' });
-		console.log('Checking login status...');
-		if (!response.ok) {
-			throw new Error('Not logged in');
-		}
-		console.log('User is logged in');
-		const user = await response.json();
-		console.log('User data:', user);
-
-		currentUser = user;
-
-		if (!statusManager) {
-            statusManager = StatusManager.getInstance();
-            await statusManager.initializeStatusConnection('', user);
-            
-            statusManager.onStatusUpdate((friends) => {
-                updateFriendsDisplay(friends);
-            });
+    try {
+        const response = await fetch('/api/auth/me', { credentials: 'include' });
+        
+        if (!response.ok) {
+            throw new Error('Not logged in');
         }
         
-        if (!statsManager) {
-            statsManager = StatsManager.getInstance();
+        const user = await response.json();
+        currentUser = user;
+        
+        if (!statusManager) {
+            statusManager = StatusManager.getInstance();
+            await statusManager.initializeStatusConnection('', user);
         }
-
-		await statusManager.initializeStatusConnection('', user);
-
-		statusManager.onStatusUpdate((friends) => {
-			updateFriendsDisplay(friends);
-		});
-		
-		console.log('Profile complete status from /api/auth/me:', user.profileComplete);
-		
-		const urlParams = new URLSearchParams(window.location.search);
-		if (urlParams.has('auth') && urlParams.get('auth') === 'success') {
-			window.history.replaceState({ sectionId: 'hero' }, '', '/');
-			// showSection('hero', false);
-			showAppScreen(user);
-		} else if (!user.profileComplete) {
-			showNicknameSetupScreen();
-			// showSection('nicknameSetup');
-		} else {
-			// showSection('hero');
-			showAppScreen(user);
-		}
-	} catch (error) {
-		console.error('Not logged in or session expired');
-		showLoginScreen();
-	}
+        
+        const currentPath = window.location.pathname;
+        
+        if (!user.profileComplete) {
+            showNicknameSetupScreen();
+            return;
+        }
+        
+        if (currentPath === '/tournament-lobby') {
+            const tournamentRestored = await checkAndRestoreTournamentState(user);
+            if (!tournamentRestored) {
+                history.replaceState({ sectionId: 'hero' }, 'PONG - Pick Your Battle', '/');
+                showAppScreen(user);
+            }
+            return;
+        }
+        
+        if (currentPath === '/profile') {
+            showAppScreen(user);
+            showProfileScreen();
+        } else if (currentPath === '/friends') {
+            showAppScreen(user);
+            showFriendsScreen();
+        } else {
+            showAppScreen(user);
+        }
+        
+    } catch (error) {
+        console.error('Not logged in or session expired');
+        showLoginScreen();
+    }
 }
 
 /**
@@ -1315,55 +1342,89 @@ async function updateLoginStatus() {
  */
 async function checkAndRestoreTournamentState(user: any): Promise<boolean> {
     try {
-        const savedState = StateManager.getTournamentState();
-        console.log('Saved tournament state:', savedState);
-        
         const tournamentResponse = await fetch('/api/tournament/me', {
             credentials: 'include'
         });
         
         if (tournamentResponse.ok) {
             const tournamentData = await tournamentResponse.json();
-            console.log('Server tournament data:', tournamentData);
             
             if (tournamentData.participating && tournamentData.tournament) {
                 const tournament = tournamentData.tournament;
                 
-                StateManager.saveTournamentState(
-                    tournament.id, 
-                    tournamentData.isCreator, 
-                    tournament.name
-                );
-                
-                console.log('Restoring to tournament lobby for:', tournament.name);
-                
+                // 위젯 업데이트
                 const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
                 const widgetNickname = document.getElementById('widgetNickname') as HTMLSpanElement;
                 if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
                 if (widgetNickname) widgetNickname.textContent = user.nickname || user.name;
                 
-                showTournamentScreen();
-                
-                if (tournamentUI) {
-                    tournamentUI.setTournamentId(tournament.id);
-                    tournamentUI.connectToExistingTournament(tournament.id);
+                // 토너먼트 로비 섹션 준비
+                const lobbySection = document.getElementById('tournamentLobbySection');
+                if (lobbySection && !lobbySection.innerHTML.trim()) {
+                    lobbySection.innerHTML = `
+                        <div class="min-h-screen bg-gray-100 p-8">
+                            <div class="max-w-7xl mx-auto">
+                                <div class="flex justify-between items-center mb-8">
+                                    <h1 class="text-4xl font-bold text-black font-teko uppercase">Tournament: ${tournament.name}</h1>
+                                    <button id="backToMenuBtn" class="bg-red-600 text-white px-4 py-2 text-lg border-thick hover-anarchy font-teko uppercase">
+                                        Leave Tournament
+                                    </button>
+                                </div>
+                                <div id="tournamentContent" class="bg-white p-6 border-thick shadow-sharp">
+                                    <p class="text-center text-gray-600">Loading tournament...</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('backToMenuBtn')?.addEventListener('click', () => {
+                        if (confirm('Are you sure you want to leave the tournament?')) {
+                            leaveTournament(tournament.id);
+                        }
+                    });
                 }
                 
-                return true; 
+                showSection('tournamentLobby', false);
+                
+                if (!tournamentUI) {
+                    tournamentUI = new TournamentUI('tournamentContent');
+                }
+                
+                tournamentUI.setTournamentId(tournament.id);
+                tournamentUI.connectToExistingTournament(tournament.id);
+                
+                return true;
             }
         }
         
-    
-        if (savedState) {
-            StateManager.clearTournamentState();
-        }
-        
-        return false; 
+        return false;
         
     } catch (error) {
         console.error('Error restoring tournament state:', error);
-        return false; 
+        return false;
     }
+}
+
+async function leaveTournament(tournamentId: string) {
+	try {
+		const response = await fetch('/api/tournament',  {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ tournamentId }),
+			credentials: 'include'
+		});
+
+		if (response.ok) {
+			if (tournamentUI) {
+				statusManager.disconnect();
+				tournamentUI = null;
+			}
+			showSection('hero');
+		}
+	} catch (error) {
+		console.error('Error leaving tournament:', error);
+		alert('Failed to leave the tournament. Please try again later.');
+	}
 }
 
 (window as any).viewProfile = viewProfile;
@@ -1440,6 +1501,8 @@ function getStatusText(status: string): string {
 
 async function viewProfile(userId: number): Promise<void> {
     try {
+		if (!statsManager) return;
+
         const stats = await statsManager.getPublicStats(userId);
         if (stats) {
             showUserStatsModal(stats);
@@ -1561,6 +1624,12 @@ async function cancelMatchmaking() {
  * @description Show nickname setup screen if user profile is not complete
  */
 function showNicknameSetupScreen() {
+	console.log('Showing nickname setup screen');
+
+	if (window.location.pathname !== '/nickname-setup') {
+        history.replaceState({ sectionId: 'nicknameSetup' }, 'PONG - Set Up Nickname', '/nickname-setup');
+    }
+	
 	showSection('nicknameSetup');
 	const nicknameForm = document.getElementById('nicknameForm');
 	if (!nicknameForm) {

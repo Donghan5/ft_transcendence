@@ -702,6 +702,45 @@ export class TournamentManager {
         return tournament ? tournament.players.some(p => p.id === userId) : false;
     }
 
+    async leaveTournament(tournamentId: string, userId: string): Promise<boolean> {
+        const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
+        if (!tournament) {
+            console.error('Tournament not found');
+            return false;
+        }
+
+        if (tournament.status !== 'waiting') {
+            console.error('Tournament already started');
+            return false;
+        }
+        
+        const playerIndex = tournament.players.findIndex(p => p.id === userId);
+        if (playerIndex === -1) {
+            console.error('User is not in the tournament');
+            return false;
+        }
+
+        try {
+            const result = await dbRun(
+                `DELETE FROM tournament_participants WHERE tournament_id = ? AND user_id = ?`,
+                [tournamentId, parseInt(userId)]
+            );
+
+            if (result.changes > 0) {
+                tournament.players.splice(playerIndex, 1);
+                this.playerTournamentMap.delete(userId);
+                console.log(`User ${userId} removed from tournament ${tournamentId} in DB`);
+                return true;
+            } else {
+                console.error(`User ${userId} not found in tournament ${tournamentId} in DB`);
+                return false;
+            }
+        } catch (error) {
+            console.error(`Error removing user ${userId} from tournament ${tournamentId} in DB: ${error}`);
+            return false;
+        }
+    }
+
 }
 
 export const tournamentManager = new TournamentManager();

@@ -21,7 +21,9 @@ export default async function (fastify: FastifyInstance) {
                 throw new Error("FRONTEND_URL environment variable is not set!");
             }
 
-            return reply.redirect(frontendUrl); // Redirect to the dashboard or any other page
+            const redirectUrl = `${frontendUrl}?auth=success`;
+            return reply.redirect(redirectUrl);
+            // return reply.redirect(frontendUrl); // Redirect to the dashboard or any other page
         } catch (error) {
             console.error('======================================================');
             console.error('CRITICAL ERROR in /login/google/callback:');

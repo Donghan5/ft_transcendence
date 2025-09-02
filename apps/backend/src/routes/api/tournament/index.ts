@@ -377,4 +377,31 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
             });
         }
     });
+
+    /**
+     * @description leave tournament
+     */
+    fastify.post('/leave', { preHandler: authMiddleware }, async (request, reply) => {
+        const { tournamentId } = request.body as { tournamentId: string };
+        const userId = (request as any).user?.userId;
+        
+        if (!userId) {
+            return reply.code(401).send({ error: 'Unauthorized' });
+        }
+
+        if (!tournamentId) {
+            return reply.code(400).send({ error: 'Tournament ID is required' });
+        }
+
+        const success = await tournamentManager.leaveTournament(tournamentId, userId.toString());
+        
+        if (!success) {
+            return reply.code(400).send({ error: 'Failed to leave tournament' });
+        }
+
+        return reply.send({
+            success: true,
+            message: 'Successfully left the tournament'
+        });
+    });
 }
