@@ -148,6 +148,14 @@
 
 63. 참가자 수 옆이나 근처 다른 곳에 토너먼트 이름 보이게 하기
 
+64. 대진표 생성 로직 (generateBracket) -->  다음 라운드의 대진을 생성하는 로직이 빠져 / 실제로 다음 라운드의 Match 객체를 생성해서 tournament.bracket에 추가하는 코드가 없어
+
+65. 게임 진행 및 결과 처리 --> 함수에서 게임이 끝나면 승자를 다음 라운드에 배치하는 로직이 있는데, 만약 두 플레이어가 동시에 접속해서 게임을 끝내면, handleGameEnd 함수가 두 번 호출되면서 대진표가 꼬일 가능성 --> db transaction
+
+66. 데이터베이스 저장 --> 토너먼트 상태나 대진표 정보를 업데이트 할 때마다 전체 bracket 객체를 JSON 문자열로 통째로 저장하고 있어. 참가자가 많아지면 이 bracket 객체가 굉장히 커질 수 있는데, 이렇게 통으로 저장하면 성능에 좋지 않은 영향 --> divde to small matches (db tables)
+
+67. 새로 고침을 눌러야 반영이 되는 현상 발생 --> when getting activated tournament
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2
