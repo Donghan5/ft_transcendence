@@ -191,46 +191,54 @@ export class TournamentManager {
         const nextPowerOfTwo = Math.pow(2, Math.ceil(Math.log2(totalPlayers)));
         const byesNeeded = nextPowerOfTwo - totalPlayers;
 
+        // Sort players by rating for seeding
+        players.sort((a, b) => b.rating - a.rating);
+        players.forEach((player, index) => {
+            player.seed = index + 1;
+        });
+
         const firstRound: Match[] = [];
         let matchNumber = 0;
-        for (let i = 0; i < nextPowerOfTwo / 2; i++) {
+    
+        const highSeeds = players.slice(0, byesNeeded);
+        const remainingPlayers = players.slice(byesNeeded);
+
+        // case walk-over
+        highSeeds.forEach(player => {
             const match: Match = {
                 id: `${tournament.id}_r1_m${matchNumber}`,
-                player1: null,
+                player1: player,
                 player2: null,
+                winner: player,
+                round: 1,
+                matchNumber: matchNumber++
+            };
+            firstRound.push(match);
+        });
+
+        for (let i = 0; i < remainingPlayers.length / 2; i++) {
+            const match: Match = {
+                id: `${tournament.id}_r1_m${matchNumber}`,
+                player1: remainingPlayers[i],
+                player2: remainingPlayers[remainingPlayers.length - 1 - i],
                 winner: null,
                 round: 1,
-                matchNumber: matchNumber++,
+                matchNumber: matchNumber++
             };
-
-            if (i < byesNeeded) {  // WALKOVER CASE
-                match.player1 = players[i];
-                match.winner = players[i];
-            } else {
-                const player1Index = i;
-                const player2Index = nextPowerOfTwo - 1 - i;
-
-                if (player1Index < players.length) {
-                    match.player1 = players[player1Index];
-                }
-                if (player2Index < players.length) {
-                    match.player2 = players[player2Index];
-                }
-            }
-
             firstRound.push(match);
         }
 
         tournament.bracket.push(firstRound);
 
-        let prevRoundMatches = firstRound.length;
+        // Generate subsequent rounds (starting from round 2 up to final round)
+        let numMatchesInPreviousRound = firstRound.length;
         let round = 2;
-    
-        while (prevRoundMatches > 1) {
-            const roundMatches: Match[] = [];
-            prevRoundMatches /= 2;
 
-            for (let i = 0; i < prevRoundMatches; i++) {
+        while (numMatchesInPreviousRound > 1) {
+            const currentRound: Match[] = [];
+            const numMatchesInCurrentRound = numMatchesInPreviousRound / 2;
+
+            for (let i = 0; i < numMatchesInCurrentRound; i++) {
                 const match: Match = {
                     id: `${tournament.id}_r${round}_m${i}`,
                     player1: null,
@@ -239,10 +247,12 @@ export class TournamentManager {
                     round: round,
                     matchNumber: i
                 };
-
-                tournament.bracket.push(roundMatches);
-                round++;
+                currentRound.push(match);
             }
+
+            tournament.bracket.push(currentRound);
+            numMatchesInPreviousRound = numMatchesInCurrentRound;
+            round++;
         }
     }
 
