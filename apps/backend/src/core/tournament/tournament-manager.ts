@@ -37,37 +37,15 @@ export class TournamentManager {
         const activeTournaments = await dbAll(
             `SELECT * FROM tournaments WHERE status IN ('waiting', 'in_progress')`
         );
-        
+
         for (const dbTournament of activeTournaments) {
-            const participants = await dbAll(
-                `SELECT u.id, u.nickname, u.rating, tp.seed
-                FROM tournament_participants tp
-                JOIN users u ON tp.user_id = u.id
-                WHERE tp.tournament_id = ?`,
-                [dbTournament.id]
-            );
-            
-            const tournament: Tournament = {
-                id: dbTournament.id,
-                name: dbTournament.name,
-                players: participants.map(p => ({
-                    id: p.id.toString(),
-                    nickname: p.nickname,
-                    rating: p.rating || 1000,
-                    seed: p.seed || 0
-                })),
-                bracket: dbTournament.bracket ? JSON.parse(dbTournament.bracket) : [],
-                status: dbTournament.status,
-                currentRound: dbTournament.current_round || 0,
-                winner: null,
-                createdBy: dbTournament.created_by.toString()
-            };
-            
-            this.tournaments.set(tournament.id, tournament);
-            
-            tournament.players.forEach(player => {
-                this.playerTournamentMap.set(player.id, tournament.id);
-            });
+            const tournament = await this.getTournamentInfo(dbTournament.id);
+            if (tournament) {
+                this.tournaments.set(tournament.id, tournament);
+                tournament.players.forEach(player => {
+                    this.playerTournamentMap.set(player.id, tournament.id);
+                });
+            }
         }
     }
 
@@ -184,7 +162,7 @@ export class TournamentManager {
         return true;
     }
 
-    private generateBracket(tournament: Tournament) {
+    private async generateBracket(tournament: Tournament) {
         const players = [ ...tournament.players ];
         const totalPlayers = players.length;
 
@@ -254,8 +232,26 @@ export class TournamentManager {
             numMatchesInPreviousRound = numMatchesInCurrentRound;
             round++;
         }
-    }
 
+        for (const round of tournament.bracket) {
+            for (const match of round) {
+                await dbRun(
+                    `INSERT INTO tournament_matches (id, tournament_id, round, match_number, player1_id, player2_id, winner_id, status)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        match.id,
+                        tournament.id,
+                        match.round,
+                        match.matchNumber,
+                        match.player1 ? parseInt(match.player1.id) : null,
+                        match.player2 ? parseInt(match.player2.id) : null,
+                        match.winner ? parseInt(match.winner.id) : null,
+                        match.winner ? 'walkover' : 'waiting'
+                    ]
+                );
+            }
+        }
+    }
     private async startNextMatch(tournamentId: string) {
         const tournament = await this.getTournamentInfo(tournamentId);
         if (!tournament) return;
@@ -343,7 +339,7 @@ export class TournamentManager {
         }, 3000);
     }
 
-    private placeWinnerInNextRound(tournament: Tournament, match: Match) {
+    private async placeWinnerInNextRound(tournament: Tournament, match: Match) {
         if (match.round >= tournament.bracket.length) {  // if it's the last round (finals)
             tournament.winner = match.winner;
             tournament.status = 'finished';
@@ -361,6 +357,24 @@ export class TournamentManager {
         }
         else {
             nextMatch.player2 = match.winner;
+        }
+
+        await dbRun(
+            `UPDATE tournament_matches SET winner_id = ?, status = 'finished' WHERE id = ?`,
+            [match.winner ? parseInt(match.winner.id) : null, match.id]
+        );
+
+        if (match.round < tournament.bracket.length) {
+            const nextRound = tournament.bracket[match.round];
+            const nextMatchIndex = Math.floor(match.matchNumber / 2);
+            const nextMatch = nextRound[nextMatchIndex];
+
+            const playerFieldToUpdate = match.matchNumber % 2 === 0 ? 'player1_id' : 'player2_id';
+
+            await dbRun(
+                `UPDATE tournament_matches SET ${playerFieldToUpdate} = ? WHERE id = ?`,
+                [match.winner ? parseInt(match.winner.id) : null, nextMatch.id]
+            );
         }
     }
 
@@ -489,17 +503,64 @@ export class TournamentManager {
         return true;
     }
 
-    
-    async getTournamentInfo(tournamentId: string): Promise<Tournament | null> {
-        let tournament: Tournament | undefined | null = this.tournaments.get(tournamentId);
+    async getTournamentPlayers(tournamentId: string): Promise<TournamentPlayer[]> {
+        const players = await dbAll(
+            `SELECT u.id, u.nickname, u.rating, tp.seed 
+            FROM tournament_participants tp
+            JOIN users u ON u.id = tp.user_id
+            WHERE tp.tournament_id = ?`,
+            [tournamentId]
+        );
 
-        if (!tournament) {
-            tournament = await this.loadTournamentFromDB(tournamentId);
-            if (tournament) {
-                this.tournaments.set(tournamentId, tournament);
+        return players.map(p => ({
+            id: p.id.toString(),
+            nickname: p.nickname,
+            rating: p.rating || 1000,
+            seed: p.seed || 0
+        }));
+    }
+
+    /**
+     * Get information about a specific tournament.
+     * @param tournamentId The ID of the tournament to retrieve.
+     * @returns The tournament information or null if not found.
+     */
+    async getTournamentInfo(tournamentId: string): Promise<Tournament | null> {
+        const tournamentData = await dbGet(`SELECT * FROM tournaments WHERE id = ?`, [tournamentId]);
+
+        if (!tournamentData) return null;
+
+        const matchesData = await dbAll(`SELECT * FROM tournament_matches WHERE tournament_id = ? ORDER BY round, match_number`, [tournamentId]);
+        const players = await this.getTournamentPlayers(tournamentId); // 참가자 정보 가져오기
+        
+        const bracket: Match[][] = [];
+        matchesData.forEach(match => {
+            while (bracket.length < match.round) {
+                bracket.push([]);
             }
-        }
-        return tournament || null;
+            bracket[match.round - 1][match.match_number] = {
+                id: match.id,
+                player1: players.find(p => p.id === match.player1_id?.toString()) || null,
+                player2: players.find(p => p.id === match.player2_id?.toString()) || null,
+                winner: players.find(p => p.id === match.winner_id?.toString()) || null,
+                round: match.round,
+                matchNumber: match.match_number,
+                gameId: match.game_id,
+            };
+        });
+
+        const tournament: Tournament = {
+            id: tournamentData.id,
+            name: tournamentData.name,
+            players: players,
+            bracket: bracket,
+            status: tournamentData.status,
+            currentRound: tournamentData.current_round,
+            winner: players.find(p => p.id === tournamentData.winner_id?.toString()) || null,
+            createdBy: tournamentData.created_by.toString(),
+        };
+
+        return tournament;
     }
 
     private async loadTournamentFromDB(tournamentId: string): Promise<Tournament | null> {
