@@ -37,5 +37,8 @@ debug:
 	docker-compose logs --tail=200 $(c)
 	docker-compose exec $(c) sh -c 'echo -e "\n=== ENV ==="; env; echo -e "\n=== PROC ==="; ps aux'
 
+test:
+	@echo "Running tests in backend..."
+	@docker-compose exec $(c) sh -c 'npm test'
 
-.PHONY: all start build up down clean fclean re logs ps sh debug
+.PHONY: all start build up down clean fclean re logs ps sh debug test

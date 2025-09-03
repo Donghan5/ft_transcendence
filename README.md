@@ -156,6 +156,8 @@
 
 67. 새로 고침을 눌러야 반영이 되는 현상 발생 --> when getting activated tournament
 
+68. test code for tournament --> little description (it은 첫번째 인자로 테스트 설명, 두번째 인자로 테스트 함수를 받는다)
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2
