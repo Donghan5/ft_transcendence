@@ -484,26 +484,12 @@ export class TournamentManager {
             return false;
         }
 
-        // tournament.players.push({
-        //     id: playerId,
-        //     nickname: user.nickname,
-        //     rating: user.rating || 1000, // Default rating if not set
-        //     seed: 0
-        // });
-
-        // this.playerTournamentMap.set(playerId, tournamentId);
-
-        // await dbRun(
-        //     `INSERT INTO tournament_participants (tournament_id, user_id, seed)
-        //     VALUES (?, ?, ?)`,
-        //     [tournamentId, parseInt(playerId), 0]
-        // );
-
         await this.addPlayerToTournament(tournament, playerId, user);
 
         return true;
     }
 
+    
     async getTournamentInfo(tournamentId: string): Promise<Tournament | null> {
         let tournament: Tournament | undefined | null = this.tournaments.get(tournamentId);
 

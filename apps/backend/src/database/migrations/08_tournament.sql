@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS tournaments (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     winner_id INTEGER,
-    bracket TEXT,
+    current_round INTEGER DEFAULT 0,
     status TEXT DEFAULT 'WAITING',
     created_by INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
