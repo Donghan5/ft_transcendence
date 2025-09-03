@@ -1,4 +1,4 @@
-import { dbGet, dbRun, dbAll } from '../../database/helpers';
+import { dbGet, dbRun, dbAll, getDatabase } from '../../database/helpers';
 import { gameEngine } from '../game/game-engine';
 
 interface TournamentPlayer {
@@ -295,6 +295,13 @@ export class TournamentManager {
         return gameId;
     }
 
+    /**
+     * @description Starts polling for the end of a tournament game.
+     * @param gameId The ID of the game.
+     * @param tournamentId The ID of the tournament.
+     * @param match The match object.
+     * @fix --> It will be changed to WebSocket method
+     */
     private startGameEndPolling(gameId: string, tournamentId: string, match: Match) {
         const checkInterval = setInterval(() => {
             const gameState = gameEngine.getGameState(gameId);
@@ -315,68 +322,88 @@ export class TournamentManager {
         }, 10 * 60 * 1000);
     }
  
+    /**
+     * @description Handles the end of a tournament game.
+     * @param gameId The ID of the game.
+     * @param tournamentId The ID of the tournament.
+     * @param matchId The ID of the match.
+     * @param gameState The state of the game.
+     * @returns 
+     */
     private async handleGameEnd(gameId: string, tournamentId: string, matchId: string, gameState: any) {
-        const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
-        
-        if (!tournament) return;
+        const db = await getDatabase();
 
-        const match = this.findMatch(tournament, matchId);
-        if (!match) return;
+        try {
+            await dbRun('BEGIN TRANSACTION');
 
-        let winnerId: string;
-        if (gameState.player1.score > gameState.player2.score) {
-            winnerId = gameState.player1.id;
-        } else {
-            winnerId = gameState.player2.id;
+            const matchInDb = await dbGet('SELECT winner_id FROM tournament_matches WHERE id = ?', [matchId]);
+            if (matchInDb && matchInDb.winner_id !== null) {
+                console.log(`Match ${matchId} has already been processed.`);
+                await dbRun('COMMIT');
+                return;
+            }
+
+            const tournament = await this.getTournamentInfo(tournamentId);
+            if (!tournament) {
+                throw new Error(`Tournament ${tournamentId} not found`);
+            }
+
+            const match = this.findMatch(tournament, matchId);
+            if (!match) {
+                throw new Error(`Match ${matchId} not found in tournament ${tournamentId}`);
+            }
+
+            const winnerId = gameState.player1.score > gameState.player2.score ? gameState.player1.id : gameState.player2.id;
+
+            match.winner = winnerId === match.player1?.id ? match.player1 : match.player2;
+
+            await this.placeWinnerInNextRound(tournament, match);
+    
+            await dbRun('COMMIT');
+
+            console.log(`Successfully processed game ${gameId} for match ${matchId}`);
+            
+            setTimeout(() => {
+                this.startNextMatch(tournamentId);
+            }, 3000);
+        } catch (error) {
+            console.error(`Error processing game ${gameId} for match ${matchId}:`, error);
+            await dbRun('ROLLBACK');
         }
-
-        match.winner = winnerId === match.player1?.id ? match.player1 : match.player2;
-
-        this.placeWinnerInNextRound(tournament, match);
-
-        setTimeout(() => {
-            this.startNextMatch(tournamentId);
-        }, 3000);
     }
 
+    /**
+     * @description Places the winner of the current match into the next round of the tournament.
+     * @param tournament The tournament object.
+     * @param match The match object.
+     * @returns 
+     */
     private async placeWinnerInNextRound(tournament: Tournament, match: Match) {
-        if (match.round >= tournament.bracket.length) {  // if it's the last round (finals)
+        await dbRun(
+            `UPDATE tournament_matches SET winner_id = ?, status = 'finished', game_id = ? WHERE id = ?`,
+            [match.winner ? parseInt(match.winner.id) : null, match.gameId, match.id]
+        );
+
+        if (match.round >= tournament.bracket.length) {
             tournament.winner = match.winner;
             tournament.status = 'finished';
-            this.saveTournamentResults(tournament);
+            await this.saveTournamentResults(tournament); 
             console.log(`Tournament ${tournament.name} finished. Winner: ${match.winner?.nickname}`);
             return;
         }
 
-        const nextRound = tournament.bracket[match.round];
+        const nextRoundIndex = match.round; 
         const nextMatchIndex = Math.floor(match.matchNumber / 2);
-        let nextMatch = nextRound[nextMatchIndex];
+        const nextMatch = tournament.bracket[nextRoundIndex][nextMatchIndex];
 
-        if (match.matchNumber % 2 === 0) { // Put winner side
-            nextMatch.player1 = match.winner;
-        }
-        else {
-            nextMatch.player2 = match.winner;
-        }
+        const playerFieldToUpdate = match.matchNumber % 2 === 0 ? 'player1_id' : 'player2_id';
 
         await dbRun(
-            `UPDATE tournament_matches SET winner_id = ?, status = 'finished' WHERE id = ?`,
-            [match.winner ? parseInt(match.winner.id) : null, match.id]
+            `UPDATE tournament_matches SET ${playerFieldToUpdate} = ? WHERE id = ?`,
+            [match.winner ? parseInt(match.winner.id) : null, nextMatch.id]
         );
-
-        if (match.round < tournament.bracket.length) {
-            const nextRound = tournament.bracket[match.round];
-            const nextMatchIndex = Math.floor(match.matchNumber / 2);
-            const nextMatch = nextRound[nextMatchIndex];
-
-            const playerFieldToUpdate = match.matchNumber % 2 === 0 ? 'player1_id' : 'player2_id';
-
-            await dbRun(
-                `UPDATE tournament_matches SET ${playerFieldToUpdate} = ? WHERE id = ?`,
-                [match.winner ? parseInt(match.winner.id) : null, nextMatch.id]
-            );
-        }
     }
+
 
     private isRoundComplete(tournament: Tournament): boolean {
         const currentRound = tournament.bracket[tournament.currentRound - 1];
