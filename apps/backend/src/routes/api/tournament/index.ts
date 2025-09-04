@@ -404,4 +404,24 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
             message: 'Successfully left the tournament'
         });
     });
+
+
+    /**
+     * @description Adding WebSocket route for tournament updates
+     */
+    fastify.get('/ws/:tournamentId', { websocket: true }, (connection, request) => {
+        const { tournamentId } = request.params as { tournamentId: string };
+        const userId = (request as any).user?.userId?.toString();
+
+        if (!userId || !tournamentId) {
+            connection.socket.close();
+            return;
+        }
+
+        tournamentManager.addSocket(tournamentId, userId, connection.socket);
+
+        connection.socket.on('close', () => {
+            tournamentManager.removeSocket(tournamentId, userId);
+        });
+    })
 }

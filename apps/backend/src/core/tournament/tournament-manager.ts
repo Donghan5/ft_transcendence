@@ -5,6 +5,7 @@ import { Tournament, TournamentPlayer, Match } from '@trans/common-types';
 export class TournamentManager {
     private tournaments: Map<string, Tournament> = new Map();
     private playerTournamentMap: Map<string, string> = new Map();
+    private tournamentSockets = new Map<string, Map<string, WebSocket>>();
 
     async initializeTournaments(): Promise<void> {
         const activeTournaments = await dbAll(
@@ -104,6 +105,7 @@ export class TournamentManager {
         }
 
         await this.addPlayerToTournament(tournament, playerId, user);
+        this.broadcastTournamentUpdate(tournamentId);
         return true;
     }
 
@@ -130,7 +132,7 @@ export class TournamentManager {
         tournament.currentRound = 1;
 
         await this.updateTournamentInDB(tournament);
-
+        this.broadcastTournamentUpdate(tournamentId);
         await this.startNextMatch(tournamentId);
         return true;
     }
@@ -225,6 +227,7 @@ export class TournamentManager {
             }
         }
     }
+    
     private async startNextMatch(tournamentId: string) {
         const tournament = await this.getTournamentInfo(tournamentId);
         if (!tournament) return;
@@ -335,7 +338,8 @@ export class TournamentManager {
             await dbRun('COMMIT');
 
             console.log(`Successfully processed game ${gameId} for match ${matchId}`);
-            
+            this.broadcastTournamentUpdate(tournamentId);
+
             setTimeout(() => {
                 this.startNextMatch(tournamentId);
             }, 3000);
@@ -786,6 +790,7 @@ export class TournamentManager {
             if (result.changes > 0) {
                 tournament.players.splice(playerIndex, 1);
                 this.playerTournamentMap.delete(userId);
+                this.broadcastTournamentUpdate(tournamentId);
                 console.log(`User ${userId} removed from tournament ${tournamentId} in DB`);
                 return true;
             } else {
@@ -798,6 +803,52 @@ export class TournamentManager {
         }
     }
 
+    private async broadcastTournamentUpdate(tournamentId: string): Promise<void> {
+        const sockets = this.tournamentSockets.get(tournamentId);
+         if (!sockets || sockets.size === 0) return;
+
+         try {
+            const tournament = await this.getTournamentInfo(tournamentId);
+            if (!tournament) return;
+
+            const message = JSON.stringify({
+                type: 'tournamentUpdate',
+                payload: tournament
+            });
+
+            sockets.forEach((ws, userId) => {
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(message);
+                }
+            });
+        } catch (error) {
+            console.error(`Error broadcasting tournament update for ${tournamentId}: ${error}`);
+        }
+    }
+
+    public addSocket(tournamentId: string, userId: string, ws: WebSocket): void {
+        if (!this.tournamentSockets.has(tournamentId)) {
+            this.tournamentSockets.set(tournamentId, new Map());
+        }
+
+        this.tournamentSockets.get(tournamentId)?.set(userId, ws);
+        console.log(`[WS] User ${userId} connected to tournament ${tournamentId}`);
+
+        this.broadcastTournamentUpdate(tournamentId);
+    }
+
+    public removeSocket(tournamentId: string, userId: string): void {
+        const sockets = this.tournamentSockets.get(tournamentId);
+
+        if (sockets) {
+            sockets.delete(userId);
+            console.log(`[WS] User ${userId} disconnected from tournament ${tournamentId}`);
+            
+            if (sockets.size === 0) {
+                this.tournamentSockets.delete(tournamentId);
+            }
+        }
+    }
 }
 
 export const tournamentManager = new TournamentManager();

@@ -7,7 +7,7 @@ export class TournamentUI {
     private container: HTMLElement;
     private tournamentId: string | null = null;
     private websocket: WebSocket | null = null;
-    private pollInterval: number | null = null;
+    // private pollInterval: number | null = null;
     private statusManager: any = null;
 
     constructor(containerId: string, statusManager?: any) {
@@ -212,6 +212,8 @@ export class TournamentUI {
                         const data = await response.json();
                         this.tournamentId = data.tournamentId;
 
+                        this.connectWebSocket(data.tournamentId);
+
                         if (!this.tournamentId) {
                             throw new Error('No tournament ID returned from server');
                         }
@@ -330,7 +332,6 @@ export class TournamentUI {
                         StateManager.clearTournamentState();
                         
                         this.tournamentId = null;
-                        this.stopBracketPolling();
                         
                         this.showStatusMessage('Tournament cancelled successfully!', 'success');
                         this.showTournamentLobby(); 
@@ -367,7 +368,6 @@ export class TournamentUI {
 
     private connectToTournament(tournamentId: string): void {
         this.refreshTournament(tournamentId);
-        this.startTournamentPolling(tournamentId);
     }
 
     private async refreshTournament(tournamentId: string): Promise<void> {
@@ -395,55 +395,6 @@ export class TournamentUI {
             StateManager.updateTournamentActivity();
         }
     }
-
-    private startTournamentPolling(tournamentId: string): void {
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-        }
-
-        this.pollInterval = window.setInterval(async () => {
-            try {
-                const url = `/api/tournament/${tournamentId}?_t=${Date.now()}`;
-                const response = await fetch(url, {
-                    credentials: 'include'
-                });
-
-                if (response.ok) {
-                    const tournament: Tournament = await response.json();
-                    this.updateParticipantsList(tournament.players);
-                    
-                    this.updateActivity();
-
-                    if (tournament.status === 'in_progress') {
-                        this.showBracket(tournament);
-                    }
-                }
-            } catch (error) {
-                console.error('Polling error:', error);
-            }
-        }, 2000); 
-    }
-
-    private startBracketPolling(): void {
-        if (!this.tournamentId) return;
-
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-        }
-
-        this.pollInterval = window.setInterval(() => {
-            this.refreshTournament(this.tournamentId!);
-        }, 3000); 
-    }
-
-    private stopBracketPolling(): void {
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-            this.pollInterval = null;
-        }
-    }
-
-
 
     private updateParticipantsList(players: TournamentPlayer[]): void {
         const list = document.getElementById('participants');
@@ -538,6 +489,7 @@ export class TournamentUI {
 
             if (response.ok) {
                 this.tournamentId = tournamentId;
+                this.connectWebSocket(tournamentId);
                 
                 const infoResponse = await fetch(`/api/tournament/${tournamentId}`, {
                     credentials: 'include'
@@ -557,8 +509,8 @@ export class TournamentUI {
             return false;
         }
     }
+    
     public leaveTournament(): void {
-        this.stopBracketPolling();
         this.tournamentId = null;
         
         if (this.websocket) {
@@ -753,16 +705,57 @@ export class TournamentUI {
     }
 
     destroy(): void {
-        if (this.pollInterval) {
-            clearInterval(this.pollInterval);
-            this.pollInterval = null;
-        }
-        
         if (this.websocket) {
             this.websocket.close();
             this.websocket = null;
         }
         
         this.container.innerHTML = '';
+    }
+
+    private connectWebSocket(tournamentId: string): void {
+        if (this.websocket) {
+            this.websocket.close();
+        }
+
+        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        const wsUrl = `${protocol}//${window.location.host}/api/tournament/ws/${tournamentId}`;
+
+        this.websocket = new WebSocket(wsUrl);
+
+        this.websocket.onopen = () => {
+            console.log(`[WS] Connected to tournament ${tournamentId}`);
+        }
+
+        this.websocket.onmessage = (event) => {
+            const message = JSON.parse(event.data);
+            if (message.type === 'tournamentUpdate') {
+                const tournament: Tournament = message.payload;
+                this.updateUI(tournament);
+            }
+        };
+
+        this.websocket.onclose = () => {
+            console.log(`[WS] Disconnected from tournament ${tournamentId}`);
+        }
+
+        this.websocket.onerror = (error) => {
+            console.error('[WS] WebSocket error:', error);
+            this.showStatusMessage('WebSocket error occurred. Please refresh', 'error');
+        };
+    }
+
+    private updateUI(tournament: Tournament): void {
+        if (tournament.status === 'in_progress' || tournament.status === 'finished') {
+            this.showBracket(tournament);
+        } else {
+            const participantsList = document.getElementById('participants');
+            if (participantsList) {
+                this.updateParticipantsList(tournament.players);
+            } else {
+                this.showTournamentLobby();
+                this.updateParticipantsList(tournament.players);
+            }
+        }
     }
 }
