@@ -32,3 +32,13 @@ export const dbRun = async (query: string, params: any[] = []): Promise<{ lastID
         });
     });
 };
+
+export const closeDatabase = async (): Promise<void> => {
+    const db = await getDatabase();
+    return new Promise((resolve, reject) => {
+        db.close((err) => {
+            if (err) return reject(err);
+            resolve();
+        });
+    });
+}

@@ -39,6 +39,6 @@ debug:
 
 test:
 	@echo "Running tests in backend..."
-	@docker-compose exec $(c) sh -c 'npm test'
+	@docker-compose exec -w /usr/src/app/apps/backend backend npx mocha -r ts-node/register 'src/**/*.test.ts'
 
 .PHONY: all start build up down clean fclean re logs ps sh debug test

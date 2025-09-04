@@ -7,7 +7,7 @@ import { expect } from 'chai';
 import 'mocha';
 import { TournamentManager } from './tournament-manager';
 import { Tournament, TournamentPlayer } from '@trans/common-types';
-
+import { closeDatabase } from '../../database/helpers';
 /**
  * Creates an array of mock tournament players.
  * @param count The number of players to create.
@@ -24,7 +24,7 @@ const createMockPlayers = (count: number): TournamentPlayer[] => {
 
 /**
  * @description Tests the generateBracket method of the TournamentManager class.
- *              This method is responsible for generating the tournament bracket (with logic of generateBracket).
+ * This method is responsible for generating the tournament bracket (with logic of generateBracket).
  */
 describe('TournamentManager - generateBracket', () => {
     let tournamentManager: TournamentManager;
@@ -39,6 +39,7 @@ describe('TournamentManager - generateBracket', () => {
         const players = createMockPlayers(4);
         const tournament: Tournament = {
             id: 'test-tourney-4',
+            name: '4 Players Test',
             players: players,
             bracket: [],
             status : 'waiting',
@@ -93,10 +94,10 @@ describe('TournamentManager - generateBracket', () => {
 
         const actualMatches = bracket[0].filter(match => match.player2 !== null);
         expect(actualMatches).to.have.lengthOf(2);
-        expect(actualMatches[0].player1?.id).to.equal('3');
-        expect(actualMatches[0].player2?.id).to.equal('6');
-        expect(actualMatches[1].player1?.id).to.equal('4');
-        expect(actualMatches[1].player2?.id).to.equal('5');
+        expect(actualMatches[0]!.player1?.id).to.equal('3');
+        expect(actualMatches[0]!.player2?.id).to.equal('6');
+        expect(actualMatches[1]!.player1?.id).to.equal('4');
+        expect(actualMatches[1]!.player2?.id).to.equal('5');
     });
 
     // Scenario 3: 5 Participants (odd number), with walk-over
@@ -105,6 +106,7 @@ describe('TournamentManager - generateBracket', () => {
 
         const tournament: Tournament = {
             id: 'test-tourney-5',
+            name: '5 Players Test',
             players: players,
             bracket: [],
             status: 'waiting',
@@ -128,8 +130,8 @@ describe('TournamentManager - generateBracket', () => {
 
         const actualMatches = bracket[0].find(match => match.player2 !== null);
         expect(actualMatches).to.exist;
-        expect(actualMatches.player1?.id).to.equal('4');
-        expect(actualMatches.player2?.id).to.equal('5');
+        expect(actualMatches!.player1?.id).to.equal('4');
+        expect(actualMatches!.player2?.id).to.equal('5');
     });
 
 
@@ -157,11 +159,15 @@ describe('TournamentManager - generateBracket', () => {
 
         const byeMatch = bracket[0].find(match => match.player2 === null);
         expect(byeMatch).to.exist;
-        expect(byeMatch.player1?.id).to.equal('1');
+        expect(byeMatch!.player1?.id).to.equal('1');
 
         const actualMatches = bracket[0].find(match => match.player2 !== null);
         expect(actualMatches).to.exist;
-        expect(actualMatches.player1?.id).to.equal('2');
-        expect(actualMatches.player2?.id).to.equal('3');
+        expect(actualMatches!.player1?.id).to.equal('2');
+        expect(actualMatches!.player2?.id).to.equal('3');
+    });
+
+    after(async () => {
+        await closeDatabase();
     });
 })
