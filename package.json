@@ -23,6 +23,7 @@
   },
   "homepage": "https://github.com/Donghan5/study_ft_transcendence#readme",
   "dependencies": {
+    "@fastify/websocket": "^11.2.0",
     "babylonjs": "^8.14.0",
     "ts-node": "^10.9.2"
   },

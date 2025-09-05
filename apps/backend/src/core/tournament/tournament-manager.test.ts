@@ -8,6 +8,7 @@ import 'mocha';
 import { TournamentManager } from './tournament-manager';
 import { Tournament, TournamentPlayer } from '@trans/common-types';
 import { closeDatabase } from '../../database/helpers';
+import { initializeDatabase } from '../../database/db';
 /**
  * Creates an array of mock tournament players.
  * @param count The number of players to create.
@@ -29,6 +30,13 @@ const createMockPlayers = (count: number): TournamentPlayer[] => {
 describe('TournamentManager - generateBracket', () => {
     let tournamentManager: TournamentManager;
 
+    before(async () => {
+        await initializeDatabase();
+    });
+
+    after (async () => {
+        await closeDatabase();
+    });
     beforeEach(() => {
         // @ts-ignore
         tournamentManager = new TournamentManager()
@@ -165,9 +173,5 @@ describe('TournamentManager - generateBracket', () => {
         expect(actualMatches).to.exist;
         expect(actualMatches!.player1?.id).to.equal('2');
         expect(actualMatches!.player2?.id).to.equal('3');
-    });
-
-    after(async () => {
-        await closeDatabase();
     });
 })

@@ -1,3 +1,4 @@
+import { WebSocket } from 'ws';
 import { FastifyInstance } from 'fastify';
 import { tournamentManager } from '../../../core/tournament/tournament-manager';
 import { authMiddleware } from '../../../middleware/auth.middleware';
@@ -414,14 +415,15 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         const userId = (request as any).user?.userId?.toString();
 
         if (!userId || !tournamentId) {
-            connection.socket.close();
+            connection.close();
             return;
         }
 
-        tournamentManager.addSocket(tournamentId, userId, connection.socket);
+        // ws.WebSocket 타입으로 명시적 캐스팅
+        tournamentManager.addSocket(tournamentId, userId, connection as unknown as import('ws').WebSocket);
 
-        connection.socket.on('close', () => {
+        connection.on('close', () => {
             tournamentManager.removeSocket(tournamentId, userId);
         });
-    })
+    });
 }

@@ -115,10 +115,6 @@ export class TournamentUI {
         `;
 
         this.setupBracketEventListeners();
-        
-        if (tournament.status === 'in_progress') {
-            this.startBracketPolling();
-        }
     }
 
     private generateBracketHTML(bracket: Match[][]): string {
@@ -360,7 +356,7 @@ export class TournamentUI {
         const backBtn = document.getElementById('back-to-lobby');
         if (backBtn) {
             backBtn.addEventListener('click', () => {
-                this.stopBracketPolling();
+                this.cleanWebSocket();
                 this.showTournamentLobby();
             });
         }
@@ -525,8 +521,8 @@ export class TournamentUI {
             return;
         }
 
-        this.stopBracketPolling();
-        
+        this.cleanWebSocket();
+
         try {
             const response = await fetch('/api/tournament/cancel', {
                 method: 'POST',
@@ -560,6 +556,13 @@ export class TournamentUI {
 
     public cleanup(): void {
         this.leaveTournament();
+    }
+
+    private cleanWebSocket(): void {
+        if (this.websocket) {
+            this.websocket.close();
+            this.websocket = null;
+        }
     }
 
     private showInviteFriendsModal(): void {

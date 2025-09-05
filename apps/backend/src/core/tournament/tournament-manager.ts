@@ -1,3 +1,4 @@
+import { WebSocket } from 'ws';
 import { dbGet, dbRun, dbAll, getDatabase } from '../../database/helpers';
 import { gameEngine } from '../game/game-engine';
 import { Tournament, TournamentPlayer, Match } from '@trans/common-types';
