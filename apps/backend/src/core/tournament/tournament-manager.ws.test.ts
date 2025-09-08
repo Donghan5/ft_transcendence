@@ -4,9 +4,9 @@ import { FastifyInstance } from 'fastify';
 import WebSocket from 'ws';
 import jwt from 'jsonwebtoken';
 import { buildServer } from '../../main'; // main.ts에서 서버 빌더를 가져옴
-import { initializeDatabase, closeDatabase, dbRun } from '../../database/helpers';
+import { closeDatabase, dbRun } from '../../database/helpers';
 import { Tournament } from '@trans/common-types';
-
+import { initializeDatabase } from '../../database/db';
 
 const waitForMessage = (ws: WebSocket, messageType: string): Promise<any> => {
     return new Promise((resolve) => {
@@ -38,7 +38,10 @@ describe('TournamentManager - WebSocket Communication', () => {
         await dbRun("INSERT OR IGNORE INTO users (id, nickname, email, name, profile_setup_complete) VALUES (?, ?, ?, ?, ?)", [3, 'Charlie', 'c@test.com', 'Charlie', true]);
 
         app = await buildServer();
-        await app.listen({ port: 0 }); 
+        await app.listen({ port: 0 });
+        
+        const address = app.server.address();
+
         if (typeof address === 'string' || address === null) {
             throw new Error('Server address is not available');
         }
@@ -50,7 +53,6 @@ describe('TournamentManager - WebSocket Communication', () => {
         await closeDatabase();
     });
 
-    // 실제 테스트 케이스
     it('should broadcast tournament updates to all participants when players join and the tournament starts', async function() {
         this.timeout(10000); 
 

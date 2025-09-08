@@ -38,7 +38,9 @@ debug:
 	docker-compose exec $(c) sh -c 'echo -e "\n=== ENV ==="; env; echo -e "\n=== PROC ==="; ps aux'
 
 test:
+	@echo "Busting Docker cache by updating package.json timestamp..."
+	@touch apps/backend/package.json
 	@echo "Running tests in backend..."
-	@docker-compose exec -w /usr/src/app/apps/backend backend npx mocha -r ts-node/register 'src/**/*.test.ts'
+	@docker-compose exec -w /usr/src/app/apps/backend backend npm test
 
 .PHONY: all start build up down clean fclean re logs ps sh debug test

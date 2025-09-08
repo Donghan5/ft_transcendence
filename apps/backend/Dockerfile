@@ -9,6 +9,7 @@ COPY packages/common-types/package*.json ./packages/common-types/
 
 RUN npm install
 
+COPY apps/backend/.mocharc.json ./apps/backend/
 COPY apps/backend/src/ ./apps/backend/src/
 COPY packages/common-types/src/ ./packages/common-types/src/
 COPY tsconfig.json ./

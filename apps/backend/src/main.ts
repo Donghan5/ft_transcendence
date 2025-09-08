@@ -22,7 +22,7 @@ import statusRoute from './routes/api/user/status.controller';
 import statsRoute from './routes/api/user/stats.controller';
 import tournamentRoutes from './routes/api/tournament';
 
-async function buildServer(): Promise<FastifyInstance> {
+export async function buildServer(): Promise<FastifyInstance> {
     const server = fastify({ logger: true, trustProxy: true });
 	
 	// get URL from env

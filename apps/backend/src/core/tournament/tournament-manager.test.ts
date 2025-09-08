@@ -1,3 +1,5 @@
+// apps/backend/src/core/tournament/tournament-manager.test.ts
+
 /**
  * @description Tests the TournamentManager class.
  * @usage first build docker environment, then run tests
@@ -6,9 +8,10 @@
 import { expect } from 'chai';
 import 'mocha';
 import { TournamentManager } from './tournament-manager';
-import { Tournament, TournamentPlayer } from '@trans/common-types';
+import { Tournament, TournamentPlayer, Match } from '@trans/common-types';
 import { closeDatabase } from '../../database/helpers';
 import { initializeDatabase } from '../../database/db';
+
 /**
  * Creates an array of mock tournament players.
  * @param count The number of players to create.
@@ -49,7 +52,7 @@ describe('TournamentManager - generateBracket', () => {
             id: 'test-tourney-4',
             name: '4 Players Test',
             players: players,
-            bracket: [],
+            bracket: [] as Match[][], // 타입 단언 추가
             status : 'waiting',
             currentRound: 0,
             winner: null,
@@ -61,11 +64,10 @@ describe('TournamentManager - generateBracket', () => {
         
         const { bracket } = tournament;
 
-        expect(bracket).to.have.lengthOf(2); // 2 Round (semi-final and final)
-        expect(bracket[0]).to.have.lengthOf(2); // 2 Matches in the first round
-        expect(bracket[1]).to.have.lengthOf(1); // 1 Match in the final round
+        expect(bracket).to.have.lengthOf(2);
+        expect(bracket[0]).to.have.lengthOf(2);
+        expect(bracket[1]).to.have.lengthOf(1);
 
-        // check 1st round matches
         expect(bracket[0][0].player1?.id).to.equal('1');
         expect(bracket[0][0].player2?.id).to.equal('4');
         expect(bracket[0][1].player1?.id).to.equal('2');
@@ -79,7 +81,7 @@ describe('TournamentManager - generateBracket', () => {
             id: 'test-tourney-6',
             name: '6 Players Test',
             players: players,
-            bracket: [],
+            bracket: [] as Match[][], // 타입 단언 추가
             status: 'waiting',
             currentRound: 0,
             winner: null,
@@ -91,16 +93,15 @@ describe('TournamentManager - generateBracket', () => {
 
         const { bracket } = tournament;
 
-        // 6 person --> sizeof the bracket 8 people, 2 byes (walk-overs)
-        expect(bracket).to.have.lengthOf(3); // 3 rounds
-        expect(bracket[0]).to.have.lengthOf(4); // 1Round: 4 Matches
+        expect(bracket).to.have.lengthOf(3);
+        expect(bracket[0]).to.have.lengthOf(4);
 
-        const byes = bracket[0].filter(match => match.player2 === null);
+        const byes = bracket[0].filter((match: Match) => match.player2 === null);
         expect(byes).to.have.lengthOf(2);
-        expect(byes[0].player1?.id).to.equal('1'); // top seed gets a bye
-        expect(byes[1].player1?.id).to.equal('2'); // 2nd seed gets a bye
+        expect(byes[0].player1?.id).to.equal('1');
+        expect(byes[1].player1?.id).to.equal('2');
 
-        const actualMatches = bracket[0].filter(match => match.player2 !== null);
+        const actualMatches = bracket[0].filter((match: Match) => match.player2 !== null);
         expect(actualMatches).to.have.lengthOf(2);
         expect(actualMatches[0]!.player1?.id).to.equal('3');
         expect(actualMatches[0]!.player2?.id).to.equal('6');
@@ -116,7 +117,7 @@ describe('TournamentManager - generateBracket', () => {
             id: 'test-tourney-5',
             name: '5 Players Test',
             players: players,
-            bracket: [],
+            bracket: [] as Match[][], // 타입 단언 추가
             status: 'waiting',
             currentRound: 0,
             winner: null,
@@ -128,15 +129,14 @@ describe('TournamentManager - generateBracket', () => {
 
         const { bracket } = tournament;
 
-        // sizeof 5 --> sizeof 8
-        expect(bracket).to.have.lengthOf(3); // 3 rounds
-        expect(bracket[0]).to.have.lengthOf(4); // 1Round: 4 Matches (3 is walk)
+        expect(bracket).to.have.lengthOf(3);
+        expect(bracket[0]).to.have.lengthOf(4);
         
-        const byes = bracket[0].filter(match => match.player2 === null);
+        const byes = bracket[0].filter((match: Match) => match.player2 === null);
         expect(byes).to.have.lengthOf(3);
-        expect(byes.map(b => b.winner?.id)).to.deep.equal(['1', '2', '3']);
+        expect(byes.map((b: Match) => b.winner?.id)).to.deep.equal(['1', '2', '3']);
 
-        const actualMatches = bracket[0].find(match => match.player2 !== null);
+        const actualMatches = bracket[0].find((match: Match) => match.player2 !== null);
         expect(actualMatches).to.exist;
         expect(actualMatches!.player1?.id).to.equal('4');
         expect(actualMatches!.player2?.id).to.equal('5');
@@ -150,7 +150,7 @@ describe('TournamentManager - generateBracket', () => {
             id: 'test-tourney-3',
             name: '3 Players Test',
             players: players,
-            bracket: [],
+            bracket: [] as Match[][], // 타입 단언 추가
             status: 'waiting',
             currentRound: 0,
             winner: null,
@@ -162,14 +162,14 @@ describe('TournamentManager - generateBracket', () => {
 
         const { bracket } = tournament;
 
-        expect(bracket).to.have.lengthOf(2); // 2 rounds
-        expect(bracket[0]).to.have.lengthOf(2); // 1Round: 2 Matches (1 is walk)
+        expect(bracket).to.have.lengthOf(2);
+        expect(bracket[0]).to.have.lengthOf(2);
 
-        const byeMatch = bracket[0].find(match => match.player2 === null);
+        const byeMatch = bracket[0].find((match: Match) => match.player2 === null);
         expect(byeMatch).to.exist;
         expect(byeMatch!.player1?.id).to.equal('1');
 
-        const actualMatches = bracket[0].find(match => match.player2 !== null);
+        const actualMatches = bracket[0].find((match: Match) => match.player2 !== null);
         expect(actualMatches).to.exist;
         expect(actualMatches!.player1?.id).to.equal('2');
         expect(actualMatches!.player2?.id).to.equal('3');
