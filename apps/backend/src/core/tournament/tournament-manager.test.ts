@@ -68,7 +68,7 @@ describe('TournamentManager - generateBracket', () => {
         expect(bracket[0]).to.have.lengthOf(2);
         expect(bracket[1]).to.have.lengthOf(1);
 
-        const firstRound = bracket[0] as Match[];
+        const firstRound = bracket[0];
         expect(firstRound[0].player1?.id).to.equal('1');
         expect(firstRound[0].player2?.id).to.equal('4');
         expect(firstRound[1].player1?.id).to.equal('2');
@@ -97,13 +97,13 @@ describe('TournamentManager - generateBracket', () => {
         expect(bracket).to.have.lengthOf(3);
         expect(bracket[0]).to.have.lengthOf(4);
 
-        const firstRound = bracket[0] as Match[];
-        const byes = firstRound.filter((match) => match.player2 === null);
+        const firstRound = bracket[0];
+        const byes = firstRound.filter((match: Match) => match.player2 === null);
         expect(byes).to.have.lengthOf(2);
         expect(byes[0].player1?.id).to.equal('1');
         expect(byes[1].player1?.id).to.equal('2');
 
-        const actualMatches = firstRound.filter((match) => match.player2 !== null);
+        const actualMatches = firstRound.filter((match: Match) => match.player2 !== null);
         expect(actualMatches).to.have.lengthOf(2);
         expect(actualMatches[0]!.player1?.id).to.equal('3');
         expect(actualMatches[0]!.player2?.id).to.equal('6');
@@ -134,12 +134,12 @@ describe('TournamentManager - generateBracket', () => {
         expect(bracket).to.have.lengthOf(3);
         expect(bracket[0]).to.have.lengthOf(4);
         
-        const firstRound = bracket[0] as Match[];
-        const byes = firstRound.filter((match) => match.player2 === null);
+        const firstRound = bracket[0];
+        const byes = firstRound.filter((match: Match) => match.player2 === null);
         expect(byes).to.have.lengthOf(3);
-        expect(byes.map((b) => b.winner?.id)).to.deep.equal(['1', '2', '3']);
+        expect(byes.map((b: Match) => b.winner?.id)).to.deep.equal(['1', '2', '3']);
 
-        const actualMatches = firstRound.find((match) => match.player2 !== null);
+        const actualMatches = firstRound.find((match: Match) => match.player2 !== null);
         expect(actualMatches).to.exist;
         expect(actualMatches!.player1?.id).to.equal('4');
         expect(actualMatches!.player2?.id).to.equal('5');
@@ -168,12 +168,12 @@ describe('TournamentManager - generateBracket', () => {
         expect(bracket).to.have.lengthOf(2);
         expect(bracket[0]).to.have.lengthOf(2);
 
-        const firstRound = bracket[0] as Match[];
-        const byeMatch = firstRound.find((match) => match.player2 === null);
+        const firstRound = bracket[0];
+        const byeMatch = firstRound.find((match: Match) => match.player2 === null);
         expect(byeMatch).to.exist;
         expect(byeMatch!.player1?.id).to.equal('1');
 
-        const actualMatches = firstRound.find((match) => match.player2 !== null);
+        const actualMatches = firstRound.find((match: Match) => match.player2 !== null);
         expect(actualMatches).to.exist;
         expect(actualMatches!.player1?.id).to.equal('2');
         expect(actualMatches!.player2?.id).to.equal('3');

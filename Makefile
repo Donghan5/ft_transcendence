@@ -37,9 +37,10 @@ debug:
 	docker-compose logs --tail=200 $(c)
 	docker-compose exec $(c) sh -c 'echo -e "\n=== ENV ==="; env; echo -e "\n=== PROC ==="; ps aux'
 
-test:
-	@echo "Busting Docker cache by updating package.json timestamp..."
-	@touch apps/backend/package.json
+test: fclean
+	@echo "Rebuilding backend container with the latest code..."
+	@docker-compose build --no-cache backend
+	@docker-compose up -d --no-deps backend
 	@echo "Running tests in backend..."
 	@docker-compose exec -w /usr/src/app/apps/backend backend npm test
 
