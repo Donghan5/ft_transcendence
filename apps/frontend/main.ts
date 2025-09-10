@@ -1280,6 +1280,12 @@ async function updateLoginStatus() {
         if (!statusManager) {
             statusManager = StatusManager.getInstance();
             await statusManager.initializeStatusConnection('', user);
+
+			statusManager.onStatusUpdate((friends) => {
+                if (currentSection === 'friends') {
+                     updateFriendsDisplay(friends);
+                }
+            });
         }
         
         const currentPath = window.location.pathname;
@@ -1895,6 +1901,14 @@ function displayHomeTournaments(tournaments: any[]): void {
             await tournamentUI.joinTournament(tournamentId);
             showSection('tournamentLobby');
             
+            const tournamentLobbySection = document.getElementById('tournamentLobbySection');
+            if (tournamentLobbySection) {
+                tournamentLobbySection.innerHTML = ''; 
+                tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
+                await tournamentUI.joinTournament(tournamentId);
+                tournamentUI.showTournamentLobby();
+            }
+
             loadHomeTournaments();
             
         } else {

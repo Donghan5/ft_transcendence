@@ -128,7 +128,7 @@ export class TournamentManager {
         });
 
         // Create initial bracket
-        this.generateBracket(tournament);
+        await this.generateBracket(tournament);
         tournament.status = 'in_progress';
         tournament.currentRound = 1;
 

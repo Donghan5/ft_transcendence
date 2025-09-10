@@ -44,41 +44,48 @@ export class StatusManager {
         return StatusManager.instance;
     }
 
-    public async initializeStatusConnection(token: string, user: any): Promise<void> {
-        this.currentUser = user;
-        
-        try {
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}/api/user/status/ws?token=${token}`;
-            
-            this.statusWs = new WebSocket(wsUrl);
-            
-            this.statusWs.onopen = () => {
-                console.log('Status WebSocket connected');
-                this.loadFriendsStatus();
-            };
-            
-            this.statusWs.onmessage = (event) => {
-                try {
-                    const data = JSON.parse(event.data);
-                    this.handleStatusMessage(data);
-                } catch (error) {
-                    console.error('Error parsing status message:', error);
-                }
-            };
-            
-            this.statusWs.onclose = () => {
-                console.log('Status WebSocket disconnected');
-                setTimeout(() => this.reconnectStatus(), 5000);
-            };
-            
-            this.statusWs.onerror = (error) => {
-                console.error('Status WebSocket error:', error);
-            };
-            
-        } catch (error) {
-            console.error('Failed to initialize status connection:', error);
-        }
+    public initializeStatusConnection(token: string, user: any): Promise<void> {
+        return new Promise((resolve, reject) => {
+            try {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}/api/user/status/ws?token=${token}`;
+                
+                this.statusWs = new WebSocket(wsUrl);
+                
+                this.statusWs.onopen = async () => {
+                    console.log('Status WebSocket connected');
+                    try {
+                        await this.loadFriendsStatus();
+                        resolve(); 
+                    } catch (error) {
+                        reject(error); 
+                    }
+                };
+
+                this.statusWs.onmessage = (event) => {
+                    try {
+                        const data = JSON.parse(event.data);
+                        this.handleStatusMessage(data);
+                    } catch (error) {
+                        console.error('Error parsing status message:', error);
+                    }
+                };
+                
+                this.statusWs.onclose = () => {
+                    console.log('Status WebSocket disconnected');
+                    setTimeout(() => this.reconnectStatus(), 5000);
+                };
+                
+                this.statusWs.onerror = (error) => {
+                    console.error('Status WebSocket error:', error);
+                    reject(error);
+                };
+                
+            } catch (error) {
+                console.error('Failed to initialize status connection:', error);
+                reject(error);
+            }
+        });
     }
 
     private handleStatusMessage(data: any): void {
@@ -187,7 +194,6 @@ export class StatusManager {
                 const tournamentUI = (window as any).tournamentUI;
                 if (tournamentUI) {
                     await tournamentUI.joinTournament(tournamentId);
-                    tournamentUI.showTournamentLobby();
                 }
             } else {
                 const error = await response.json();

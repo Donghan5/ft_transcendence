@@ -160,8 +160,16 @@
 
 68. test code for tournament --> little description (it은 첫번째 인자로 테스트 설명, 두번째 인자로 테스트 함수를 받는다)
 
-
 69. Insane test code error, it doesn't fix... What should I do ? WTF
+
+70. 친구 요청 후 --> 요청 받은 대상자 친구 목록에 처음 접속시 failed to load data 나옴. refresh 하면 원상태 복구 --> to check
+
+71. 토너먼트 시작시 --> Tournament started failed: Error: Cannot read properties of undefined (reading 'find')
+
+72. invite 메서드 잘 작동함 --> 초대 받은 상대 로비 이동.
+
+73. 메인 화면을 통해서 토너먼트 입장한 사람 전용 ui ??
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2

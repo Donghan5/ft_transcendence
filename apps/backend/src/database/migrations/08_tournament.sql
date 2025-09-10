@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS tournaments (
     created_by INTEGER,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     ended_at DATETIME,
+    bracket TEXT,
     FOREIGN KEY (winner_id) REFERENCES users(id),
     FOREIGN KEY (created_by) REFERENCES users(id)
 );
