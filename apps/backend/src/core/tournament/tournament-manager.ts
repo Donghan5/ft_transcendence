@@ -134,7 +134,7 @@ export class TournamentManager {
 
         await this.updateTournamentInDB(tournament);
         this.broadcastTournamentUpdate(tournamentId);
-        await this.startNextMatch(tournamentId);
+        await this.startNextMatch(tournament);
         return true;
     }
 
@@ -229,8 +229,7 @@ export class TournamentManager {
         }
     }
     
-    private async startNextMatch(tournamentId: string) {
-        const tournament = await this.getTournamentInfo(tournamentId);
+    private async startNextMatch(tournament: Tournament) {
         if (!tournament) return;
 
         const currentRoundMatches = tournament.bracket[tournament.currentRound - 1];
@@ -245,7 +244,7 @@ export class TournamentManager {
             );
 
             nextMatch.gameId = gameId;
-            this.startGameEndPolling(gameId, tournamentId, nextMatch);
+            this.startGameEndPolling(gameId, tournament, nextMatch);
 
         } else if (this.isRoundComplete(tournament)) {
             this.advanceToNextRound(tournament);
@@ -279,7 +278,7 @@ export class TournamentManager {
      * @param match The match object.
      * @fix --> It will be changed to WebSocket method
      */
-    private startGameEndPolling(gameId: string, tournamentId: string, match: Match) {
+    private startGameEndPolling(gameId: string, tournament: Tournament, match: Match) {
         const checkInterval = setInterval(() => {
             const gameState = gameEngine.getGameState(gameId);
             
@@ -290,7 +289,7 @@ export class TournamentManager {
 
             if (gameState.status === 'finished') {
                 clearInterval(checkInterval);
-                this.handleGameEnd(gameId, tournamentId, match.id, gameState);
+                this.handleGameEnd(gameId, tournament, match.id, gameState);
             }
         }, 1000);
 
@@ -307,7 +306,7 @@ export class TournamentManager {
      * @param gameState The state of the game.
      * @returns 
      */
-    private async handleGameEnd(gameId: string, tournamentId: string, matchId: string, gameState: any) {
+    private async handleGameEnd(gameId: string, tournament: Tournament, matchId: string, gameState: any) {
         const db = await getDatabase();
 
         try {
@@ -320,14 +319,13 @@ export class TournamentManager {
                 return;
             }
 
-            const tournament = await this.getTournamentInfo(tournamentId);
             if (!tournament) {
-                throw new Error(`Tournament ${tournamentId} not found`);
+                throw new Error(`Tournament object not found`);
             }
 
             const match = this.findMatch(tournament, matchId);
             if (!match) {
-                throw new Error(`Match ${matchId} not found in tournament ${tournamentId}`);
+                throw new Error(`Match ${matchId} not found in tournament ${tournament.id}`);
             }
 
             const winnerId = gameState.player1.score > gameState.player2.score ? gameState.player1.id : gameState.player2.id;
@@ -339,10 +337,10 @@ export class TournamentManager {
             await dbRun('COMMIT');
 
             console.log(`Successfully processed game ${gameId} for match ${matchId}`);
-            this.broadcastTournamentUpdate(tournamentId);
+            this.broadcastTournamentUpdate(tournament.id);
 
             setTimeout(() => {
-                this.startNextMatch(tournamentId);
+                this.startNextMatch(tournament);
             }, 3000);
         } catch (error) {
             console.error(`Error processing game ${gameId} for match ${matchId}:`, error);
@@ -394,7 +392,7 @@ export class TournamentManager {
         if (tournament.currentRound <= tournament.bracket.length) {
             console.log(`Advancing to round ${tournament.currentRound} of tournament ${tournament.name}`);
             this.updateTournamentInDB(tournament);
-            this.startNextMatch(tournament.id);
+            this.startNextMatch(tournament);
         } else {
             tournament.status = 'finished';
             this.saveTournamentResults(tournament);

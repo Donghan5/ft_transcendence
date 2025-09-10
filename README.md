@@ -170,6 +170,8 @@
 
 73. 메인 화면을 통해서 토너먼트 입장한 사람 전용 ui ??
 
+74. 토너먼트 입장 후 start -> creator 는 show bracket 보여줌 -> 다른 참가자는 토너먼트 로비 (로비 + 대기자 명단) --> 토너먼트 실행 안됨
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2

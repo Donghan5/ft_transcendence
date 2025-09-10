@@ -15,7 +15,6 @@ import { initializeDatabase } from '../../database/db';
  * @param count The number of players to create.
  * @returns An array of mock tournament players.
  */
-// FIX 1: 'count' 파라미터에 'number' 타입을 명시적으로 지정했습니다.
 const createMockPlayers = (count: number): TournamentPlayer[] => {
     return Array.from({ length: count }, (_, i) => ({
         id: (i + 1).toString(),
