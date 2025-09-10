@@ -7,7 +7,7 @@
     "build": "tsc --build",
     "start": "node dist/main.js",
     "dev": "ts-node -r tsconfig-paths/register dist/main.ts",
-    "test": "ts-mocha -p tsconfig.json 'src/**/*.test.ts'"
+    "test": "npm run build && mocha 'dist/**/*.test.js'"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

@@ -1,9 +1,4 @@
 {
-  "require": [
-    "ts-node/register",
-    "tsconfig-paths/register"
-  ],
-  "extensions": ["ts"],
-  "spec": ["src/**/*.test.ts"],
+  "spec": "dist/**/*.test.js",
   "watch-files": ["src/**/*.ts"]
 }

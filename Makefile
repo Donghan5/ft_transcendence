@@ -41,7 +41,11 @@ test: fclean
 	@echo "Rebuilding backend container with the latest code..."
 	@docker-compose build --no-cache backend
 	@docker-compose up -d --no-deps backend
+    
+	@echo "Building all projects inside the container..."
+	@docker-compose exec -w /usr/src/app backend npm run build --workspace=ft-transcendence-backend
+    
 	@echo "Running tests in backend..."
-	@docker-compose exec -w /usr/src/app/apps/backend backend npm test
+	@docker-compose exec -e NODE_ENV=test -w /usr/src/app/apps/backend backend npm test
 
 .PHONY: all start build up down clean fclean re logs ps sh debug test

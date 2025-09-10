@@ -7,13 +7,18 @@ import path from 'path';
 let db: sqlite3.Database | null = null;
 let initializationPromise: Promise<sqlite3.Database> | null = null;
 
-const dbPath = process.env.DATABASE_URL
+// Use in-memory database for tests, otherwise use file
+const dbPath = process.env.NODE_ENV === 'test'
+    ? ':memory:'
+    : process.env.DATABASE_URL
     ? process.env.DATABASE_URL.replace('file:', '')
     : path.resolve(__dirname, 'user.db');
 
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-    fs.mkdirSync(dbDir, { recursive: true });
+if (process.env.NODE_ENV !== 'test') {
+    const dbDir = path.dirname(dbPath);
+    if (!fs.existsSync(dbDir)) {
+        fs.mkdirSync(dbDir, { recursive: true });
+    }
 }
 
 console.log('Database will be created at:', dbPath);

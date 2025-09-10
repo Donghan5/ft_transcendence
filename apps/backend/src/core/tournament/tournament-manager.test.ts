@@ -48,7 +48,6 @@ describe('TournamentManager - generateBracket', () => {
             id: 'test-tourney-4',
             name: '4 Players Test',
             players: players,
-            // FIX 2: 'bracket'이 Match의 2차원 배열임을 명확히 알려줍니다. (가장 중요한 수정)
             bracket: [] as Match[][], 
             status: 'waiting',
             currentRound: 0,
@@ -82,7 +81,7 @@ describe('TournamentManager - generateBracket', () => {
             id: 'test-tourney-6',
             name: '6 Players Test',
             players: players,
-            bracket: [] as Match[][], // FIX 2 적용
+            bracket: [] as Match[][],
             status: 'waiting',
             currentRound: 0,
             winner: null,
@@ -98,7 +97,6 @@ describe('TournamentManager - generateBracket', () => {
         expect(bracket[0]).to.have.lengthOf(4);
 
         const firstRound: Match[] = bracket[0];
-        // FIX 3: 콜백 파라미터에 타입을 지정해주면 더 명확해집니다. (이 부분은 bracket 타입이 올바르면 자동 추론되기도 합니다.)
         const byes = firstRound.filter((match: Match) => match.player2 === null);
         expect(byes).to.have.lengthOf(2);
         expect(byes[0].player1?.id).to.equal('1');
@@ -123,7 +121,7 @@ describe('TournamentManager - generateBracket', () => {
             id: 'test-tourney-5',
             name: '5 Players Test',
             players: players,
-            bracket: [] as Match[][], // FIX 2 적용
+            bracket: [] as Match[][], 
             status: 'waiting',
             currentRound: 0,
             winner: null,
