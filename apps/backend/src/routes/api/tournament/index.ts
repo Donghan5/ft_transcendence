@@ -3,6 +3,7 @@ import { FastifyInstance } from 'fastify';
 import { tournamentManager } from '../../../core/tournament/tournament-manager';
 import { authMiddleware } from '../../../middleware/auth.middleware';
 import { OnlineStatusManager } from '../../../core/status/online-status-manager';
+import jwt from 'jsonwebtoken';
 
 export default async function tournamentRoutes(fastify: FastifyInstance) {
     fastify.post('/create', { preHandler: [authMiddleware] }, async (request, reply) => {
@@ -412,18 +413,30 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
      */
     fastify.get('/ws/:tournamentId', { websocket: true }, (connection, request) => {
         const { tournamentId } = request.params as { tournamentId: string };
-        const userId = (request as any).user?.userId?.toString();
+        const token = (request.cookies as any).auth_token;
 
-        if (!userId || !tournamentId) {
+        if (!token) {
             connection.close();
             return;
         }
 
-        // ws.WebSocket 타입으로 명시적 캐스팅
-        tournamentManager.addSocket(tournamentId, userId, connection as unknown as import('ws').WebSocket);
-
-        connection.on('close', () => {
-            tournamentManager.removeSocket(tournamentId, userId);
-        });
+        try {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: number };
+            const userId = decoded.userId.toString();
+            if (!userId || !tournamentId) {
+                connection.close();
+                return;
+            }
+    
+            // ws.WebSocket 타입으로 명시적 캐스팅
+            tournamentManager.addSocket(tournamentId, userId, connection as unknown as import('ws').WebSocket);
+    
+            connection.on('close', () => {
+                tournamentManager.removeSocket(tournamentId, userId);
+            });
+        } catch (error) {
+            console.error('WebSocket connection error:', error);
+            connection.close();
+        }
     });
 }

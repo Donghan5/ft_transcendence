@@ -156,10 +156,12 @@
 
 67. 새로 고침을 눌러야 반영이 되는 현상 발생 --> when getting activated tournament
 
-68. 토너먼트를 만든 직후 --> websocket error occured. Please refresh 가 나옴
+68. 토너먼트를 만든 직후 --> websocket error occured. Please refresh 가 나옴 --> FIX
 
 68. test code for tournament --> little description (it은 첫번째 인자로 테스트 설명, 두번째 인자로 테스트 함수를 받는다)
 
+
+69. Insane test code error, it doesn't fix... What should I do ? WTF
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2

@@ -24,12 +24,13 @@ export const authMiddleware = async (request: AuthenticatedRequest, reply: Fasti
             throw new Error('JWT secret is not defined');
         }
 
-         const decoded = jwt.verify(token, secret) as { userId: number; profileComplete: boolean };
+        const decoded = jwt.verify(token, secret) as { userId: number; profileComplete: boolean };
 
-        // request.user = {
-        //     userId: decoded.userId,
-        //     profileComplete: decoded.profileComplete
-        // };
+        // commented out before
+        request.user = {
+            userId: decoded.userId,
+            profileComplete: decoded.profileComplete
+        };
 
         request.user = decoded;
 

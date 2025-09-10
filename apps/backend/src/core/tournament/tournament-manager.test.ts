@@ -1,5 +1,3 @@
-// apps/backend/src/core/tournament/tournament-manager.test.ts
-
 /**
  * @description Tests the TournamentManager class.
  * @usage first build docker environment, then run tests
@@ -17,6 +15,7 @@ import { initializeDatabase } from '../../database/db';
  * @param count The number of players to create.
  * @returns An array of mock tournament players.
  */
+// FIX 1: 'count' 파라미터에 'number' 타입을 명시적으로 지정했습니다.
 const createMockPlayers = (count: number): TournamentPlayer[] => {
     return Array.from({ length: count }, (_, i) => ({
         id: (i + 1).toString(),
@@ -31,29 +30,28 @@ const createMockPlayers = (count: number): TournamentPlayer[] => {
  * This method is responsible for generating the tournament bracket (with logic of generateBracket).
  */
 describe('TournamentManager - generateBracket', () => {
-    let tournamentManager: TournamentManager;
 
     before(async () => {
         await initializeDatabase();
     });
 
-    after (async () => {
+    after(async () => {
         await closeDatabase();
-    });
-    beforeEach(() => {
-        // @ts-ignore
-        tournamentManager = new TournamentManager()
     });
 
     // Scenario 1: Test case of 4 participants (without walk-out case)
     it('should create a balanced bracket for 4 players (a power of 2)', () => {
-        const players = createMockPlayers(4);
+        const tournamentManager = new TournamentManager();
+        
+        const playersNumber = 4;
+        const players = createMockPlayers(playersNumber);
         const tournament: Tournament = {
             id: 'test-tourney-4',
             name: '4 Players Test',
             players: players,
+            // FIX 2: 'bracket'이 Match의 2차원 배열임을 명확히 알려줍니다. (가장 중요한 수정)
             bracket: [] as Match[][], 
-            status : 'waiting',
+            status: 'waiting',
             currentRound: 0,
             winner: null,
             createdBy: '1'
@@ -61,14 +59,14 @@ describe('TournamentManager - generateBracket', () => {
 
         // @ts-ignore
         tournamentManager.generateBracket(tournament);
-        
+
         const { bracket } = tournament;
 
         expect(bracket).to.have.lengthOf(2);
         expect(bracket[0]).to.have.lengthOf(2);
         expect(bracket[1]).to.have.lengthOf(1);
 
-        const firstRound = bracket[0];
+        const firstRound: Match[] = bracket[0];
         expect(firstRound[0].player1?.id).to.equal('1');
         expect(firstRound[0].player2?.id).to.equal('4');
         expect(firstRound[1].player1?.id).to.equal('2');
@@ -77,12 +75,15 @@ describe('TournamentManager - generateBracket', () => {
 
     // Scenario 2: Test case of 6 participants (non power of 2, but pair number) --> walk-over
     it('should create a bracket with byes for 6 players', () => {
-        const players = createMockPlayers(6);
+        const tournamentManager = new TournamentManager();
+        
+        const playersNumber = 6;   
+        const players = createMockPlayers(playersNumber);
         const tournament: Tournament = {
             id: 'test-tourney-6',
             name: '6 Players Test',
             players: players,
-            bracket: [] as Match[][], 
+            bracket: [] as Match[][], // FIX 2 적용
             status: 'waiting',
             currentRound: 0,
             winner: null,
@@ -97,7 +98,8 @@ describe('TournamentManager - generateBracket', () => {
         expect(bracket).to.have.lengthOf(3);
         expect(bracket[0]).to.have.lengthOf(4);
 
-        const firstRound = bracket[0];
+        const firstRound: Match[] = bracket[0];
+        // FIX 3: 콜백 파라미터에 타입을 지정해주면 더 명확해집니다. (이 부분은 bracket 타입이 올바르면 자동 추론되기도 합니다.)
         const byes = firstRound.filter((match: Match) => match.player2 === null);
         expect(byes).to.have.lengthOf(2);
         expect(byes[0].player1?.id).to.equal('1');
@@ -105,21 +107,24 @@ describe('TournamentManager - generateBracket', () => {
 
         const actualMatches = firstRound.filter((match: Match) => match.player2 !== null);
         expect(actualMatches).to.have.lengthOf(2);
-        expect(actualMatches[0]!.player1?.id).to.equal('3');
-        expect(actualMatches[0]!.player2?.id).to.equal('6');
-        expect(actualMatches[1]!.player1?.id).to.equal('4');
-        expect(actualMatches[1]!.player2?.id).to.equal('5');
+        expect(actualMatches[0].player1?.id).to.equal('3');
+        expect(actualMatches[0].player2?.id).to.equal('6');
+        expect(actualMatches[1].player1?.id).to.equal('4');
+        expect(actualMatches[1].player2?.id).to.equal('5');
     });
 
     // Scenario 3: 5 Participants (odd number), with walk-over
     it('should create a bracket with byes for 5 players', () => {
-        const players = createMockPlayers(5);
+        const tournamentManager = new TournamentManager();
+        
+        const playersNumber = 5;
+        const players = createMockPlayers(playersNumber);
 
         const tournament: Tournament = {
             id: 'test-tourney-5',
             name: '5 Players Test',
             players: players,
-            bracket: [] as Match[][], 
+            bracket: [] as Match[][], // FIX 2 적용
             status: 'waiting',
             currentRound: 0,
             winner: null,
@@ -133,27 +138,29 @@ describe('TournamentManager - generateBracket', () => {
 
         expect(bracket).to.have.lengthOf(3);
         expect(bracket[0]).to.have.lengthOf(4);
-        
-        const firstRound = bracket[0];
+
+        const firstRound: Match[] = bracket[0];
         const byes = firstRound.filter((match: Match) => match.player2 === null);
         expect(byes).to.have.lengthOf(3);
         expect(byes.map((b: Match) => b.winner?.id)).to.deep.equal(['1', '2', '3']);
 
-        const actualMatches = firstRound.find((match: Match) => match.player2 !== null);
-        expect(actualMatches).to.exist;
-        expect(actualMatches!.player1?.id).to.equal('4');
-        expect(actualMatches!.player2?.id).to.equal('5');
+        const actualMatch = firstRound.find((match: Match) => match.player2 !== null);
+        expect(actualMatch).to.exist;
+        expect(actualMatch!.player1?.id).to.equal('4');
+        expect(actualMatch!.player2?.id).to.equal('5');
     });
-
 
     // Scenario 4: 3 Participants (minimum players)
     it('should create a correct bracket for the minimum of 3 players', () => {
-        const players = createMockPlayers(3);
+        const tournamentManager = new TournamentManager();
+
+        const playersNumber = 3;
+        const players = createMockPlayers(playersNumber);
         const tournament: Tournament = {
             id: 'test-tourney-3',
             name: '3 Players Test',
             players: players,
-            bracket: [] as Match[][], 
+            bracket: [] as Match[][], // FIX 2 적용
             status: 'waiting',
             currentRound: 0,
             winner: null,
@@ -168,14 +175,14 @@ describe('TournamentManager - generateBracket', () => {
         expect(bracket).to.have.lengthOf(2);
         expect(bracket[0]).to.have.lengthOf(2);
 
-        const firstRound = bracket[0];
+        const firstRound: Match[] = bracket[0];
         const byeMatch = firstRound.find((match: Match) => match.player2 === null);
         expect(byeMatch).to.exist;
         expect(byeMatch!.player1?.id).to.equal('1');
 
-        const actualMatches = firstRound.find((match: Match) => match.player2 !== null);
-        expect(actualMatches).to.exist;
-        expect(actualMatches!.player1?.id).to.equal('2');
-        expect(actualMatches!.player2?.id).to.equal('3');
+        const actualMatch = firstRound.find((match: Match) => match.player2 !== null);
+        expect(actualMatch).to.exist;
+        expect(actualMatch!.player1?.id).to.equal('2');
+        expect(actualMatch!.player2?.id).to.equal('3');
     });
-})
+});

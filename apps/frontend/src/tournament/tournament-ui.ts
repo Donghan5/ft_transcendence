@@ -721,8 +721,10 @@ export class TournamentUI {
             this.websocket.close();
         }
 
-        const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-        const wsUrl = `${protocol}//${window.location.host}/api/tournament/ws/${tournamentId}`;
+        // const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+        // const wsUrl = `${protocol}//${window.location.host}/api/tournament/ws/${tournamentId}`;
+
+        const wsUrl = `/api/tournament/ws/${tournamentId}`;
 
         this.websocket = new WebSocket(wsUrl);
 
