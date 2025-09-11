@@ -81,13 +81,12 @@ export class TournamentUI {
         this.setupEventListeners();
     }
 
-    // optimized code but have to fix
+    // optimized code but have to fix showing cancel or leave button depending on the user role
     // showTournamentLobby(tournament?: Tournament | null): void {
     //     let lobbyContent = '';
     //     const isCreator = tournament ? tournament.createdBy === this.currentUserId : false;
 
     //     if (tournament) {
-    //         // 토너먼트 정보가 있을 때의 UI (대기실)
     //         lobbyContent = `
     //             <h2 class="text-4xl uppercase mb-6">${tournament.name}</h2>
     //             <div id="participants-list" class="mb-6">
@@ -108,7 +107,6 @@ export class TournamentUI {
     //             </div>
     //         `;
     //     } else {
-    //         // 토너먼트 정보가 없을 때의 UI (생성 화면)
     //         lobbyContent = `
     //             <h2 class="text-4xl uppercase mb-6">Tournament Waiting Room</h2>
     //             <div class="mb-6">
@@ -139,6 +137,7 @@ export class TournamentUI {
     // }
 
     showBracket(tournament: Tournament): void {
+        // Adding start game or ready button for creator or non-creator (dependent on the role)
         this.container.innerHTML = `
             <div class="tournament-bracket bg-white border-thick shadow-sharp p-8">
                 <h2 class="text-4xl uppercase mb-6">${tournament.name} - Bracket</h2>

@@ -158,6 +158,8 @@
 
 77. 75 문제 전반을 아우르는 테스트 코드 필요할 듯
 
+78. 일단, 모든 유저가 start tournament 버튼을 누를 수 있게 하고, bracket로 입장을 함 --> 여기서 start or ready 버튼 (플레이어의 역할에 따라서)
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2
