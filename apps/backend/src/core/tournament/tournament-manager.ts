@@ -106,7 +106,7 @@ export class TournamentManager {
         }
 
         await this.addPlayerToTournament(tournament, playerId, user);
-        this.broadcastTournamentUpdate(tournamentId);
+        await this.broadcastTournamentUpdate(tournamentId);
         return true;
     }
 
@@ -133,7 +133,7 @@ export class TournamentManager {
         tournament.currentRound = 1;
 
         await this.updateTournamentInDB(tournament);
-        this.broadcastTournamentUpdate(tournamentId);
+        await this.broadcastTournamentUpdate(tournamentId);
         await this.startNextMatch(tournament);
         return true;
     }
@@ -244,6 +244,14 @@ export class TournamentManager {
             );
 
             nextMatch.gameId = gameId;
+
+            await dbRun(
+                `UPDATE tournament_matches SET game_id = ?, status = 'in_progress' WHERE id = ?`,
+                [gameId, nextMatch.id]
+            )
+
+            await this.broadcastTournamentUpdate(tournament.id);
+            
             this.startGameEndPolling(gameId, tournament, nextMatch);
 
         } else if (this.isRoundComplete(tournament)) {
@@ -339,6 +347,7 @@ export class TournamentManager {
             console.log(`Successfully processed game ${gameId} for match ${matchId}`);
             this.broadcastTournamentUpdate(tournament.id);
 
+            console.log('Starting next match with tournament object:', JSON.stringify(tournament, null, 2));
             setTimeout(() => {
                 this.startNextMatch(tournament);
             }, 3000);

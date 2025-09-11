@@ -134,4 +134,6 @@ signals.forEach((signal) => {
     });
 });
 
-start();
+if (require.main === module) {
+    start();
+}

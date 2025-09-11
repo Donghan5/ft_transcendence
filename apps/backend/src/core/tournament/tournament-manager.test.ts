@@ -34,10 +34,6 @@ describe('TournamentManager - generateBracket', () => {
         await initializeDatabase();
     });
 
-    after(async () => {
-        await closeDatabase();
-    });
-
     // Scenario 1: Test case of 4 participants (without walk-out case)
     it('should create a balanced bracket for 4 players (a power of 2)', () => {
         const tournamentManager = new TournamentManager();
