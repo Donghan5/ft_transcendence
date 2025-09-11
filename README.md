@@ -1,26 +1,6 @@
 # Project FT_Transcendence
 
-## ----- MILESTONE IDEA (KR) -----
-
-아이디어
-
-1. quick-play를 로컬 멀티 플레이어로 한다. --> DONE
-
-2. 토너먼트는 웹소켓으로 멀티 플레이어를 한다 (이걸 위해서는 로그인과, DB 연동이 필요함)
-
-3. AI 는 내가 이미 생성해둔 로직인 select ai level을 활용해서, ai를 클릭하고, 유저가 ai level을 선택할 수 있도록 한다.
-
-4. 로그인 이전 화면을 새롭게 만들어서, 현재 화면을 로그인 후에 하도록 한다. (현재 화면을 대쉬보드화 한다) --> DONE
-
-5. DB 로그인 플로우, DB 초기화 시점... --> DONE
-
-6. 유저 정보 관리 --> 정보 업데이트 기능 추가
-
-7. HTTPS 로 변경함 --> DONE
-
-8. study docker images volumes in make --> DONE
-
-## -------------------------------------------------------------
+## -------------------------- Bug Report -----------------------------------
 
 1. 로그인을 구현한다. OAuth2를 활용해서 google log-in 을 할 생각임 --> DONE
 
@@ -164,7 +144,7 @@
 
 70. 친구 요청 후 --> 요청 받은 대상자 친구 목록에 처음 접속시 failed to load data 나옴. refresh 하면 원상태 복구 --> to check
 
-71. 토너먼트 시작시 --> Tournament started failed: Error: Cannot read properties of undefined (reading 'find')
+71. 토너먼트 시작시 --> Tournament started failed: Error: Cannot read properties of undefined (reading 'find') --> fix
 
 72. invite 메서드 잘 작동함 --> 초대 받은 상대 로비 이동. --> 무조건 새로고침해야 참가한 토너먼트 로비가 보임
 
@@ -173,6 +153,10 @@
 74. 토너먼트 입장 후 start -> creator 는 show bracket 보여줌 -> 다른 참가자는 토너먼트 로비 (로비 + 대기자 명단) --> 토너먼트 실행 안됨
 
 75. start tournament 를 누르면 creator 제외 아무도 입장 안됨 --> 해결책 --> 일반 유저도 클릭할 수 있게 함 --> bracket 페이지에 들어옴. 여기서 creator 를 제외한 다른 플레이어들은 ready 만 누를 수 있고, creator는 모든 유저가 준비 상태가 되어야함 게임을 실행할 수 있음 (버튼을 추가할 것 각각)
+
+76. refresh bracket 를 누르면 메인 화면으로 돌아감
+
+77. 75 문제 전반을 아우르는 테스트 코드 필요할 듯
 
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
