@@ -81,6 +81,63 @@ export class TournamentUI {
         this.setupEventListeners();
     }
 
+    // optimized code but have to fix
+    // showTournamentLobby(tournament?: Tournament | null): void {
+    //     let lobbyContent = '';
+    //     const isCreator = tournament ? tournament.createdBy === this.currentUserId : false;
+
+    //     if (tournament) {
+    //         // 토너먼트 정보가 있을 때의 UI (대기실)
+    //         lobbyContent = `
+    //             <h2 class="text-4xl uppercase mb-6">${tournament.name}</h2>
+    //             <div id="participants-list" class="mb-6">
+    //                 <h3 class="text-2xl mb-2">List of participants</h3>
+    //                 <ul id="participants" class="space-y-2"></ul>
+    //             </div>
+    //             <div class="flex gap-4">
+    //                 <button id="invite-friends" class="flex-1 bg-blue-500 text-white py-3 border-thick hover-anarchy">
+    //                     Invite Friends
+    //                 </button>
+    //                 ${isCreator ?
+    //                     `<button id="cancel-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Cancel Tournament</button>` :
+    //                     `<button id="leave-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Leave Tournament</button>`
+    //                 }
+    //                 <button id="start-tournament" class="flex-1 bg-green-500 text-white py-3 border-thick hover-anarchy" ${!isCreator || tournament.players.length < 3 ? 'disabled' : ''}>
+    //                     Start Tournament
+    //                 </button>
+    //             </div>
+    //         `;
+    //     } else {
+    //         // 토너먼트 정보가 없을 때의 UI (생성 화면)
+    //         lobbyContent = `
+    //             <h2 class="text-4xl uppercase mb-6">Tournament Waiting Room</h2>
+    //             <div class="mb-6">
+    //                 <input type="text" id="tournament-name" placeholder="Tournament Name" class="w-full p-2 border-thick">
+    //                 <button id="create-tournament" class="mt-2 w-full bg-black text-white py-3 border-thick hover-anarchy">
+    //                     Create Tournament
+    //                 </button>
+    //             </div>
+    //             <div class="mt-6"> 
+    //                 <p class="text-lg">Tournament Description:</p>
+    //                 <p class="text-sm text-gray-600">Create a tournament and invite your friends to join! Once enough players have joined (at least 3), you can start the tournament.</p>
+    //             </div>
+    //         `;
+    //     }
+        
+    //     this.container.innerHTML = `
+    //         <div class="tournament-lobby bg-white border-thick shadow-sharp p-8">
+    //             ${lobbyContent}
+    //             <div id="tournament-status" class="mt-4 p-3 bg-gray-100 border-thick hidden"></div>
+    //         </div>
+    //     `;
+
+    //     if (tournament) {
+    //         this.updateParticipantsList(tournament.players);
+    //     }
+
+    //     this.setupEventListeners();
+    // }
+
     showBracket(tournament: Tournament): void {
         this.container.innerHTML = `
             <div class="tournament-bracket bg-white border-thick shadow-sharp p-8">
