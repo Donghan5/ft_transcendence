@@ -166,11 +166,13 @@
 
 71. 토너먼트 시작시 --> Tournament started failed: Error: Cannot read properties of undefined (reading 'find')
 
-72. invite 메서드 잘 작동함 --> 초대 받은 상대 로비 이동.
+72. invite 메서드 잘 작동함 --> 초대 받은 상대 로비 이동. --> 무조건 새로고침해야 참가한 토너먼트 로비가 보임
 
-73. 메인 화면을 통해서 토너먼트 입장한 사람 전용 ui ??
+73. 메인 화면을 통해서 토너먼트 입장한 사람 전용 ui ?? --> 무조건 새로고침해야 참가한 토너먼트 로비가 보임
 
 74. 토너먼트 입장 후 start -> creator 는 show bracket 보여줌 -> 다른 참가자는 토너먼트 로비 (로비 + 대기자 명단) --> 토너먼트 실행 안됨
+
+75. start tournament 를 누르면 creator 제외 아무도 입장 안됨 --> 해결책 --> 일반 유저도 클릭할 수 있게 함 --> bracket 페이지에 들어옴. 여기서 creator 를 제외한 다른 플레이어들은 ready 만 누를 수 있고, creator는 모든 유저가 준비 상태가 되어야함 게임을 실행할 수 있음 (버튼을 추가할 것 각각)
 
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
