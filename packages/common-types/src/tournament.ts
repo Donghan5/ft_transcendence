@@ -3,6 +3,7 @@ export interface TournamentPlayer {
     nickname: string;
     rating: number;
     seed: number;
+    isReady?: boolean;
 }
 
 export interface Match {
@@ -13,6 +14,7 @@ export interface Match {
     round: number;
     matchNumber: number;
     gameId?: string;
+    isReady?: boolean;
 }
 
 export interface Tournament {

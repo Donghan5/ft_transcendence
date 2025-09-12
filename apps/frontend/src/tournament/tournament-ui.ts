@@ -174,7 +174,8 @@ export class TournamentUI {
     }
 
     private generateBracketHTML(bracket: Match[][]): string {
-        if (!bracket.length) return '<p>Bracket not generated.</p>';
+        if (!bracket.length || bracket.length === 0)
+            return '<p class="text-xl text-center p-4">Waiting for the tournament creator to start the match...</p>';
 
         let html = '<div class="flex gap-8 overflow-x-auto">';
         
@@ -397,6 +398,27 @@ export class TournamentUI {
                 }
             });
         }
+
+        const readyBtn = document.getElementById('ready-button');
+        if (readyBtn) {
+            readyBtn.addEventListener('click', async () => {
+                if (!this.tournamentId) return;
+
+                try {
+                    const response = await fetch('/api/tournament/ready', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tournamentId: this.tournamentId }),
+                    });
+
+                    if (response.ok) {
+                        this.showStatusMessage('You are marked as ready!', 'success');
+                    }
+                } catch (error) {
+                    console.error('Set ready error:', error);
+                }
+            });
+        }
     }
 
     private setupBracketEventListeners(): void {
@@ -429,13 +451,7 @@ export class TournamentUI {
         
         if (response.ok) {
             const tournament = await response.json();
-            
-            if (tournament.status === 'in_progress' || tournament.status === 'finished') {
-                this.showBracket(tournament);
-            } else {
-                this.showTournamentLobby();
-                this.updateParticipantsList(tournament.players);
-            }
+            this.showBracket(tournament);
         }
     } catch (error) {
         console.error('Error refreshing tournament:', error);

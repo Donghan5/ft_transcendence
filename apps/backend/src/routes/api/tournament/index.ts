@@ -428,7 +428,6 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return;
             }
     
-            // ws.WebSocket 타입으로 명시적 캐스팅
             tournamentManager.addSocket(tournamentId, userId, connection as unknown as import('ws').WebSocket);
     
             connection.on('close', () => {
@@ -438,5 +437,28 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
             console.error('WebSocket connection error:', error);
             connection.close();
         }
+    });
+
+    /**
+     * @description send a ready signal
+     */
+    fastify.post('/ready', { preHandler: authMiddleware }, async (request, reply) => {
+        const { tournamentId } = request.body as { tournamentId: string };
+        const userId = (request as any).user?.userId;
+        
+        if (!userId) {
+            return reply.code(401).send({ error: 'Unauthorized' });
+        }
+
+        if (!tournamentId) {
+            return reply.code(400).send({ error: 'Tournament ID is required' });
+        }
+
+        await tournamentManager.setPlayerReady(tournamentId, userId.toString());
+
+        return reply.send({
+            success: true,
+            message: 'Player is ready'
+        });
     });
 }

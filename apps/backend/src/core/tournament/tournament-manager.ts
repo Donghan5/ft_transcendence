@@ -24,6 +24,38 @@ export class TournamentManager {
         }
     }
 
+    /**
+     * @description Mark a player as ready in a tournament
+     * @param tournamentId 
+     * @param playerId 
+     * @returns 
+     */
+    public async setPlayerReady(tournamentId: string, playerId: string) {
+        const tournament = await this.getTournamentInfo(tournamentId);
+
+        if (!tournament) return;
+
+        const player = tournament.players.find(p => p.id === playerId);
+        if (player) {
+            player.isReady = true;
+        }
+
+        await this.broadcastTournamentUpdate(tournamentId);
+    }
+
+
+    /**
+     * @description Check all players in a match are ready
+     * @param match current match which is going to start
+     */
+    private allPlayersReady(match: Match): boolean {
+        if (!match.player1 || !match.player2) return false;
+
+        const player1Ready = !!match.player1?.isReady;
+        const player2Ready = !!match.player2?.isReady;
+        return player1Ready && player2Ready;
+    }
+
     private async updateTournamentInDB(tournament: Tournament): Promise<void> {
         try {
             await dbRun(
@@ -235,7 +267,7 @@ export class TournamentManager {
         const currentRoundMatches = tournament.bracket[tournament.currentRound - 1];
         const nextMatch = currentRoundMatches.find(m => !m.winner && m.player1 && m.player2);
 
-        if (nextMatch) {
+        if (nextMatch && this.allPlayersReady(nextMatch)) {
             const gameId = await this.createTournamentGame(
                 nextMatch.player1!.id,
                 nextMatch.player2!.id,
