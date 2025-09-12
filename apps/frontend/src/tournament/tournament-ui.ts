@@ -9,6 +9,7 @@ export class TournamentUI {
     private websocket: WebSocket | null = null;
     // private pollInterval: number | null = null;
     private statusManager: any = null;
+    private currentUserId: string | null = null;
 
     constructor(containerId: string, statusManager?: any) {
         const container = document.getElementById(containerId);
@@ -17,6 +18,10 @@ export class TournamentUI {
         }
         this.container = container;
         this.statusManager = statusManager;
+    }
+
+    public setCurrentUserId(userId: string): void {
+        this.currentUserId = userId;
     }
 
     setTournamentId(tournamentId: string): void {
@@ -28,116 +33,84 @@ export class TournamentUI {
         this.connectToTournament(tournamentId);
     }
 
-    showTournamentLobby(): void {
-        this.container.innerHTML = `
-            <div class="tournament-lobby bg-white border-thick shadow-sharp p-8">
-                <h2 class="text-4xl uppercase mb-6">Tournament Waiting Room</h2>
-                
-                <div class="mb-6">
-                    <input type="text" id="tournament-name" 
-                           placeholder="Tournament Name" 
-                           class="w-full p-2 border-thick">
-                    <button id="create-tournament" 
-                            class="mt-2 w-full bg-black text-white py-3 border-thick hover-anarchy">
-                        Create Tournament
-                    </button>
-                </div>
+    /**
+     * @description Getting Tournament via API (not using StateManager)
+     */
+    public async getTournament(tournamentId: string): Promise<Tournament | null> {
+        // Fetch tournament data from API
+        const response = await fetch(`/api/tournament/${tournamentId}`);
+        if (!response.ok) {
+            console.error('Failed to fetch tournament:', response.statusText);
+            return null;
+        }
+        const tournament = await response.json();
+        return tournament;
+    }
 
+    /**
+     * @description show the tournament lobby UI.
+     * @param tournament The tournament object. If not provided, shows the create/join lobby.
+     */
+    showTournamentLobby(tournament?: Tournament): void {
+        let lobbyContentHtml = '';
+
+        if (tournament && this.currentUserId) {
+            const isCreator = tournament.createdBy === this.currentUserId;
+
+            lobbyContentHtml = `
+                <h2 class="text-4xl uppercase mb-6">${tournament.name}</h2>
                 <div id="participants-list" class="mb-6">
-                    <h3 class="text-2xl mb-2">List of participants</h3>
+                    <h3 class="text-2xl mb-2">Participants (${tournament.players.length})</h3>
                     <ul id="participants" class="space-y-2"></ul>
                 </div>
-
                 <div class="flex gap-4">
-                    <button id="invite-friends" 
-                            class="flex-1 bg-blue-500 text-white py-3 border-thick hover-anarchy">
-                        Invite Friends
-                    </button>
-
-                    <button id="cancel-tournament" 
-                            class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">
-                        Cancel Tournament
-                    </button>
-                            
-                    <button id="start-tournament" 
-                            class="flex-1 bg-green-500 text-white py-3 border-thick hover-anarchy"
-                            disabled>
+                    <button id="invite-friends" class="flex-1 bg-blue-500 ...">Invite Friends</button>
+                    ${isCreator
+                        ? `<button id="cancel-tournament" class="flex-1 bg-red-500 ...">Cancel Tournament</button>`
+                        : `<button id="leave-tournament" class="flex-1 bg-red-500 ...">Leave Tournament</button>`
+                    }
+                    <button id="start-tournament" class="flex-1 bg-green-500 ..." ${!isCreator || tournament.players.length < 3 ? 'disabled' : ''}>
                         Start Tournament
                     </button>
                 </div>
+            `;
+        } 
 
-                <div class="mt-6"> 
-                    <p class="text-lg">Tournament Description:</p>
-                    <p class="text-sm text-gray-600">Create a tournament and invite your friends to join! 
-                    Once enough players have joined (at least 3), you can start the tournament and see the bracket unfold.</p>
+        else {
+            lobbyContentHtml = `
+                <h2 class="text-4xl uppercase mb-6">Create a Tournament</h2>
+                <div class="mb-6">
+                    <input type="text" id="tournament-name" placeholder="Tournament Name" class="w-full p-2 border-thick">
+                    <button id="create-tournament" class="mt-2 w-full bg-black ...">Create Tournament</button>
                 </div>
-
+                <p class="text-sm text-gray-600">Create a tournament and invite friends to join!</p>
+            `;
+        }
+        
+        this.container.innerHTML = `
+            <div class="tournament-lobby bg-white border-thick shadow-sharp p-8">
+                ${lobbyContentHtml}
                 <div id="tournament-status" class="mt-4 p-3 bg-gray-100 border-thick hidden">
-                    <p id="status-text">status: Waiting</p>
+                    <p id="status-text"></p>
                 </div>
             </div>
         `;
 
+        if (tournament) {
+            this.updateParticipantsList(tournament.players);
+        }
         this.setupEventListeners();
     }
 
-    // optimized code but have to fix showing cancel or leave button depending on the user role
-    // showTournamentLobby(tournament?: Tournament | null): void {
-    //     let lobbyContent = '';
-    //     const isCreator = tournament ? tournament.createdBy === this.currentUserId : false;
-
-    //     if (tournament) {
-    //         lobbyContent = `
-    //             <h2 class="text-4xl uppercase mb-6">${tournament.name}</h2>
-    //             <div id="participants-list" class="mb-6">
-    //                 <h3 class="text-2xl mb-2">List of participants</h3>
-    //                 <ul id="participants" class="space-y-2"></ul>
-    //             </div>
-    //             <div class="flex gap-4">
-    //                 <button id="invite-friends" class="flex-1 bg-blue-500 text-white py-3 border-thick hover-anarchy">
-    //                     Invite Friends
-    //                 </button>
-    //                 ${isCreator ?
-    //                     `<button id="cancel-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Cancel Tournament</button>` :
-    //                     `<button id="leave-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Leave Tournament</button>`
-    //                 }
-    //                 <button id="start-tournament" class="flex-1 bg-green-500 text-white py-3 border-thick hover-anarchy" ${!isCreator || tournament.players.length < 3 ? 'disabled' : ''}>
-    //                     Start Tournament
-    //                 </button>
-    //             </div>
-    //         `;
-    //     } else {
-    //         lobbyContent = `
-    //             <h2 class="text-4xl uppercase mb-6">Tournament Waiting Room</h2>
-    //             <div class="mb-6">
-    //                 <input type="text" id="tournament-name" placeholder="Tournament Name" class="w-full p-2 border-thick">
-    //                 <button id="create-tournament" class="mt-2 w-full bg-black text-white py-3 border-thick hover-anarchy">
-    //                     Create Tournament
-    //                 </button>
-    //             </div>
-    //             <div class="mt-6"> 
-    //                 <p class="text-lg">Tournament Description:</p>
-    //                 <p class="text-sm text-gray-600">Create a tournament and invite your friends to join! Once enough players have joined (at least 3), you can start the tournament.</p>
-    //             </div>
-    //         `;
-    //     }
-        
-    //     this.container.innerHTML = `
-    //         <div class="tournament-lobby bg-white border-thick shadow-sharp p-8">
-    //             ${lobbyContent}
-    //             <div id="tournament-status" class="mt-4 p-3 bg-gray-100 border-thick hidden"></div>
-    //         </div>
-    //     `;
-
-    //     if (tournament) {
-    //         this.updateParticipantsList(tournament.players);
-    //     }
-
-    //     this.setupEventListeners();
-    // }
-
+    /**
+     * @description Show the tournament bracket.
+     * @param tournament The tournament object containing bracket information.
+     * @Todo adding ready or start button depending on the user role (creator or not) 
+    */
     showBracket(tournament: Tournament): void {
         // Adding start game or ready button for creator or non-creator (dependent on the role)
+        const isCreator = tournament.createdBy === this.currentUserId;
+
         this.container.innerHTML = `
             <div class="tournament-bracket bg-white border-thick shadow-sharp p-8">
                 <h2 class="text-4xl uppercase mb-6">${tournament.name} - Bracket</h2>
@@ -160,6 +133,10 @@ export class TournamentUI {
                             class="bg-gray-500 text-white py-3 px-6 border-thick hover-anarchy">
                         Go Back to Lobby
                     </button>
+                    ${isCreator ?
+                        `<button id="cancel-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Cancel Tournament</button>` :
+                        `<button id="leave-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Leave Tournament</button>`
+                    }
                 </div>
 
                 ${tournament.winner ? `
@@ -170,7 +147,7 @@ export class TournamentUI {
             </div>
         `;
 
-        this.setupBracketEventListeners();
+        this.setupBracketEventListeners(tournament);
     }
 
     private generateBracketHTML(bracket: Match[][]): string {
@@ -421,8 +398,9 @@ export class TournamentUI {
         }
     }
 
-    private setupBracketEventListeners(): void {
+    private setupBracketEventListeners(tournament: Tournament): void {
         const tournamentId = this.tournamentId;
+
         if (!tournamentId) return;
         const refreshBtn = document.getElementById('refresh-bracket');
         if (refreshBtn) {
@@ -435,7 +413,10 @@ export class TournamentUI {
         if (backBtn) {
             backBtn.addEventListener('click', () => {
                 this.cleanWebSocket();
-                this.showTournamentLobby();
+                if (!tournament)
+                    this.showTournamentLobby();
+                else
+                    this.showTournamentLobby(tournament);
             });
         }
     }

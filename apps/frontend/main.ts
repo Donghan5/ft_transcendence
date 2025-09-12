@@ -520,7 +520,11 @@ function showTournamentLobby() {
         // tournamentUI = new TournamentUI('tournamentContent');
 		tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
     }
-    
+
+	if (currentUser && tournamentUI) {
+		tournamentUI.setCurrentUserId(currentUser.id.toString());
+	}
+
     tournamentUI.showTournamentLobby();
 }
 
@@ -1346,7 +1350,11 @@ async function checkAndRestoreTournamentState(user: any): Promise<boolean> {
                 if (!tournamentUI) {
                     tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
                 }
-                
+
+				if (currentUser && tournamentUI) {
+					tournamentUI.setCurrentUserId(currentUser.id.toString());
+				}
+							
                 tournamentUI.setTournamentId(tournament.id);
                 tournamentUI.connectToExistingTournament(tournament.id);
                 
@@ -1719,6 +1727,10 @@ function showTournamentScreen() {
 		(window as any).tournamentUI = tournamentUI;
 	}
 
+	if (currentUser && tournamentUI) {
+		tournamentUI.setCurrentUserId(currentUser.id.toString());
+	}
+
 	tournamentUI.showTournamentLobby();
 
 	loadActiveTournaments();
@@ -1812,7 +1824,11 @@ function joinExistingTournament(tournamentId: string): void {
 		console.error('Tournament UI not initialized');
 		return;
 	}
-	
+
+	if (currentUser && tournamentUI) {
+		tournamentUI.setCurrentUserId(currentUser.id.toString());
+	}
+
 	tournamentUI.joinTournament(tournamentId)
 		.then((success) => {
 			if (success) {
@@ -1898,16 +1914,14 @@ function displayHomeTournaments(tournaments: any[]): void {
                 tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
             }
             
+			if (currentUser && tournamentUI) {
+				tournamentUI.setCurrentUserId(currentUser.id.toString());
+			}
+
             await tournamentUI.joinTournament(tournamentId);
             showSection('tournamentLobby');
-            
-            const tournamentLobbySection = document.getElementById('tournamentLobbySection');
-            if (tournamentLobbySection) {
-                tournamentLobbySection.innerHTML = ''; 
-                tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
-                await tournamentUI.joinTournament(tournamentId);
-                tournamentUI.showTournamentLobby();
-            }
+
+            tournamentUI.showTournamentLobby();
 
             loadHomeTournaments();
             
