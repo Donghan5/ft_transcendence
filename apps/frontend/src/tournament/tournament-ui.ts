@@ -790,6 +790,13 @@ export class TournamentUI {
             if (message.type === 'tournamentUpdate') {
                 const tournament: Tournament = message.payload;
                 this.updateUI(tournament);
+
+                const myMatch = this.findMyCurrentMatch(tournament);
+
+                if (myMatch && myMatch.gameId && !this.isGameActive(myMatch.gameId)) {
+                    console.log(`[WS] New game started: ${myMatch.gameId}`);
+                    window.startGame(myMatch.gameId, this.currentUserId, 'tournament');
+                }
             }
         };
 
@@ -803,6 +810,41 @@ export class TournamentUI {
         };
     }
 
+    /**
+     * @description Find the current match for the user in the tournament
+     * @param tournament 
+     * @returns 
+     */
+    private findMyCurrentMatch(tournament: Tournament): Match | null {
+        if (tournament.status !== 'in_progress' || !this.currentUserId) {
+            return null;
+        }
+
+        const currentRoundMatches = tournament.bracket[tournament.currentRound - 1];
+        if (!currentRoundMatches) {
+            return null;
+        }
+
+        return currentRoundMatches.find(match =>
+            !match.winner && 
+            (match.player1?.id === this.currentUserId || match.player2?.id === this.currentUserId)
+        ) || null;
+    }
+
+    /**
+     * @description Check if the game is currently active
+     * @param gameId 
+     */
+    private isGameActive(gameId: string): boolean {
+        const activeGame = (window as any).currentGame;
+        return activeGame && activeGame.state?.gameId === gameId;
+    }
+
+
+    /**
+     * @description Update the UI based on the tournament status
+     * @param tournament 
+     */
     private updateUI(tournament: Tournament): void {
         if (tournament.status === 'in_progress' || tournament.status === 'finished') {
             this.showBracket(tournament);

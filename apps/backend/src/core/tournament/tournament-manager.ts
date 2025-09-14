@@ -165,7 +165,7 @@ export class TournamentManager {
         tournament.currentRound = 1;
 
         await this.updateTournamentInDB(tournament);
-        await this.broadcastTournamentUpdate(tournamentId);
+        await this.broadcastTournamentUpdate(tournamentId, tournament);
         await this.startNextMatch(tournament);
         return true;
     }
@@ -261,13 +261,17 @@ export class TournamentManager {
         }
     }
     
+    // in apps/backend/src/core/tournament/tournament-manager.ts
+
     private async startNextMatch(tournament: Tournament) {
         if (!tournament) return;
 
         const currentRoundMatches = tournament.bracket[tournament.currentRound - 1];
         const nextMatch = currentRoundMatches.find(m => !m.winner && m.player1 && m.player2);
 
-        if (nextMatch && this.allPlayersReady(nextMatch)) {
+        const isFirstMatchOfTournament = tournament.currentRound === 1 && nextMatch?.matchNumber === currentRoundMatches.findIndex(m => m.player1 && m.player2);
+
+        if (nextMatch && (isFirstMatchOfTournament || this.allPlayersReady(nextMatch))) {
             const gameId = await this.createTournamentGame(
                 nextMatch.player1!.id,
                 nextMatch.player2!.id,
@@ -282,7 +286,7 @@ export class TournamentManager {
                 [gameId, nextMatch.id]
             )
 
-            await this.broadcastTournamentUpdate(tournament.id);
+            await this.broadcastTournamentUpdate(tournament.id, tournament);
             
             this.startGameEndPolling(gameId, tournament, nextMatch);
 
@@ -346,7 +350,7 @@ export class TournamentManager {
      * @param gameState The state of the game.
      * @returns 
      */
-    private async handleGameEnd(gameId: string, tournament: Tournament, matchId: string, gameState: any) {
+    public async handleGameEnd(gameId: string, _staleTournament: Tournament, matchId: string, gameState: any) {
         const db = await getDatabase();
 
         try {
@@ -359,6 +363,9 @@ export class TournamentManager {
                 return;
             }
 
+            const tournamentId = matchId.split('_r')[0];
+
+            const tournament = await this.getTournamentInfo(tournamentId);
             if (!tournament) {
                 throw new Error(`Tournament object not found`);
             }
@@ -843,12 +850,12 @@ export class TournamentManager {
         }
     }
 
-    private async broadcastTournamentUpdate(tournamentId: string): Promise<void> {
+    private async broadcastTournamentUpdate(tournamentId: string, tournamentData?: Tournament): Promise<void> {
         const sockets = this.tournamentSockets.get(tournamentId);
          if (!sockets || sockets.size === 0) return;
 
          try {
-            const tournament = await this.getTournamentInfo(tournamentId);
+            const tournament = tournamentData || await this.getTournamentInfo(tournamentId);
             if (!tournament) return;
 
             const message = JSON.stringify({

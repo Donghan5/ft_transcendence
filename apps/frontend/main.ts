@@ -1132,7 +1132,7 @@ function showGameScreen() {
 	console.log('Game screen is shown');
 }
 
-function startGame(gameId: string, playerId: string, gameMode: string) {
+export function startGame(gameId: string, playerId: string, gameMode: string) {
 	console.log('Starting initialize game...')
 
 	if (currentGame) {
@@ -1954,3 +1954,5 @@ function startHomeTournamentPolling(): void {
         }
     }
 };
+
+(window as any).startGame = startGame;
