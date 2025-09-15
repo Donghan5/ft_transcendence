@@ -73,16 +73,16 @@ export class TournamentUI {
                     <ul id="participants" class="space-y-2"></ul>
                 </div>
                 <div class="flex gap-4">
-                    <button id="invite-friends" class="flex-1 bg-blue-500 ...">Invite Friends</button>
+                    <button id="invite-friends" class="flex-1 bg-blue-500 text-white py-3 border-thick hover-anarchy">Invite Friends</button>
                     ${isCreator
-                        ? `<button id="cancel-tournament" class="flex-1 bg-red-500 ...">Cancel Tournament</button>`
-                        : `<button id="leave-tournament" class="flex-1 bg-red-500 ...">Leave Tournament</button>`
+                        ? `<button id="cancel-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Cancel Tournament</button>`
+                        : `<button id="leave-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Leave Tournament</button>`
                     }
                     ${isCreator
-                        ? `<button id="start-tournament" class="flex-1 bg-green-500 ..." ${!allReady ? 'disabled' : ''}>
+                        ? `<button id="start-tournament" class="flex-1 bg-green-500 text-white py-3 border-thick hover-anarchy" ${!allReady ? 'disabled' : ''}>
                             Start Tournament
                         </button>`
-                        : `<button id="ready-btn" class="flex-1 ${me?.isReady ? 'bg-gray-400' : 'bg-yellow-500'} ...">
+                        : `<button id="ready-btn" class="flex-1 ${me?.isReady ? 'bg-gray-400' : 'bg-yellow-500'} text-white py-3 border-thick hover-anarchy">
                             ${me?.isReady ? 'Ready ✔' : 'Ready?'}
                         </button>`
                     }
@@ -105,7 +105,7 @@ export class TournamentUI {
         }
         
         this.container.innerHTML = `
-            <div class="tournament-lobby bg-white border-thick shadow-sharp p-8 animate-pop">
+            <div class="tournament-lobby bg-blue-500 border-thick shadow-sharp p-8 animate-pop">
                 ${lobbyContentHtml}
                 <div id="tournament-status" class="mt-4 p-3 bg-gray-100 border-thick hidden">
                     <p id="status-text"></p>
