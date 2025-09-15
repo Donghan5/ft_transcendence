@@ -822,13 +822,14 @@ export class TournamentUI {
             const message = JSON.parse(event.data);
             if (message.type === 'tournamentUpdate') {
                 const tournament: Tournament = message.payload;
-                this.updateUI(tournament);
 
                 const myMatch = this.findMyCurrentMatch(tournament);
 
                 if (myMatch && myMatch.gameId && !this.isGameActive(myMatch.gameId)) {
                     console.log(`[WS] New game started: ${myMatch.gameId}`);
                     window.startGame(myMatch.gameId, this.currentUserId, 'tournament');
+                } else {
+                    this.updateUI(tournament);
                 }
             }
         };
