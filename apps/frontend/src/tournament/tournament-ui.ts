@@ -85,17 +85,20 @@ export class TournamentUI {
 
         else {
             lobbyContentHtml = `
-                <h2 class="text-4xl uppercase mb-6">Create a Tournament</h2>
-                <div class="mb-6">
-                    <input type="text" id="tournament-name" placeholder="Tournament Name" class="w-full p-2 border-thick">
-                    <button id="create-tournament" class="mt-2 w-full bg-black ...">Create Tournament</button>
+                <div class="bg-yellow-300 p-5 border-thick shadow-sharp text-black text-center">
+                    <h2 class="text-4xl text-outline-white mb-4">CREATE TOURNAMENT</h2>
+                    <div class="flex flex-col items-center gap-4">
+                        <input type="text" id="tournament-name" placeholder="TOURNAMENT NAME" class="w-full p-3 text-2xl uppercase text-center border-thick">
+                        <button id="create-tournament" class="w-full bg-pink-500 text-white px-6 py-3 text-2xl uppercase border-thick shadow-sharp hover-anarchy">
+                            CREATE
+                        </button>
+                    </div>
                 </div>
-                <p class="text-sm text-gray-600">Create a tournament and invite friends to join!</p>
             `;
         }
         
         this.container.innerHTML = `
-            <div class="tournament-lobby bg-white border-thick shadow-sharp p-8">
+            <div class="tournament-lobby bg-white border-thick shadow-sharp p-8 animate-pop">
                 ${lobbyContentHtml}
                 <div id="tournament-status" class="mt-4 p-3 bg-gray-100 border-thick hidden">
                     <p id="status-text"></p>
@@ -115,8 +118,42 @@ export class TournamentUI {
      * @Todo adding ready or start button depending on the user role (creator or not) 
     */
     showBracket(tournament: Tournament): void {
-        // Adding start game or ready button for creator or non-creator (dependent on the role)
         const isCreator = tournament.createdBy === this.currentUserId;
+        const myMatch = this.findMyCurrentMatch(tournament);
+        const arePlayersReady = myMatch && myMatch.player1?.isReady && myMatch.player2?.isReady;
+
+        let actionButtonsHTML = `
+            <button id="refresh-bracket" class="flex-1 bg-blue-500 text-white py-3 px-6 border-thick hover-anarchy">
+                Refresh Bracket
+            </button>
+            <button id="back-to-lobby" class="flex-1 bg-gray-500 text-white py-3 px-6 border-thick hover-anarchy">
+                Go Back to Lobby
+            </button>
+        `;
+
+        if (tournament.status === 'in_progress' && myMatch && !myMatch.winner) {
+            if (isCreator) {
+                actionButtonsHTML += `
+                    <button id="start-match-btn" class="flex-1 bg-green-500 text-white py-3 px-6 border-thick hover-anarchy" ${!arePlayersReady ? 'disabled' : ''}>
+                        Start Match
+                    </button>
+                `;
+            } 
+            else if (myMatch.player1?.id === this.currentUserId && !myMatch.player1.isReady || myMatch.player2?.id === this.currentUserId && !myMatch.player2.isReady) {
+                 actionButtonsHTML += `
+                    <button id="ready-btn" class="flex-1 bg-yellow-500 text-black py-3 px-6 border-thick hover-anarchy">
+                        Ready
+                    </button>
+                `;
+            }
+        }
+        
+        if (isCreator) {
+            actionButtonsHTML += `<button id="cancel-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Cancel Tournament</button>`;
+        } else {
+            actionButtonsHTML += `<button id="leave-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Leave Tournament</button>`;
+        }
+
 
         this.container.innerHTML = `
             <div class="tournament-bracket bg-white border-thick shadow-sharp p-8">
@@ -131,19 +168,8 @@ export class TournamentUI {
                     ${this.generateBracketHTML(tournament.bracket)}
                 </div>
 
-                <div class="mt-6 flex gap-4">
-                    <button id="refresh-bracket" 
-                            class="bg-blue-500 text-white py-3 px-6 border-thick hover-anarchy">
-                        Refresh Bracket
-                    </button>
-                    <button id="back-to-lobby" 
-                            class="bg-gray-500 text-white py-3 px-6 border-thick hover-anarchy">
-                        Go Back to Lobby
-                    </button>
-                    ${isCreator ?
-                        `<button id="cancel-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Cancel Tournament</button>` :
-                        `<button id="leave-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Leave Tournament</button>`
-                    }
+                <div class="mt-6 flex flex-wrap gap-4">
+                    ${actionButtonsHTML}
                 </div>
 
                 ${tournament.winner ? `
@@ -201,7 +227,7 @@ export class TournamentUI {
 
     private getMatchStatus(match: Match): string {
         if (match.winner) return 'done';
-        if (match.gameId) return 'in progress';
+        if (match.gameId && window.currentGame?.state?.gameId === match.gameId) return 'in progress';
         if (match.player1 && match.player2) return 'waiting';
         if (match.player1 && !match.player2) return 'walkover';
         return 'waiting';
@@ -258,7 +284,11 @@ export class TournamentUI {
                         StateManager.saveTournamentState(this.tournamentId, true, name);
                         
                         this.showStatusMessage('Tournament created!', 'success');
-                        this.connectToTournament(data.tournamentId);
+                        // this.connectToTournament(data.tournamentId);
+                        const createdTournament = await this.getTournament(data.tournamentId);
+                        if (createdTournament) {
+                            this.showTournamentLobby(createdTournament);
+                        }
                     } else {
                         const error = await response.json();
                         throw new Error(error.message || 'Failed to create tournament');
@@ -383,7 +413,7 @@ export class TournamentUI {
             });
         }
 
-        const readyBtn = document.getElementById('ready-button');
+        const readyBtn = document.getElementById('ready-btn');
         if (readyBtn) {
             readyBtn.addEventListener('click', async () => {
                 if (!this.tournamentId) return;
@@ -393,14 +423,28 @@ export class TournamentUI {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ tournamentId: this.tournamentId }),
+                        credentials: 'include'
                     });
 
                     if (response.ok) {
                         this.showStatusMessage('You are marked as ready!', 'success');
+                        (readyBtn as HTMLButtonElement).textContent = 'Ready ✔';
+                        (readyBtn as HTMLButtonElement).disabled = true;
+                    } else {
+                        const error = await response.json();
+                        throw new Error(error.message || 'Set ready failed');
                     }
                 } catch (error) {
                     console.error('Set ready error:', error);
                 }
+            });
+        }
+
+        const startMatchBtn = document.getElementById('start-match-btn');
+        if (startMatchBtn) {
+            startMatchBtn.addEventListener('click', async () => {
+                this.showStatusMessage('Starting match...', 'info');
+                this.refreshTournament(this.tournamentId!);
             });
         }
     }
@@ -554,9 +598,12 @@ export class TournamentUI {
                 if (infoResponse.ok) {
                     const tournament = await infoResponse.json();
                     StateManager.saveTournamentState(tournamentId, false, tournament.name);
+
+                    this.showTournamentLobby(tournament);
+                } else {
+                    this.connectToTournament(tournamentId);
                 }
                 
-                this.connectToTournament(tournamentId);
                 return true;
             }
             return false;

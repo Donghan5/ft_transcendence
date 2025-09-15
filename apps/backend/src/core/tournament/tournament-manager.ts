@@ -40,7 +40,7 @@ export class TournamentManager {
             player.isReady = true;
         }
 
-        await this.broadcastTournamentUpdate(tournamentId);
+        await this.broadcastTournamentUpdate(tournamentId, tournament);
     }
 
 
@@ -269,7 +269,7 @@ export class TournamentManager {
 
         const isFirstMatchOfTournament = tournament.currentRound === 1 && nextMatch?.matchNumber === currentRoundMatches.findIndex(m => m.player1 && m.player2);
 
-        if (nextMatch /* && (isFirstMatchOfTournament || this.allPlayersReady(nextMatch))*/) {
+        if (nextMatch  && (isFirstMatchOfTournament || this.allPlayersReady(nextMatch))) {
             const gameId = await this.createTournamentGame(
                 nextMatch.player1!.id,
                 nextMatch.player2!.id,

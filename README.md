@@ -164,6 +164,12 @@
 
 80. 토너먼트 로비 ui 깨짐 (초반에) && 플레이어 업데이트 안되는 상황 && showBracket 에서 start/ready 버튼 안보이고 cancel/leave 버튼만 있음. --> 그래서 게임 시작을 못함 
 
+81. 기능 작동 잘 안함. ready/start leave/cancel --> match가 진행이 안되고 있는데 in_progress라는 생태 나옴 --> 이게 주요한 원인일 가능성도 있음 (in progress 상태는 해결함. 여전히 ready 기능이 작동을 하지 않음)
+
+82. 토너먼트를 생성하면 바로 로비가 아닌 showBracket으로 감 (생성자는 해결) --> 중간에 tournament lobby (participants 보여주는 것) 이상함. (생성자는 해결)
+
+83. 참가자의 문제는 조인 -> 토너먼트 create화면으로 이동 -> 새로고침 -> 바로 showBracket -> 그것 때문에 leave 토너먼트가 되지가 않음
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2

@@ -244,7 +244,7 @@ async function handleLocalRegister(e: Event) {
 		setTimeout(() => {
 			showAuthTab('login'); // Switch to login tab after successful registration
 			showAuthSuccess('registerSuccess', 'Please login to continue.');
-		}, 2000);
+		}, 1000);
 	} else {
 		showAuthError('registerError', result.error || 'Registration failed.');
 	}
