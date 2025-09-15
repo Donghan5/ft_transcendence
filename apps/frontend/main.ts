@@ -1361,7 +1361,13 @@ async function checkAndRestoreTournamentState(user: any): Promise<boolean> {
 				}
 							
                 tournamentUI.setTournamentId(tournament.id);
-                tournamentUI.connectToExistingTournament(tournament.id);
+
+                if (tournament.status === 'waiting') {
+					tournamentUI.showTournamentLobby(tournament);
+				} else {
+					tournamentUI.showBracket(tournament);
+				}
+
                 
                 return true;
             }

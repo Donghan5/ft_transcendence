@@ -63,8 +63,10 @@ export class TournamentUI {
 
         if (tournament && this.currentUserId) {
             const isCreator = tournament.createdBy === this.currentUserId;
+            const me = tournament.players.find(p => p.id === this.currentUserId);
+            const allReady = tournament.players.length >= 3 && tournament.players.every(p => p.isReady);
 
-            lobbyContentHtml = `
+             lobbyContentHtml = `
                 <h2 class="text-4xl uppercase mb-6">${tournament.name}</h2>
                 <div id="participants-list" class="mb-6">
                     <h3 class="text-2xl mb-2">Participants (${tournament.players.length})</h3>
@@ -76,9 +78,14 @@ export class TournamentUI {
                         ? `<button id="cancel-tournament" class="flex-1 bg-red-500 ...">Cancel Tournament</button>`
                         : `<button id="leave-tournament" class="flex-1 bg-red-500 ...">Leave Tournament</button>`
                     }
-                    <button id="start-tournament" class="flex-1 bg-green-500 ..." ${!isCreator || tournament.players.length < 3 ? 'disabled' : ''}>
-                        Start Tournament
-                    </button>
+                    ${isCreator
+                        ? `<button id="start-tournament" class="flex-1 bg-green-500 ..." ${!allReady ? 'disabled' : ''}>
+                            Start Tournament
+                        </button>`
+                        : `<button id="ready-btn" class="flex-1 ${me?.isReady ? 'bg-gray-400' : 'bg-yellow-500'} ...">
+                            ${me?.isReady ? 'Ready ✔' : 'Ready?'}
+                        </button>`
+                    }
                 </div>
             `;
         } 
@@ -130,30 +137,6 @@ export class TournamentUI {
                 Go Back to Lobby
             </button>
         `;
-
-        if (tournament.status === 'in_progress' && myMatch && !myMatch.winner) {
-            if (isCreator) {
-                actionButtonsHTML += `
-                    <button id="start-match-btn" class="flex-1 bg-green-500 text-white py-3 px-6 border-thick hover-anarchy" ${!arePlayersReady ? 'disabled' : ''}>
-                        Start Match
-                    </button>
-                `;
-            } 
-            else if (myMatch.player1?.id === this.currentUserId && !myMatch.player1.isReady || myMatch.player2?.id === this.currentUserId && !myMatch.player2.isReady) {
-                 actionButtonsHTML += `
-                    <button id="ready-btn" class="flex-1 bg-yellow-500 text-black py-3 px-6 border-thick hover-anarchy">
-                        Ready
-                    </button>
-                `;
-            }
-        }
-        
-        // if (isCreator) {
-        //     actionButtonsHTML += `<button id="cancel-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Cancel Tournament</button>`;
-        // } else {
-        //     actionButtonsHTML += `<button id="leave-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Leave Tournament</button>`;
-        // }
-
 
         this.container.innerHTML = `
             <div class="tournament-bracket bg-white border-thick shadow-sharp p-8">
@@ -501,11 +484,10 @@ export class TournamentUI {
         if (!list) return;
 
         list.innerHTML = players.map(p => `
-            <li class="flex justify-between items-center p-2 bg-gray-100 border-thick">
-                <span class="font-medium">${p.nickname}</span>
+            <li class="flex justify-between items-center p-2 ${p.isReady ? 'bg-green-100' : 'bg-gray-100'} border-thick">
+                <span class="font-medium">${p.nickname} ${p.isReady ? '✔' : ''}</span>
                 <div class="text-sm text-gray-600">
                     <span>Rating: ${p.rating}</span>
-                    ${p.seed > 0 ? `<span class="ml-2">Seed: ${p.seed}</span>` : ''}
                 </div>
             </li>
         `).join('');
