@@ -503,6 +503,11 @@ function showLoginScreen(){
 async function showAppScreen(user: any) {
 	currentUser = user;
     
+	// temporary add
+	if (await checkAndRestoreTournamentState(user)) {
+		return;
+	}
+
 	showSection('hero');
 	
 	const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;

@@ -159,7 +159,7 @@ export class TournamentManager {
 
         // Create initial bracket
         await this.generateBracket(tournament);
-        tournament.status = 'in_progress';
+        // tournament.status = 'in_progress';
         tournament.currentRound = 1;
 
         await this.updateTournamentInDB(tournament);
@@ -269,7 +269,11 @@ export class TournamentManager {
 
         const isFirstMatchOfTournament = tournament.currentRound === 1 && nextMatch?.matchNumber === currentRoundMatches.findIndex(m => m.player1 && m.player2);
 
-        if (nextMatch  && (isFirstMatchOfTournament || this.allPlayersReady(nextMatch))) {
+        if (nextMatch  && this.allPlayersReady(nextMatch)) {
+            if (tournament.status === 'waiting') {
+                tournament.status = 'in_progress';
+                await this.updateTournamentInDB(tournament);
+            }
             const gameId = await this.createTournamentGame(
                 nextMatch.player1!.id,
                 nextMatch.player2!.id,

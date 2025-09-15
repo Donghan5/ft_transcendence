@@ -170,6 +170,8 @@
 
 83. 참가자의 문제는 조인 -> 토너먼트 create화면으로 이동 -> 새로고침 -> 바로 showBracket -> 그것 때문에 leave 토너먼트가 되지가 않음
 
+84. 바로 게임이 시작이 안되는 이유
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2

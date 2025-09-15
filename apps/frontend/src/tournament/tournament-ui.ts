@@ -148,11 +148,11 @@ export class TournamentUI {
             }
         }
         
-        if (isCreator) {
-            actionButtonsHTML += `<button id="cancel-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Cancel Tournament</button>`;
-        } else {
-            actionButtonsHTML += `<button id="leave-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Leave Tournament</button>`;
-        }
+        // if (isCreator) {
+        //     actionButtonsHTML += `<button id="cancel-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Cancel Tournament</button>`;
+        // } else {
+        //     actionButtonsHTML += `<button id="leave-tournament" class="flex-1 bg-red-500 text-white py-3 border-thick hover-anarchy">Leave Tournament</button>`;
+        // }
 
 
         this.container.innerHTML = `
@@ -598,10 +598,7 @@ export class TournamentUI {
                 if (infoResponse.ok) {
                     const tournament = await infoResponse.json();
                     StateManager.saveTournamentState(tournamentId, false, tournament.name);
-
                     this.showTournamentLobby(tournament);
-                } else {
-                    this.connectToTournament(tournamentId);
                 }
                 
                 return true;
