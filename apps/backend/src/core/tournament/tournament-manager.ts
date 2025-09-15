@@ -40,6 +40,11 @@ export class TournamentManager {
             player.isReady = true;
         }
 
+        await dbRun(
+            `UPDATE tournament_participants SET is_ready = 1 WHERE tournament_id = ? AND user_id = ?`,
+            [tournamentId, parseInt(playerId)]
+        );
+
         await this.broadcastTournamentUpdate(tournamentId, tournament);
     }
 
