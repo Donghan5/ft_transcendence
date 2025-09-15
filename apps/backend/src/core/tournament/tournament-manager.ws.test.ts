@@ -66,6 +66,7 @@ describe('TournamentManager - Full Flow Test', () => {
     it('should handle the full tournament flow: create -> join -> start -> process game result', async function() {
         this.timeout(15000);
 
+        console.log('Creating tokens for players...');
         const creatorToken = createTestToken(1);
         const player2Token = createTestToken(2);
         const player3Token = createTestToken(3);
@@ -79,24 +80,41 @@ describe('TournamentManager - Full Flow Test', () => {
         const { tournamentId } = createResponse.json();
         expect(tournamentId).to.be.a('string');
 
+        console.log('Connecting WebSocket as tournament creator...');
         const wsCreator = new WebSocket(`${wsUrl}/api/tournament/ws/${tournamentId}`, { headers: { cookie: `auth_token=${creatorToken}` } });
         await new Promise(resolve => wsCreator.on('open', resolve));
 
+        console.log('Waiting for tournament state updates...');
         let tournamentState = await waitForStateUpdate(wsCreator, (p: Tournament) => p.players.length === 1, "creator joining");
         expect(tournamentState.players[0].nickname).to.equal('Alice');
 
+        console.log('Joining tournament as player 2...');
         await app.inject({ method: 'POST', url: '/api/tournament/join', payload: { tournamentId }, cookies: { auth_token: player2Token } });
         tournamentState = await waitForStateUpdate(wsCreator, (p: Tournament) => p.players.length === 2, "player 2 joining");
 
+        console.log('Joining tournament as player 3...');
         await app.inject({ method: 'POST', url: '/api/tournament/join', payload: { tournamentId }, cookies: { auth_token: player3Token } });
         tournamentState = await waitForStateUpdate(wsCreator, (p: Tournament) => p.players.length === 3, "player 3 joining");
         expect(tournamentState.players.map((p: any) => p.nickname)).to.have.members(['Alice', 'Bob', 'Charlie']);
 
+        console.log('Starting the tournament...');
+        const startPromise = waitForStateUpdate(
+            wsCreator,
+            (p: Tournament) => p.status === 'in_progress',
+            "tournament start"
+        );
 
-        await app.inject({ method: 'POST', url: '/api/tournament/start', payload: { tournamentId }, cookies: { auth_token: creatorToken } });
-        tournamentState = await waitForStateUpdate(wsCreator, (p: Tournament) => p.status === 'in_progress', "tournament start");
+        await app.inject({ 
+            method: 'POST', 
+            url: '/api/tournament/start',
+            payload: { tournamentId },
+            cookies: { auth_token: creatorToken }
+        });
+
+        tournamentState = await startPromise;
         expect(tournamentState.bracket.length).to.be.greaterThan(0);
 
+        console.log('Simulating game play for the first match...');
         const firstMatch = tournamentState.bracket[0].find((m: Match) => m.player1 && m.player2);
         expect(firstMatch).to.exist;
         expect(firstMatch!.player1!.nickname).to.equal('Bob');
@@ -111,9 +129,11 @@ describe('TournamentManager - Full Flow Test', () => {
         game!.player2.score = 2;
         game!.status = 'finished';
 
+        console.log('Reporting game end to tournament manager...');
         // @ts-ignore
         await tournamentManager.handleGameEnd(gameId, tournamentState, firstMatch.id, game);
 
+        console.log('Waiting for tournament state updates...');
         const finalState = await waitForStateUpdate(wsCreator,
             (p: Tournament) => p.bracket[0].find((m: Match) => m.id === firstMatch!.id)?.winner !== null,
             "first match winner update"
@@ -123,5 +143,6 @@ describe('TournamentManager - Full Flow Test', () => {
         expect(updatedMatch.winner.id).to.equal(firstMatch.player1.id); // Bob(player1)이 승자여야 합니다.
 
         wsCreator.close();
+        console.log('Updated the final match and WebSocket connection closed.');
     });
 });

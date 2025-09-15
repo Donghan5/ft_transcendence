@@ -61,13 +61,11 @@ export class TournamentManager {
             await dbRun(
                 `UPDATE tournaments SET
                 status = ?, 
-                current_round = ?, 
-                bracket = ?
+                current_round = ?
                 WHERE id = ?`,
                 [
                     tournament.status,
                     tournament.currentRound,
-                    JSON.stringify(tournament.bracket),
                     tournament.id
                 ]
             );
@@ -165,7 +163,7 @@ export class TournamentManager {
         tournament.currentRound = 1;
 
         await this.updateTournamentInDB(tournament);
-        await this.broadcastTournamentUpdate(tournamentId, tournament);
+        await this.broadcastTournamentUpdate(tournamentId);
         await this.startNextMatch(tournament);
         return true;
     }
@@ -271,7 +269,7 @@ export class TournamentManager {
 
         const isFirstMatchOfTournament = tournament.currentRound === 1 && nextMatch?.matchNumber === currentRoundMatches.findIndex(m => m.player1 && m.player2);
 
-        if (nextMatch && (isFirstMatchOfTournament || this.allPlayersReady(nextMatch))) {
+        if (nextMatch /* && (isFirstMatchOfTournament || this.allPlayersReady(nextMatch))*/) {
             const gameId = await this.createTournamentGame(
                 nextMatch.player1!.id,
                 nextMatch.player2!.id,
@@ -375,7 +373,7 @@ export class TournamentManager {
                 throw new Error(`Match ${matchId} not found in tournament ${tournament.id}`);
             }
 
-            const winnerId = gameState.player1.score > gameState.player2.score ? gameState.player1.id : gameState.player2.id;
+            const winnerId = gameState.player1.score > gameState.player2.score ? gameState.player1Id : gameState.player2Id;
 
             match.winner = winnerId === match.player1?.id ? match.player1 : match.player2;
 
@@ -851,13 +849,18 @@ export class TournamentManager {
     }
 
     private async broadcastTournamentUpdate(tournamentId: string, tournamentData?: Tournament): Promise<void> {
+        console.log(`[DEBUG] Attempting to broadcast update for tournament: ${tournamentId}`);
         const sockets = this.tournamentSockets.get(tournamentId);
-         if (!sockets || sockets.size === 0) return;
+        if (!sockets || sockets.size === 0) return;
 
-         try {
+        console.log(`[DEBUG] Found ${sockets.size} sockets for tournament ${tournamentId}.`);
+
+        try {
             const tournament = tournamentData || await this.getTournamentInfo(tournamentId);
             if (!tournament) return;
 
+            console.log('[DEBUG] Broadcasting payload:', JSON.stringify(tournament, null, 2));
+            
             const message = JSON.stringify({
                 type: 'tournamentUpdate',
                 payload: tournament
@@ -865,11 +868,14 @@ export class TournamentManager {
 
             sockets.forEach((ws, userId) => {
                 if (ws.readyState === WebSocket.OPEN) {
+                    console.log(`[DEBUG] Sending update to user ${userId}`);
                     ws.send(message);
+                } else {
+                    console.log(`[DEBUG] WebSocket is not open for user ${userId}`);
                 }
             });
         } catch (error) {
-            console.error(`Error broadcasting tournament update for ${tournamentId}: ${error}`);
+            console.error(`[DEBUG] Error broadcasting tournament update for ${tournamentId}: ${error}`);
         }
     }
 

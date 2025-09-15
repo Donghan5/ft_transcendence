@@ -1,4 +1,11 @@
 // frontend/src/tournament/tournament-ui.ts
+declare global {
+    interface Window {
+        startGame: (gameId: string, currentUserId: string | null, mode: string) => void;
+        currentGame: any;
+    }
+}
+
 import { StatusManager } from '../status/status-manager';
 import StateManager from '../utils/state-manager';
 import { Tournament, TournamentPlayer, Match } from '@trans/common-types';
