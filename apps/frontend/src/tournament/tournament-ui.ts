@@ -6,7 +6,6 @@ declare global {
     }
 }
 
-import { StatusManager } from '../status/status-manager';
 import StateManager from '../utils/state-manager';
 import { Tournament, TournamentPlayer, Match } from '@trans/common-types';
 

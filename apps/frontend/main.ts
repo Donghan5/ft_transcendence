@@ -1132,12 +1132,8 @@ function connectingMatchmaking() {
 	}
 }
 
-function showGameScreen() {
-	showSection('game');
-	console.log('Game screen is shown');
-}
-
 export function startGame(gameId: string, playerId: string, gameMode: string) {
+	showGameScreen();
 	console.log('Starting initialize game...')
 
 	if (currentGame) {
@@ -1156,6 +1152,11 @@ export function startGame(gameId: string, playerId: string, gameMode: string) {
 		updateConnectionStatus('disconnected')
 	}
 	console.log(`Start game with game mode: ${gameMode}`);
+}	
+
+function showGameScreen() {
+	showSection('game');
+	console.log('Game screen is shown');
 }
 
 function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnected') {
@@ -1362,13 +1363,18 @@ async function checkAndRestoreTournamentState(user: any): Promise<boolean> {
 							
                 tournamentUI.setTournamentId(tournament.id);
 
-                if (tournament.status === 'waiting') {
-					tournamentUI.showTournamentLobby(tournament);
-				} else {
-					tournamentUI.showBracket(tournament);
-				}
+				 if (tournament.status === 'in_progress') {
+					const myMatch = (tournamentUI as any).findMyCurrentMatch(tournament); 
 
-                
+					if (myMatch && myMatch.gameId && !(tournamentUI as any).isGameActive(myMatch.gameId)) {
+						console.log('[Restore] Joining active game:', myMatch.gameId);
+						window.startGame(myMatch.gameId, user.id.toString(), 'tournament');
+					} else {
+						tournamentUI.showBracket(tournament);
+					}
+				} else {
+					tournamentUI.showTournamentLobby(tournament);
+				}        
                 return true;
             }
         }

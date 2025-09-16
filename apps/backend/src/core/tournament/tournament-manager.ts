@@ -274,7 +274,7 @@ export class TournamentManager {
 
         const isFirstMatchOfTournament = tournament.currentRound === 1 && nextMatch?.matchNumber === currentRoundMatches.findIndex(m => m.player1 && m.player2);
 
-        if (nextMatch  && this.allPlayersReady(nextMatch)) {
+        if (nextMatch) {
             // if (tournament.status === 'waiting') {
             //     tournament.status = 'in_progress';
             //     await this.updateTournamentInDB(tournament);
@@ -466,13 +466,12 @@ export class TournamentManager {
     private async saveTournamentResults(tournament: Tournament) {
         try {
             await dbRun(
-                `INSERT OR REPLACE INTO tournaments (id, name, winner_id, bracket, ended_at)
-                VALUES (?, ?, ?, ?, datetime('now'))`,
+                `INSERT OR REPLACE INTO tournaments (id, name, winner_id, ended_at)
+                VALUES (?, ?, ?, datetime('now'))`,
                 [
                     tournament.id,
                     tournament.name,
-                    tournament.winner ? parseInt(tournament.winner.id) : null,
-                    JSON.stringify(tournament.bracket)
+                    tournament.winner ? parseInt(tournament.winner.id) : null
                 ]
             );
 

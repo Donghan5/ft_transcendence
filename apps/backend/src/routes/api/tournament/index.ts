@@ -357,7 +357,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
             const tournament = await tournamentManager.getTournamentInfo(userTournamentId);
 
             if (!tournament) {
-                reply.send({
+                return reply.send({
                     tournament: null,
                     isCreator: false,
                     participating: false
