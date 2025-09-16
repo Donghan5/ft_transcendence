@@ -43,7 +43,10 @@ describe('TournamentManager - Full Flow Test', () => {
     let wsUrl: string;
 
     before(async () => {
+        console.log('Initialize database...')
         await initializeDatabase();
+
+        console.log('Adding 3 Players in database to test...')
         await dbRun("INSERT OR IGNORE INTO users (id, nickname, email, name, profile_setup_complete, rating) VALUES (?, ?, ?, ?, ?, ?)", [1, 'Alice', 'a@test.com', 'Alice', true, 1200]);
         await dbRun("INSERT OR IGNORE INTO users (id, nickname, email, name, profile_setup_complete, rating) VALUES (?, ?, ?, ?, ?, ?)", [2, 'Bob', 'b@test.com', 'Bob', true, 1100]);
         await dbRun("INSERT OR IGNORE INTO users (id, nickname, email, name, profile_setup_complete, rating) VALUES (?, ?, ?, ?, ?, ?)", [3, 'Charlie', 'c@test.com', 'Charlie', true, 1000]);
@@ -135,14 +138,23 @@ describe('TournamentManager - Full Flow Test', () => {
 
         console.log('Waiting for tournament state updates...');
         const finalState = await waitForStateUpdate(wsCreator,
-            (p: Tournament) => p.bracket[0].find((m: Match) => m.id === firstMatch!.id)?.winner !== null,
-            "first match winner update"
+            (p: Tournament) => {
+                const finalMatch = p.bracket[1] && p.bracket[1][0];
+                return finalMatch && finalMatch.player1 !== null && finalMatch.player2 !== null;
+            },
+            "winner advancing to the final round"
         );
 
         const updatedMatch = finalState.bracket[0].find((m: Match) => m.id === firstMatch!.id);
-        expect(updatedMatch.winner.id).to.equal(firstMatch.player1.id); // Bob(player1)이 승자여야 합니다.
+        expect(updatedMatch.winner.id, "Winner of the first match should be Bob").to.equal(firstMatch.player1.id);
 
+        const finalMatch = finalState.bracket[1][0];
+        console.log('Final match participants:', finalMatch.player1?.nickname, finalMatch.player2?.nickname);
+
+        const finalMatchPlayerNicks = [finalMatch.player1.nickname, finalMatch.player2.nickname];
+        expect(finalMatchPlayerNicks, "Final match should be between Alice and Bob").to.have.members(['Alice', 'Bob']);
+        
+        console.log('Test completed successfully, closing WebSocket...');
         wsCreator.close();
-        console.log('Updated the final match and WebSocket connection closed.');
     });
 });

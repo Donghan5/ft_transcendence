@@ -164,6 +164,18 @@ export class TournamentManager {
 
         // Create initial bracket
         await this.generateBracket(tournament);
+
+        // Bye match in 1st round temp fix
+        let tournamentWithBracket = await this.getTournamentInfo(tournamentId);
+        if (!tournamentWithBracket) return false;
+
+        const firstRound = tournamentWithBracket.bracket[0];
+        for (const match of firstRound) {
+            if (match.winner) {
+                tournamentWithBracket = await this.placeWinnerInNextRound(tournamentWithBracket, match);
+            }
+        }
+
         tournament.status = 'in_progress';
         tournament.currentRound = 1;
 
@@ -359,44 +371,38 @@ export class TournamentManager {
      */
     public async handleGameEnd(gameId: string, _staleTournament: Tournament, matchId: string, gameState: any) {
         const db = await getDatabase();
-
         try {
             await dbRun('BEGIN TRANSACTION');
 
             const matchInDb = await dbGet('SELECT winner_id FROM tournament_matches WHERE id = ?', [matchId]);
             if (matchInDb && matchInDb.winner_id !== null) {
-                console.log(`Match ${matchId} has already been processed.`);
                 await dbRun('COMMIT');
                 return;
             }
 
             const tournamentId = matchId.split('_r')[0];
+            const initialTournament = await this.getTournamentInfo(tournamentId);
+            if (!initialTournament) throw new Error(`Tournament not found`);
 
-            const tournament = await this.getTournamentInfo(tournamentId);
-            if (!tournament) {
-                throw new Error(`Tournament object not found`);
-            }
-
-            const match = this.findMatch(tournament, matchId);
-            if (!match) {
-                throw new Error(`Match ${matchId} not found in tournament ${tournament.id}`);
-            }
+            const match = this.findMatch(initialTournament, matchId);
+            if (!match) throw new Error(`Match not found`);
 
             const winnerId = gameState.player1.score > gameState.player2.score ? gameState.player1Id : gameState.player2Id;
-
             match.winner = winnerId === match.player1?.id ? match.player1 : match.player2;
 
-            await this.placeWinnerInNextRound(tournament, match);
-    
+            const updatedTournament = await this.placeWinnerInNextRound(initialTournament, match);
+
             await dbRun('COMMIT');
 
             console.log(`Successfully processed game ${gameId} for match ${matchId}`);
-            this.broadcastTournamentUpdate(tournament.id);
+            await this.broadcastTournamentUpdate(updatedTournament.id, updatedTournament);
 
-            console.log('Starting next match with tournament object:', JSON.stringify(tournament, null, 2));
-            setTimeout(() => {
-                this.startNextMatch(tournament);
-            }, 3000);
+            if (this.isRoundComplete(updatedTournament)) {
+                this.advanceToNextRound(updatedTournament);
+            } else {
+                this.startNextMatch(updatedTournament);
+            }
+
         } catch (error) {
             console.error(`Error processing game ${gameId} for match ${matchId}:`, error);
             await dbRun('ROLLBACK');
@@ -409,38 +415,52 @@ export class TournamentManager {
      * @param match The match object.
      * @returns 
      */
-    private async placeWinnerInNextRound(tournament: Tournament, match: Match) {
+    private async placeWinnerInNextRound(tournament: Tournament, match: Match): Promise<Tournament> {
+        const winner = match.winner;
+
         await dbRun(
-            `UPDATE tournament_matches SET winner_id = ?, status = 'finished', game_id = ? WHERE id = ?`,
-            [match.winner ? parseInt(match.winner.id) : null, match.gameId, match.id]
+            `UPDATE tournament_matches SET winner_id = ?, status = 'finished' WHERE id = ?`,
+            [winner ? parseInt(winner.id) : null, match.id]
         );
 
         if (match.round >= tournament.bracket.length) {
-            tournament.winner = match.winner;
+            tournament.winner = winner;
             tournament.status = 'finished';
-            await this.saveTournamentResults(tournament); 
-            console.log(`Tournament ${tournament.name} finished. Winner: ${match.winner?.nickname}`);
-            return;
+            await this.saveTournamentResults(tournament);
+            return tournament;
         }
 
-        const nextRoundIndex = match.round; 
+        const nextRoundIndex = match.round;
         const nextMatchIndex = Math.floor(match.matchNumber / 2);
         const nextMatch = tournament.bracket[nextRoundIndex][nextMatchIndex];
+        const playerField = match.matchNumber % 2 === 0 ? 'player1' : 'player2';
 
-        const playerFieldToUpdate = match.matchNumber % 2 === 0 ? 'player1_id' : 'player2_id';
+        nextMatch[playerField] = winner;
 
+        const dbField = playerField === 'player1' ? 'player1_id' : 'player2_id';
         await dbRun(
-            `UPDATE tournament_matches SET ${playerFieldToUpdate} = ? WHERE id = ?`,
-            [match.winner ? parseInt(match.winner.id) : null, nextMatch.id]
+            `UPDATE tournament_matches SET ${dbField} = ? WHERE id = ?`,
+            [winner ? parseInt(winner.id) : null, nextMatch.id]
         );
+
+        return tournament;
     }
 
 
+    /**
+     * @description Check if all players in the current round have completed their matches
+     * @param tournament The tournament object.
+     * @returns True if all players have completed their matches, false otherwise.
+     */
     private isRoundComplete(tournament: Tournament): boolean {
         const currentRound = tournament.bracket[tournament.currentRound - 1];
         return currentRound.every(match => match.winner !== null || (!match.player1 || !match.player2));
     }
 
+    /**
+     * @description Advances the tournament to the next round if all matches in the current round are complete.
+     * @param tournament The tournament object.
+     */
     private advanceToNextRound(tournament: Tournament) {
         tournament.currentRound++;
 
