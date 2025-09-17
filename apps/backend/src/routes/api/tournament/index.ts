@@ -75,6 +75,8 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(404).send({ error: 'Tournament not found or already full' });
             }
 
+            const tournament = await tournamentManager.getTournamentInfo(tournamentId);
+
             return reply.send({
                 success: true,
                 message: 'Successfully joined the tournament'

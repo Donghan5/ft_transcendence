@@ -568,23 +568,22 @@ export class TournamentUI {
                 credentials: 'include'
             });
 
-            if (response.ok) {
+            const result = await response.json();
+
+            if (response.ok && result.success) {
                 this.tournamentId = tournamentId;
                 this.connectWebSocket(tournamentId);
                 
-                const infoResponse = await fetch(`/api/tournament/${tournamentId}`, {
-                    credentials: 'include'
-                });
-                
-                if (infoResponse.ok) {
-                    const tournament = await infoResponse.json();
+                const tournament = result.tournament;
+                if (tournament) {
                     StateManager.saveTournamentState(tournamentId, false, tournament.name);
                     this.showTournamentLobby(tournament);
+                    return true;
                 }
-                
-                return true;
             }
+            
             return false;
+
         } catch (error) {
             console.error('Error joining tournament:', error);
             return false;

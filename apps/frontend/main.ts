@@ -1916,39 +1916,27 @@ function displayHomeTournaments(tournaments: any[]): void {
 (window as any).joinHomeTournament = async function(tournamentId: string) {
     try {
         console.log('Joining tournament from home:', tournamentId);
-        
-        const response = await fetch('/api/tournament/join', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tournamentId }),
-            credentials: 'include'
-        });
 
-        if (response.ok) {
-            console.log('Successfully joined tournament');
-            
-            if (!tournamentUI) {
-                tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
-            }
-            
-			if (currentUser && tournamentUI) {
-				tournamentUI.setCurrentUserId(currentUser.id.toString());
-			}
+        if (!tournamentUI) {
+            tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
+        }
 
-			const success = await tournamentUI.joinTournament(tournamentId);
-			if (success) {
-				showSection('tournamentLobby');
-				loadHomeTournaments();
-			} else {
-				alert('Failed to join tournament UI');
-			}
+        if (currentUser && tournamentUI) {
+            tournamentUI.setCurrentUserId(currentUser.id.toString());
+        }
+
+        const success = await tournamentUI.joinTournament(tournamentId);
+
+        if (success) {
+            console.log('Successfully joined tournament, showing lobby.');
+            showSection('tournamentLobby');
+            loadHomeTournaments();
         } else {
-            const error = await response.json();
-            alert(`Failed to join tournament: ${error.error || error.message || 'Unknown error'}`);
+            alert(`Failed to join tournament. It might be full or already started.`);
         }
     } catch (error) {
         console.error('Error joining tournament:', error);
-        alert('Network error occurred while joining tournament');
+        alert('An error occurred while trying to join the tournament.');
     }
 };
 
