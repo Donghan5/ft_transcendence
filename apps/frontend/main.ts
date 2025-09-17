@@ -1935,13 +1935,13 @@ function displayHomeTournaments(tournaments: any[]): void {
 				tournamentUI.setCurrentUserId(currentUser.id.toString());
 			}
 
-            await tournamentUI.joinTournament(tournamentId);
-            showSection('tournamentLobby');
-
-            tournamentUI.showTournamentLobby();
-
-            loadHomeTournaments();
-            
+			const success = await tournamentUI.joinTournament(tournamentId);
+			if (success) {
+				showSection('tournamentLobby');
+				loadHomeTournaments();
+			} else {
+				alert('Failed to join tournament UI');
+			}
         } else {
             const error = await response.json();
             alert(`Failed to join tournament: ${error.error || error.message || 'Unknown error'}`);
