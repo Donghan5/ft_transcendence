@@ -75,11 +75,16 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(404).send({ error: 'Tournament not found or already full' });
             }
 
-            const tournament = await tournamentManager.getTournamentInfo(tournamentId);
+            const updatedTournament = await tournamentManager.getTournamentInfo(tournamentId);
+
+            if (!updatedTournament) {
+                return reply.code(500).send({ success: false, error: 'Failed to retrieve tournament details after joining.' });
+            }
 
             return reply.send({
                 success: true,
-                message: 'Successfully joined the tournament'
+                message: 'Successfully joined the tournament',
+                tournament: updatedTournament
             });
         } catch (error) {
             fastify.log.error('Tournament join error:', error);

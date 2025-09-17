@@ -85,19 +85,29 @@ describe('TournamentManager - Full Flow Test', () => {
 
         console.log('Connecting WebSocket as tournament creator...');
         const wsCreator = new WebSocket(`${wsUrl}/api/tournament/ws/${tournamentId}`, { headers: { cookie: `auth_token=${creatorToken}` } });
-        await new Promise(resolve => wsCreator.on('open', resolve));
+
+        const creatorJoinedPromise = waitForStateUpdate(wsCreator, (p: Tournament) => p.players.length === 1, "creator joining");
+
+        await new Promise((resolve, reject) => {
+            wsCreator.on('open', resolve);
+            wsCreator.on('error', reject);
+        });
+
 
         console.log('Waiting for tournament state updates...');
-        let tournamentState = await waitForStateUpdate(wsCreator, (p: Tournament) => p.players.length === 1, "creator joining");
+        let tournamentState = await creatorJoinedPromise;
         expect(tournamentState.players[0].nickname).to.equal('Alice');
 
         console.log('Joining tournament as player 2...');
+        const player2JoinedPromise = waitForStateUpdate(wsCreator, (p: Tournament) => p.players.length === 2, "player 2 joining");
         await app.inject({ method: 'POST', url: '/api/tournament/join', payload: { tournamentId }, cookies: { auth_token: player2Token } });
-        tournamentState = await waitForStateUpdate(wsCreator, (p: Tournament) => p.players.length === 2, "player 2 joining");
+        tournamentState = await player2JoinedPromise;
 
         console.log('Joining tournament as player 3...');
+        const player3JoinedPromise = waitForStateUpdate(wsCreator, (p: Tournament) => p.players.length === 3, "player 3 joining");
         await app.inject({ method: 'POST', url: '/api/tournament/join', payload: { tournamentId }, cookies: { auth_token: player3Token } });
-        tournamentState = await waitForStateUpdate(wsCreator, (p: Tournament) => p.players.length === 3, "player 3 joining");
+        tournamentState = await player3JoinedPromise;
+        
         expect(tournamentState.players.map((p: any) => p.nickname)).to.have.members(['Alice', 'Bob', 'Charlie']);
 
         console.log('Starting the tournament...');

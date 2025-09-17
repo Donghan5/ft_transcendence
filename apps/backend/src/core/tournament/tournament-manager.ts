@@ -26,9 +26,9 @@ export class TournamentManager {
 
     /**
      * @description Mark a player as ready in a tournament
-     * @param tournamentId 
-     * @param playerId 
-     * @returns 
+     * @param tournamentId
+     * @param playerId
+     * @returns
      */
     public async setPlayerReady(tournamentId: string, playerId: string) {
         const tournament = await this.getTournamentInfo(tournamentId);
@@ -65,7 +65,7 @@ export class TournamentManager {
         try {
             await dbRun(
                 `UPDATE tournaments SET
-                status = ?, 
+                status = ?,
                 current_round = ?
                 WHERE id = ?`,
                 [
@@ -77,7 +77,7 @@ export class TournamentManager {
 
             for (const player of tournament.players) {
                 await dbRun(
-                    `UPDATE tournament_participants 
+                    `UPDATE tournament_participants
                     SET seed = ?
                     WHERE tournament_id = ? AND user_id = ?`,
                     [player.seed, tournament.id, parseInt(player.id)]
@@ -92,6 +92,15 @@ export class TournamentManager {
 
     async createTournament(creatorId: string, name: string): Promise<string> {
         const tournamentId = `tournament_${Date.now()}`;
+
+        const creator = await dbGet(
+            `SELECT id, nickname, rating FROM users WHERE id = ?`,
+            [parseInt(creatorId)]
+        );
+
+        if (!creator) {
+            throw new Error(`Creator with ID ${creatorId} not found.`);
+        }
 
         const tournament: Tournament = {
             id: tournamentId,
@@ -109,7 +118,7 @@ export class TournamentManager {
 
         // set in database
         await dbRun(
-        `INSERT INTO tournaments (id, name, created_by, status, created_at) 
+        `INSERT INTO tournaments (id, name, created_by, status, created_at)
          VALUES (?, ?, ?, ?, datetime('now'))`,
         [tournamentId, name, creatorId, 'waiting']
         );
@@ -120,7 +129,17 @@ export class TournamentManager {
 
 
     public async joinTournament(tournamentId: string, playerId: string): Promise<boolean> {
-        const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
+        // let tournament = this.tournaments.get(tournamentId);
+        let tournament: Tournament | undefined | null = this.tournaments.get(tournamentId);
+
+        if (!tournament) { // if not in in-memory, load from DB
+            const dbTournament = await this.getTournamentInfo(tournamentId);
+            if (dbTournament) {
+                tournament = dbTournament;
+                this.tournaments.set(tournamentId, tournament);
+            }
+        }
+
         if (!tournament || tournament.status !== 'waiting') {
             console.error(`Tournament with ID ${tournamentId} not found.`);
             return false;
@@ -141,12 +160,25 @@ export class TournamentManager {
         }
 
         await this.addPlayerToTournament(tournament, playerId, user);
-        await this.broadcastTournamentUpdate(tournamentId);
+
+        this.tournaments.set(tournamentId, tournament);
+
+        await this.broadcastTournamentUpdate(tournamentId, tournament);
         return true;
     }
 
     async startTournament(tournamentId: string): Promise<boolean> {
-        const tournament = await this.getTournamentInfo(tournamentId);
+        // let tournament = this.tournaments.get(tournamentId);
+        let tournament: Tournament | undefined | null = this.tournaments.get(tournamentId);
+
+        if (!tournament) { // if not in in-memory, load from DB
+            const dbTournament = await this.getTournamentInfo(tournamentId);
+            if (dbTournament) {
+                tournament = dbTournament;
+                this.tournaments.set(tournamentId, tournament);
+            }
+        }
+
         if (!tournament || tournament.status !== 'waiting') {
             console.error(`Tournament with ID ${tournamentId} not found or already started.`);
             return false;
@@ -200,7 +232,7 @@ export class TournamentManager {
 
         const firstRound: Match[] = [];
         let matchNumber = 0;
-    
+
         const highSeeds = players.slice(0, byesNeeded);
         const remainingPlayers = players.slice(byesNeeded);
 
@@ -275,8 +307,6 @@ export class TournamentManager {
             }
         }
     }
-    
-    // in apps/backend/src/core/tournament/tournament-manager.ts
 
     private async startNextMatch(tournament: Tournament) {
         if (!tournament) return;
@@ -306,7 +336,7 @@ export class TournamentManager {
             )
 
             await this.broadcastTournamentUpdate(tournament.id, tournament);
-            
+
             this.startGameEndPolling(gameId, tournament, nextMatch);
 
         } else if (this.isRoundComplete(tournament)) {
@@ -344,7 +374,7 @@ export class TournamentManager {
     private startGameEndPolling(gameId: string, tournament: Tournament, match: Match) {
         const checkInterval = setInterval(() => {
             const gameState = gameEngine.getGameState(gameId);
-            
+
             if (!gameState) {
                 clearInterval(checkInterval);
                 return;
@@ -360,14 +390,14 @@ export class TournamentManager {
             clearInterval(checkInterval);
         }, 10 * 60 * 1000);
     }
- 
+
     /**
      * @description Handles the end of a tournament game.
      * @param gameId The ID of the game.
      * @param tournamentId The ID of the tournament.
      * @param matchId The ID of the match.
      * @param gameState The state of the game.
-     * @returns 
+     * @returns
      */
     public async handleGameEnd(gameId: string, _staleTournament: Tournament, matchId: string, gameState: any) {
         const db = await getDatabase();
@@ -413,7 +443,7 @@ export class TournamentManager {
      * @description Places the winner of the current match into the next round of the tournament.
      * @param tournament The tournament object.
      * @param match The match object.
-     * @returns 
+     * @returns
      */
     private async placeWinnerInNextRound(tournament: Tournament, match: Match): Promise<Tournament> {
         const winner = match.winner;
@@ -582,7 +612,7 @@ export class TournamentManager {
 
     async getTournamentPlayers(tournamentId: string): Promise<TournamentPlayer[]> {
         const players = await dbAll(
-            `SELECT u.id, u.nickname, u.rating, tp.seed 
+            `SELECT u.id, u.nickname, u.rating, tp.seed
             FROM tournament_participants tp
             JOIN users u ON u.id = tp.user_id
             WHERE tp.tournament_id = ?`,
@@ -609,7 +639,7 @@ export class TournamentManager {
 
         const matchesData = await dbAll(`SELECT * FROM tournament_matches WHERE tournament_id = ? ORDER BY round, match_number`, [tournamentId]);
         const players = await this.getTournamentPlayers(tournamentId); // 참가자 정보 가져오기
-        
+
         const bracket: Match[][] = [];
         matchesData.forEach(match => {
             while (bracket.length < match.round) {
@@ -649,7 +679,7 @@ export class TournamentManager {
         if (!dbTournament) return null;
 
         const participants = await dbAll(
-            `SELECT u.id, u.nickname, u.rating, tp.seed 
+            `SELECT u.id, u.nickname, u.rating, tp.seed
             FROM tournament_participants tp
             JOIN users u ON u.id = tp.user_id
             WHERE tp.tournament_id = ?`,
@@ -660,12 +690,12 @@ export class TournamentManager {
             id: dbTournament.id,
             name: dbTournament.name,
             players: participants.map(p => ({
-                id: p.id.toString(), 
+                id: p.id.toString(),
                 nickname: p.nickname,
                 rating: p.rating || 1000,
                 seed: p.seed || 0
             })),
-            bracket: dbTournament.bracket ? JSON.parse(dbTournament.bracket) : [], 
+            bracket: dbTournament.bracket ? JSON.parse(dbTournament.bracket) : [],
             status: dbTournament.status,
             currentRound: dbTournament.current_round || 0,
             winner: null,
@@ -685,24 +715,24 @@ export class TournamentManager {
         const activeTournaments = await dbAll(
             `SELECT * FROM tournaments WHERE status IN ('waiting', 'in_progress')`
         );
-        
+
         const tournaments: Tournament[] = [];
-        
+
         for (const dbTournament of activeTournaments) {
             let tournament: Tournament | undefined | null = this.tournaments.get(dbTournament.id);
-            
+
             if (!tournament) {
                 tournament = await this.loadTournamentFromDB(dbTournament.id);
                 if (tournament) {
                     this.tournaments.set(dbTournament.id, tournament);
                 }
             }
-            
+
             if (tournament) {
                 tournaments.push(tournament);
             }
         }
-        
+
         return tournaments;
     }
 
@@ -744,7 +774,7 @@ export class TournamentManager {
             await dbRun(`DELETE FROM tournament_participants WHERE tournament_id = ?`, [tournamentId]);
 
             this.tournaments.delete(tournamentId);
-            
+
             tournament.players.forEach(player => {
                 if (this.playerTournamentMap.get(player.id) === tournamentId) {
                     this.playerTournamentMap.delete(player.id);
@@ -761,13 +791,13 @@ export class TournamentManager {
 
     /**
      * @description tool to add a player to a tournament (both in memory and database)
-     * @param tournament 
-     * @param playerId 
-     * @param user 
+     * @param tournament
+     * @param playerId
+     * @param user
      */
     private async addPlayerToTournament(
-        tournament: Tournament, 
-        playerId: string, 
+        tournament: Tournament,
+        playerId: string,
         user: any
     ): Promise<void> {
         tournament.players.push({
@@ -788,7 +818,7 @@ export class TournamentManager {
 
     /**
      * @description Get the tournament ID that a user is currently participating in
-     * @param playerId 
+     * @param playerId
      * @returns string | null - tournament ID or null if not participating
      */
     async getUserCurrentTournament(playerId: string): Promise<string | null> {
@@ -801,7 +831,7 @@ export class TournamentManager {
                 WHERE tp.user_id = ? AND t.status IN ('waiting', 'in_progress')`,
                 [parseInt(playerId)]
             );
-            
+
             if (result) {
                 tournamentId = result.tournament_id;
                 if (tournamentId) {
@@ -809,26 +839,26 @@ export class TournamentManager {
                 }
             }
         }
-        
+
         return tournamentId;
     }
 
-    
+
     /**
      * @description check if a user is the creator of a tournament
-     * @param tournamentId 
-     * @param userId 
+     * @param tournamentId
+     * @param userId
      * @returns boolean
      */
     async isUserTournamentCreator(tournamentId: string, userId: string): Promise<boolean> {
         const tournament = await this.getTournamentInfo(tournamentId);
         return tournament ? tournament.createdBy === userId : false;
     }
-    
+
     /**
      * @description Check if a suer is participating in a tournament
-     * @param tournamentId 
-     * @param userId 
+     * @param tournamentId
+     * @param userId
      * @returns boolean
      */
     async isUserInTournament(tournamentId: string, userId: string): Promise<boolean> {
@@ -847,7 +877,7 @@ export class TournamentManager {
             console.error('Tournament already started');
             return false;
         }
-        
+
         const playerIndex = tournament.players.findIndex(p => p.id === userId);
         if (playerIndex === -1) {
             console.error('User is not in the tournament');
@@ -884,11 +914,13 @@ export class TournamentManager {
         console.log(`[DEBUG] Found ${sockets.size} sockets for tournament ${tournamentId}.`);
 
         try {
-            const tournament = tournamentData || await this.getTournamentInfo(tournamentId);
+            const tournament = tournamentData || this.tournaments.get(tournamentId) || await this.getTournamentInfo(tournamentId);
             if (!tournament) return;
 
             console.log('[DEBUG] Broadcasting payload:', JSON.stringify(tournament, null, 2));
-            
+
+            this.tournaments.set(tournamentId, tournament);
+
             const message = JSON.stringify({
                 type: 'tournamentUpdate',
                 payload: tournament
@@ -915,7 +947,17 @@ export class TournamentManager {
         this.tournamentSockets.get(tournamentId)?.set(userId, ws);
         console.log(`[WS] User ${userId} connected to tournament ${tournamentId}`);
 
-        this.broadcastTournamentUpdate(tournamentId);
+        const tournament = this.tournaments.get(tournamentId);
+        if (tournament) {
+            this.broadcastTournamentUpdate(tournamentId, tournament);
+        } else {
+            this.getTournamentInfo(tournamentId).then(dbTournament => {
+                if (dbTournament) {
+                    this.tournaments.set(tournamentId, dbTournament);
+                    this.broadcastTournamentUpdate(tournamentId, dbTournament);
+                }
+            })
+        }
     }
 
     public removeSocket(tournamentId: string, userId: string): void {
@@ -924,7 +966,7 @@ export class TournamentManager {
         if (sockets) {
             sockets.delete(userId);
             console.log(`[WS] User ${userId} disconnected from tournament ${tournamentId}`);
-            
+
             if (sockets.size === 0) {
                 this.tournamentSockets.delete(tournamentId);
             }

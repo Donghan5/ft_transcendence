@@ -570,16 +570,20 @@ export class TournamentUI {
 
             const result = await response.json();
 
-            if (response.ok && result.success) {
+            console.log('JOIN TOURNAMENT API RESPONSE:', {
+                ok: response.ok,
+                status: response.status,
+                body: result
+            });
+
+            if (response.ok && result.success && result.tournament) {
                 this.tournamentId = tournamentId;
                 this.connectWebSocket(tournamentId);
                 
                 const tournament = result.tournament;
-                if (tournament) {
-                    StateManager.saveTournamentState(tournamentId, false, tournament.name);
-                    this.showTournamentLobby(tournament);
-                    return true;
-                }
+                StateManager.saveTournamentState(tournamentId, false, tournament.name);
+                this.showTournamentLobby(tournament);
+                return true;
             }
             
             return false;
