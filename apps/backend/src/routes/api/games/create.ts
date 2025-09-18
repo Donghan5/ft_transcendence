@@ -27,35 +27,30 @@ export default async function createGameRoute(fastify: FastifyInstance) {
       try {
         const { player1Id, player2Id, gameMode, aiLevel } = request.body as any;
       
-        let player1Nickname = 'Player 1';
-        let player2Nickname = 'Player 2';
+        const player1Data = await dbGet(`SELECT nickname FROM users WHERE id = ?`, [player1Id]);
+        let player1Nickname = player1Data?.nickname || `Player ${player1Id}`;
+        
+        let player2Nickname: string;
 
-        try {
-          const player1Data = await dbGet(
-            `SELECT nickname FROM users WHERE id = ?`, [player1Id]
-          );
-
-           if (player2Id && player2Id !== 'AI' && player2Id !== 'player2') {
-            const player2Data = await dbGet('SELECT nickname FROM users WHERE id = ?', [player2Id]);
-            if (player2Data) {
-              player2Nickname = player2Data.nickname || `Player ${player2Id}`;
-            }
-          } else if (player2Id === 'AI') {
+        if (gameMode === 'AI' || player2Id === 'AI') {
             player2Nickname = 'AI';
-          }
-        } catch (dbError) {
-          fastify.log.warn('Failed to fetch player nicknames, using defaults');
+        } else if (gameMode === 'LOCAL_PVP' || player2Id === 'local player') {
+            player2Nickname = 'Player 2';
+        } else if (player2Id) {
+            const player2Data = await dbGet('SELECT nickname FROM users WHERE id = ?', [player2Id]);
+            player2Nickname = player2Data?.nickname || `Player ${player2Id}`;
+        } else {
+            player2Nickname = 'Opponent'; 
         }
-
 
 		let gameId: string;
 
 		switch (gameMode) {
 			case 'LOCAL_PVP':
-				gameId = gameEngine.createGame(player1Id, player2Id || 'player2', 'LOCAL_PVP', undefined, player1Nickname, player2Nickname);
+				gameId = gameEngine.createGame(player1Id, 'local player', 'LOCAL_PVP', undefined, player1Nickname, player2Nickname);
 				break;
 			case 'AI':
-				gameId = gameEngine.createGame(player1Id, player2Id || 'AI' , 'AI', aiLevel, player1Nickname);
+				gameId = gameEngine.createGame(player1Id, 'AI', 'AI', aiLevel, player1Nickname, player2Nickname);
 				break;
       case 'TOURNAMENT':
         if (!player2Id) {

@@ -137,7 +137,7 @@ export class PongGame3D {
 
         this.connection.on('gameEnd', (data) => {
             console.log(`Game ended. Winner: ${data.winnerNickname}`);
-            this.onGameEnd(data.winnerNickname);
+            this.onGameEnd(data);
         });
 
         this.connection.on('error', (errorMsg: string) => {
@@ -287,23 +287,9 @@ export class PongGame3D {
         if (!this.state) return;
 
         if (this.player1NameEl && this.player1ScoreEl && this.player2NameEl && this.player2ScoreEl) {
-            let player1Name: string;
-            let player2Name: string;
-
-            if (this.gameMode === 'quick') {
-                player1Name = this.localPlayerNickname;
-                player2Name = 'Player 2';
-            } else if (this.gameMode === 'ai') {
-                player1Name = this.localPlayerNickname;
-                player2Name = 'AI';
-            } else {
-                player1Name = this.state.player1.nickname || this.localPlayerNickname;
-                player2Name = this.state.player2.nickname || 'Opponent';
-            }
-            
-            this.player1NameEl.textContent = player1Name;
+            this.player1NameEl.textContent = this.state.player1.nickname || 'Player 1';
             this.player1ScoreEl.textContent = this.state.player1.score.toString();
-            this.player2NameEl.textContent = player2Name;
+            this.player2NameEl.textContent = this.state.player2.nickname || 'Player 2';
             this.player2ScoreEl.textContent = this.state.player2.score.toString();
         }
     }
@@ -317,15 +303,15 @@ export class PongGame3D {
         }
     }
 
-    private onGameEnd(winnerNickname: string): void {
-		console.log(`[DEBUG] onGameEnd called with winner: ${winnerNickname}`);
+    private onGameEnd(data: { winnerNickname: string }): void {
+		console.log(`[DEBUG] onGameEnd called with winner: ${data.winnerNickname}`);
 
 		const modal = document.getElementById('gameOverModal');
 		const returnBtn = document.getElementById('gameOverReturnBtn');
 		const winnerMessage = document.getElementById('winnerMessage');
 
 		if (modal && winnerMessage) {
-			winnerMessage.textContent = `Game Over! ${winnerNickname} wins!`;
+			winnerMessage.textContent = `Game Over! ${data.winnerNickname} wins!`;
 
 			modal.classList.remove('hidden');
 

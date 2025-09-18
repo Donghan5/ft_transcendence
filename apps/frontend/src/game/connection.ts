@@ -1,12 +1,12 @@
 export interface ConnectionEvenets {
-	'gameState': (gameState: any) => void     // => is return type | like lambda ?
-	'playerJoined': (playerId: string) => void
-	'playerLeft': (playerId: string) => void
-	'updateScore': (scores: { player1: number, player2: number }) => void
-	'gameEnd': (winner: string) => void
-	'connectionLost': () => void
-	'connectionRestored': () => void
-	'error': (error: string) => void
+	'gameState': (gameState: any) => void;     // => is return type | like lambda ?
+	'playerJoined': (playerId: string) => void;
+	'playerLeft': (playerId: string) => void;
+	'updateScore': (scores: { player1: number, player2: number }) => void;
+	'gameEnd': (data: { winnerId: string, winnerNickname: string, finalScore: { player1: number, player2: number }}) => void;
+	'connectionLost': () => void;
+	'connectionRestored': () => void;
+	'error': (error: string) => void;
 }
 
 export class Connection {
