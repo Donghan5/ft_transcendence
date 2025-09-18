@@ -114,7 +114,7 @@ export class Connection {
 				this.emit('updateScore', data.scores);
 				break;
 			case 'gameEnd':
-				this.emit('gameEnd', data.winner);
+				this.emit('gameEnd', data.payload);
 				break;
 			case 'pong':
 				console.log('Heartbeat response received');

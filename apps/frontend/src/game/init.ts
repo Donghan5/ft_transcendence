@@ -61,7 +61,29 @@ export function initializeGame(
 			}
 
             .score-display {
-                display: inline-block;
+                display: flex;
+                align-items: center;
+                gap: 2rem;
+                font-size: 4rem;
+                line-height: 1;
+            }
+
+            .score-player {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .player-name {
+                font-size: 1.5rem;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+                color: #fef3c7;
+            }
+
+            .score-separator {
+                font-size: 2.5rem;
+                color: #f87171;
             }
 
 			.controls-display {

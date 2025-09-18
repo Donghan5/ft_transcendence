@@ -21,6 +21,11 @@ export class PongGame3D {
     private lastStateTimestamp: number = 0;
     private localPlayerId: string;
 
+    private player1NameEl: HTMLElement | null;
+    private player1ScoreEl: HTMLElement | null;
+    private player2NameEl: HTMLElement | null;
+    private player2ScoreEl: HTMLElement | null;
+
     private disposed: boolean = false; // tracking disposal state
 
     private lastSentInputStateP1: 'up' | 'down' | 'stop' = 'stop';
@@ -52,6 +57,11 @@ export class PongGame3D {
         this.player2Paddle = sceneObjects.player2Paddle;
         this.ball = sceneObjects.ball;
         this.particleSystem = sceneObjects.particleSystem;
+
+        this.player1NameEl = document.getElementById('player1-name');
+        this.player1ScoreEl = document.getElementById('player1-score');
+        this.player2NameEl = document.getElementById('player2-name');
+        this.player2ScoreEl = document.getElementById('player2-score');
 
         this.setupControls();
         this.connection = new Connection(gameId, this.localPlayerId);
@@ -111,6 +121,8 @@ export class PongGame3D {
             this.state = newState;
             this.lastStateTimestamp = Date.now();
 
+            this.updateScoreDisplay();
+
 			if (newState.status === 'countdown') {
 				this.updateCountDownDisplay(newState.countdownValue);
 			} else {
@@ -123,9 +135,9 @@ export class PongGame3D {
             }
         });
 
-        this.connection.on('gameEnd', (winner: string) => {
-            console.log(`Game ended. Winner: ${winner}`);
-            this.onGameEnd(winner);
+        this.connection.on('gameEnd', (data) => {
+            console.log(`Game ended. Winner: ${data.winnerNickname}`);
+            this.onGameEnd(data.winnerNickname);
         });
 
         this.connection.on('error', (errorMsg: string) => {
@@ -273,8 +285,8 @@ export class PongGame3D {
 
     private updateScoreDisplay(): void {
         if (!this.state) return;
-        const scoreText = document.getElementById('score-display');
-        if (scoreText) {
+
+        if (this.player1NameEl && this.player1ScoreEl && this.player2NameEl && this.player2ScoreEl) {
             let player1Name: string;
             let player2Name: string;
 
@@ -289,7 +301,10 @@ export class PongGame3D {
                 player2Name = this.state.player2.nickname || 'Opponent';
             }
             
-            scoreText.textContent = `${player1Name} ${this.state.player1.score} ${this.state.player2.score} ${player2Name}`;
+            this.player1NameEl.textContent = player1Name;
+            this.player1ScoreEl.textContent = this.state.player1.score.toString();
+            this.player2NameEl.textContent = player2Name;
+            this.player2ScoreEl.textContent = this.state.player2.score.toString();
         }
     }
 
@@ -302,31 +317,15 @@ export class PongGame3D {
         }
     }
 
-    private onGameEnd(winnerId: string): void {
-		console.log(`[DEBUG] onGameEnd called with winner: ${winnerId}`);
+    private onGameEnd(winnerNickname: string): void {
+		console.log(`[DEBUG] onGameEnd called with winner: ${winnerNickname}`);
 
 		const modal = document.getElementById('gameOverModal');
 		const returnBtn = document.getElementById('gameOverReturnBtn');
-		console.log(`[DEBUG] Modal element: ${modal}`);
-
 		const winnerMessage = document.getElementById('winnerMessage');
 
 		if (modal && winnerMessage) {
-			let winnerName: string;
-
-			if (winnerId === 'AI') {
-				winnerName = 'AI';
-			} else if (this.state && winnerId === this.localPlayerId) {
-				winnerName = this.localPlayerNickname;
-			} else if (this.state) {
-				const opponentId = this.localPlayerId === this.state.player1Id ? this.state.player2Id : this.state.player1Id;
-				// Using API to get opponent's nickname future improvement
-				winnerName = `Player ${winnerId}`;
-			} else {
-				winnerName = `Player ${winnerId}`;
-			}
-
-			winnerMessage.textContent = `Game Over! ${winnerName} wins!`
+			winnerMessage.textContent = `Game Over! ${winnerNickname} wins!`;
 
 			modal.classList.remove('hidden');
 

@@ -385,6 +385,8 @@ class Enhanced3DPongGame {
 			game.status = 'finished';
 			const winnerId = game.player1.score > game.player2.score ? game.player1Id : game.player2Id;
 
+			const winner = winnerId === game.player1Id ? game.player1 : game.player2;
+
 			await this.updatePlayersStats(game, winnerId);
 			await this.setPlayersBackOnline(game);
 
@@ -421,7 +423,14 @@ class Enhanced3DPongGame {
 			if (players) {
 				const message = JSON.stringify({ 
 					type: 'gameEnd', 
-					winner: winnerId 
+					payload: {
+						winnerId: winnerId,
+						winnerNickname: winner.nickname,
+						finalScore: {
+							player1: game.player1.score,
+							player2: game.player2.score
+						}
+					}
 				});
 				players.forEach((ws) => {
 					if (ws.readyState === WebSocket.OPEN) {
