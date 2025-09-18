@@ -161,13 +161,14 @@ function simulateSubstep(
                     const relativeIntersectLeft = (game.ball.position.z - game.player1.paddleZ) / (paddleHeight / 2);
                     game.ball.velocity.z = relativeIntersectLeft * 0.5;
                     game.ball.velocity.x = Math.min(Math.abs(game.ball.velocity.x) * speedIncrease, maxSpeed);
-                    game.ball.position.x += 0.01; // Small nudge to prevent sticking
+                    
+                    game.ball.position.x = -PADDLE_X_POSITION + PADDLE_WIDTH + BALL_RADIUS + 0.01;
                     break;
                 case 'rightPaddle':
                     const relativeIntersectRight = (game.ball.position.z - game.player2.paddleZ) / (paddleHeight / 2);
                     game.ball.velocity.z = relativeIntersectRight * 0.5;
                     game.ball.velocity.x = -Math.min(Math.abs(game.ball.velocity.x) * speedIncrease, maxSpeed);
-                    game.ball.position.x -= 0.01; // Small nudge
+                    game.ball.position.x = PADDLE_X_POSITION - PADDLE_WIDTH - BALL_RADIUS - 0.01;
                     break;
             }
         }

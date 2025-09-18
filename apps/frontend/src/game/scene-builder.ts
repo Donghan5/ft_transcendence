@@ -136,7 +136,7 @@ function createSpawnParticleEffect(scene: Scene, emitter: Mesh): ParticleSystem 
 function createMovableObjects(scene: Scene): SceneObjects {
     const p1Mat = new StandardMaterial('p1Mat', scene);
     p1Mat.diffuseColor = new Color3(0.85, 0.2, 0.4);
-    const player1Paddle = MeshBuilder.CreateBox('p1Paddle', { width: 0.5, height: 1, depth: 4 }, scene);
+    const player1Paddle = MeshBuilder.CreateBox('p1Paddle', { width: 1.8, height: 1, depth: 4 }, scene);
     player1Paddle.position = new Vector3(-12, 0.5, 0);
     player1Paddle.material = p1Mat;
     player1Paddle.renderOutline = true;
@@ -145,7 +145,7 @@ function createMovableObjects(scene: Scene): SceneObjects {
 
     const p2Mat = new StandardMaterial('p2Mat', scene);
     p2Mat.diffuseColor = new Color3(0.1, 0.7, 0.8);
-    const player2Paddle = MeshBuilder.CreateBox('p2Paddle', { width: 0.5, height: 1, depth: 4 }, scene);
+    const player2Paddle = MeshBuilder.CreateBox('p2Paddle', { width: 1.8, height: 1, depth: 4 }, scene);
     player2Paddle.position = new Vector3(12, 0.5, 0);
     player2Paddle.material = p2Mat;
     player2Paddle.renderOutline = true;

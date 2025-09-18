@@ -181,7 +181,14 @@ export class PongGame3D {
 
         const now = Date.now();
         const timeSinceUpdate = now - this.state.lastUpdate;
-        const interpolationFactor = Math.min(timeSinceUpdate / (1000 / 60), 1);
+        const serverUpdateInterval = 1000 / 60;
+        let interpolationFactor = timeSinceUpdate / (serverUpdateInterval * 1.5);
+
+        if (timeSinceUpdate > serverUpdateInterval * 3) {
+            interpolationFactor = 1;
+        }
+
+        interpolationFactor = Math.min(interpolationFactor, 1);
 
         this.ball.position.x = lerp(this.previousState.ball.position.x, this.state.ball.position.x, interpolationFactor);
         this.ball.position.y = lerp(this.previousState.ball.position.y, this.state.ball.position.y, interpolationFactor);
