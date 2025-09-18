@@ -71,11 +71,11 @@ export function isGameOver(state: GameState): boolean {
  */
 // ... (imports and other functions remain the same)
 
-export function updatePhysics(game: GameState): void {
-    const substeps = 8; // Increased to 8 for better accuracy (reduces dt to 0.125, lowering overshoot risk without high cost)
-    const dt = 1 / substeps;
+export function updatePhysics(game: GameState, deltaTime: number): void {
+    const substeps = 4; // Increased to 4 for better accuracy (reduces dt to 0.125, lowering overshoot risk without high cost)
+    const dt = deltaTime / substeps;
     const wallZ = ARENA_DEPTH / 2 - BALL_RADIUS;
-    const maxSpeed = 0.6; // Reduced from 0.8 to make the ball feel slower at max
+    const maxSpeed = 25.0; // Reduced from 0.8 to make the ball feel slower at max
     const speedIncrease = 1.015; // Reduced from 1.02 for slower acceleration
 
     for (let i = 0; i < substeps; i++) {
@@ -305,9 +305,9 @@ function getPlayerKey(playerId: string, game: GameState): 'player1' | 'player2' 
 export function resetBall(game: GameState): void {
 	game.ball.position = { x: 0, y: 1, z: 0 };
 	game.ball.velocity = {
-		x: game.ball.velocity.x > 0 ? -0.25 : 0.25,
+		x: game.ball.velocity.x > 0 ? -15.0 : 15.0,
 		y: 0,
-		z: (Math.random() - 0.5) * 0.3
+		z: (Math.random() - 0.5) * 0.6
 	};
 }
 
