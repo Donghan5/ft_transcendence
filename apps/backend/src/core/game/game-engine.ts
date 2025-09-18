@@ -76,7 +76,7 @@ class Enhanced3DPongGame {
 			},
 			ball: {
 				position: { x: 0, y: 1, z: 0 },
-				velocity: { x: 20.0, y: 0, z: (Math.random() - 0.5) * 0.6 },
+				velocity: { x: 20.0, y: 0, z: (Math.random() - 0.5) * 20 },
 			},
 			gameId,
 			status: 'waiting',
