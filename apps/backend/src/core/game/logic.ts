@@ -202,8 +202,8 @@ function calculateCollisionTimes(
     const vel = game.ball.velocity;
     const player1X = -12;
     const player2X = 12;
-    const paddle1Front = player1X + paddleWidth;
-    const paddle2Front = player2X - paddleWidth;
+    const paddle1Front = player1X + (paddleWidth / 2);
+    const paddle2Front = player2X - (paddleWidth / 2);
 
     let topWall = -1;
     if (vel.z > 0) {
