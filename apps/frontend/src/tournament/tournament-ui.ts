@@ -6,6 +6,7 @@ declare global {
     }
 }
 
+import { returnToMainMenu } from 'main';
 import StateManager from '../utils/state-manager';
 import { Tournament, TournamentPlayer, Match } from '@trans/common-types';
 
@@ -314,44 +315,44 @@ export class TournamentUI {
         
         const joinBtn = document.getElementById('join-tournament');
         if (joinBtn) {
-        joinBtn.addEventListener('click', async () => {
-            try {
-                const response = await fetch('/api/tournament/active/list', {
-                    credentials: 'include'
-                });
+            joinBtn.addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/api/tournament/active/list', {
+                        credentials: 'include'
+                    });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    const activeTournaments = data.tournaments;
+                    if (response.ok) {
+                        const data = await response.json();
+                        const activeTournaments = data.tournaments;
 
-                    if (activeTournaments.length === 0) {
-                        this.showStatusMessage('No active tournaments available to join.', 'info');
-                        return;
-                    }
+                        if (activeTournaments.length === 0) {
+                            this.showStatusMessage('No active tournaments available to join.', 'info');
+                            return;
+                        }
 
-                    const waitingTournament = activeTournaments.find((t: any) => t.status === 'waiting');
-                    
-                    if (!waitingTournament) {
-                        this.showStatusMessage('No tournaments waiting for players.', 'info');
-                        return;
-                    }
+                        const waitingTournament = activeTournaments.find((t: any) => t.status === 'waiting');
+                        
+                        if (!waitingTournament) {
+                            this.showStatusMessage('No tournaments waiting for players.', 'info');
+                            return;
+                        }
 
-                    const success = await this.joinTournament(waitingTournament.id);
-                    if (success) {
-                        StateManager.saveTournamentState(waitingTournament.id, false, waitingTournament.name);
-                        this.showStatusMessage('Successfully joined tournament!', 'success');
+                        const success = await this.joinTournament(waitingTournament.id);
+                        if (success) {
+                            StateManager.saveTournamentState(waitingTournament.id, false, waitingTournament.name);
+                            this.showStatusMessage('Successfully joined tournament!', 'success');
+                        } else {
+                            this.showStatusMessage('Failed to join tournament.', 'error');
+                        }
                     } else {
-                        this.showStatusMessage('Failed to join tournament.', 'error');
+                        this.showStatusMessage('Failed to get active tournaments.', 'error');
                     }
-                } else {
-                    this.showStatusMessage('Failed to get active tournaments.', 'error');
+                } catch (error) {
+                    console.error('Error getting active tournaments:', error);
+                    this.showStatusMessage('Error getting tournaments list.', 'error');
                 }
-            } catch (error) {
-                console.error('Error getting active tournaments:', error);
-                this.showStatusMessage('Error getting tournaments list.', 'error');
-            }
-        });
-    }
+            });
+        }  
 
         const inviteBtn = document.getElementById('invite-friends');
         if (inviteBtn) {
@@ -368,6 +369,8 @@ export class TournamentUI {
         if (cancelBtn) {
             cancelBtn.addEventListener('click', async () => {
                 if (!this.tournamentId) return;
+
+                if (!confirm('Are you sure you want to cancel the tournament?')) return;
 
                 try {
                     const response = await fetch('/api/tournament/cancel', {
@@ -418,6 +421,42 @@ export class TournamentUI {
                     }
                 } catch (error) {
                     console.error('Set ready error:', error);
+                }
+            });
+        }
+
+        const leaveBtn = document.getElementById('leave-tournament');
+        if (leaveBtn) {
+            leaveBtn.addEventListener('click', async () => {
+                if (!this.tournamentId) return;
+
+                if (!confirm('Are you sure you want to leave the tournament?')) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/tournament/leave', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ tournamentId: this.tournamentId }),
+                        credentials: 'include'
+                    });
+
+                    if (response.ok) {
+                        this.cleanup();
+
+                        StateManager.clearTournamentState();
+
+                        this.leaveTournament();
+
+                        document.dispatchEvent(new CustomEvent('requestReturnToMainMenu'));
+                        
+                    } else {
+                        const error = await response.json();
+                        this.showStatusMessage(`Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
+                    }
+                } catch (error) {
+                    console.error('Leave tournament error:', error);
                 }
             });
         }

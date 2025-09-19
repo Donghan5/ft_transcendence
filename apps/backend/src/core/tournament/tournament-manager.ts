@@ -868,10 +868,14 @@ export class TournamentManager {
 
     async leaveTournament(tournamentId: string, userId: string): Promise<boolean> {
         const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
+        console.log('Tournament info:', tournament);
+        
         if (!tournament) {
             console.error('Tournament not found');
             return false;
         }
+
+        console.log('Tournament status:', tournament.status);
 
         if (tournament.status !== 'waiting') {
             console.error('Tournament already started');
@@ -885,6 +889,8 @@ export class TournamentManager {
         }
 
         try {
+            console.log('Leaving tournament:', tournamentId, 'for user:', userId);
+            
             const result = await dbRun(
                 `DELETE FROM tournament_participants WHERE tournament_id = ? AND user_id = ?`,
                 [tournamentId, parseInt(userId)]

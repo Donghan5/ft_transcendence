@@ -51,6 +51,10 @@ document.addEventListener('DOMContentLoaded', () => {
 	setupEventListeners();
 })
 
+document.addEventListener('requestReturnToMainMenu', () => {
+    returnToMainMenu();
+});
+
 /**
  * @description checking auth status
  */
