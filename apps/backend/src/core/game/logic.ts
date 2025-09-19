@@ -308,7 +308,7 @@ export function resetBall(game: GameState): void {
 	game.ball.velocity = {
 		x: game.ball.velocity.x > 0 ? -15.0 : 15.0,
 		y: 0,
-		z: (Math.random() - 0.5) * 20
+		z: (Math.random() - 0.5) * 40
 	};
 }
 

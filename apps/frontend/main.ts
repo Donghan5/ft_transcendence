@@ -1566,17 +1566,6 @@ function showUserStatsModal(stats: UserStats): void {
 async function cancelMatchmaking() {
 	console.log('Cancelling matchmaking...');
 
-	if (matchmakingWs) {
-		try {
-			matchmakingWs.close();
-			console.log('Matchmaking WebSocket closed');
-		} catch (error) {
-			console.error('Error closing matchmaking WebSocket:', error);
-		} finally {
-			matchmakingWs = null;
-		}
-	}
-
 	if (!currentUser || !currentUser.id) {
 		console.error('Current user is not logged in. Cannot cancel matchmaking.');
 		returnToMainMenu();
@@ -1603,6 +1592,16 @@ async function cancelMatchmaking() {
 		console.error('Error cancelling matchmaking:', error);
 		alert('Failed to cancel matchmaking. Please try again later.');
 	} finally {
+		if (matchmakingWs) {
+			try {
+				matchmakingWs.close();
+				console.log('Matchmaking WebSocket closed');
+			} catch (error) {
+				console.error('Error closing matchmaking WebSocket:', error);
+			} finally {
+				matchmakingWs = null;
+			}
+		}
 		returnToMainMenu();
 	}
 }

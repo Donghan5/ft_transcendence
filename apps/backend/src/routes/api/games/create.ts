@@ -35,7 +35,7 @@ export default async function createGameRoute(fastify: FastifyInstance) {
         if (gameMode === 'AI' || player2Id === 'AI') {
             player2Nickname = 'AI';
         } else if (gameMode === 'LOCAL_PVP' || player2Id === 'local player') {
-            player2Nickname = 'Player 2';
+            player2Nickname = 'Local Player';
         } else if (player2Id) {
             const player2Data = await dbGet('SELECT nickname FROM users WHERE id = ?', [player2Id]);
             player2Nickname = player2Data?.nickname || `Player ${player2Id}`;
@@ -64,6 +64,9 @@ export default async function createGameRoute(fastify: FastifyInstance) {
 			case 'PVP':
 				if (gameEngine.waitingPlayer) {
 					const player2Id = gameEngine.waitingPlayer.playerId;
+          const player2Data = await dbGet('SELECT nickname FROM users WHERE id = ?', [player2Id]);
+          player2Nickname = player2Data?.nickname || `Player ${player2Id}`;
+
 					gameId = gameEngine.createGame(player1Id, player2Id, 'PVP', undefined, player1Nickname, player2Nickname);
 
 					gameEngine.notifyMatchFound(player2Id, gameId);

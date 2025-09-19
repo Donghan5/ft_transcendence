@@ -17,6 +17,7 @@ export default async function cancelRoutes(fastify: FastifyInstance) {
       return reply.send({ success: true, message: 'Matchmaking cancelled' });
     }
 
-    return reply.code(404).send({ error: 'No waiting player found to cancel' });
+    fastify.log.info(`Matchmaking cancellation request for player ${playerId}, but player was not found in the waiting queue. Acknowledging as success.`);
+    return reply.send({ success: true, message: 'Matchmaking successfully cancelled.' });
   });
 }

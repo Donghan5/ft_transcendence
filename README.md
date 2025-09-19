@@ -206,6 +206,10 @@
 
 99. 토너먼트 레이팅 표시 관련 문제 --> fix
 
+100. pvp 상대방 닉네임 opponent 로 표시 (닉네임으로 표시해야함) --> fix
+
+101. 매치 메이킹 api 404에러.
+
 ## ----- LOGIN Flow -----
 1. Google OAuth2 로그인
 	- @fastify/oauth2
