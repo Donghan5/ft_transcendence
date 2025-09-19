@@ -151,7 +151,11 @@ export class TournamentManager {
         }
 
         const user = await dbGet(
-            `SELECT id, nickname, rating FROM users WHERE id = ?`, [parseInt(playerId)]
+            `SELECT u.id, u.nickname, COALESCE(us.rank_points, 1000) as rating
+            FROM users u
+            LEFT JOIN user_stats us ON u.id = us.user_id
+            WHERE u.id = ?`,
+            [parseInt(playerId)]
         );
 
         if (!user) {
@@ -612,9 +616,10 @@ export class TournamentManager {
 
     async getTournamentPlayers(tournamentId: string): Promise<TournamentPlayer[]> {
         const players = await dbAll(
-            `SELECT u.id, u.nickname, u.rating, tp.seed
+            `SELECT u.id, u.nickname, COALESCE(us.rank_points, 1000) as rating, tp.seed
             FROM tournament_participants tp
             JOIN users u ON u.id = tp.user_id
+            LEFT JOIN user_stats us ON u.id = us.user_id
             WHERE tp.tournament_id = ?`,
             [tournamentId]
         );
@@ -890,7 +895,7 @@ export class TournamentManager {
 
         try {
             console.log('Leaving tournament:', tournamentId, 'for user:', userId);
-            
+
             const result = await dbRun(
                 `DELETE FROM tournament_participants WHERE tournament_id = ? AND user_id = ?`,
                 [tournamentId, parseInt(userId)]
