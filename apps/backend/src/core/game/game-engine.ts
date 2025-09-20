@@ -4,6 +4,7 @@ import * as gameLogics from './logic';
 import { dbRun } from '../../database/helpers';
 import { OnlineStatusManager } from '../../core/status/online-status-manager';
 import { UserStatsManager } from '../../core/stats/user-stats-manager';
+import { gameLogger, logGameEvent, logUserActivity } from '../../utils/logger';
 
 
 class Enhanced3DPongGame {
@@ -56,6 +57,26 @@ class Enhanced3DPongGame {
 		player1Nickname?: string, player2Nickname?: string
 	): string {
 		const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+		
+		// Log the game
+		gameLogger.info(`Creating game ${gameId}`, {
+			game_id: gameId,
+			game_mode: gameMode,
+			player1: { id: player1Id, nickname: player1Nickname },
+			player2: { id: player2Id, nickname: player2Nickname },
+			ai_level: aiLevel
+		});
+
+		// Log game creation event
+		logGameEvent(gameId, 'game_create', {
+			players: [
+				{ id: player1Id, nickname: player1Nickname || 'Player 1' },
+				{ id: player2Id, nickname: player2Nickname || 'Player 2' }
+			],
+			game_mode: gameMode,
+			ai_level: aiLevel
+		});
+		
 		const initialState = gameLogics.initState(gameId);
 
 		const gameState: GameState = {
@@ -99,6 +120,19 @@ class Enhanced3DPongGame {
 	 * @param ws - The WebSocket connection for the player
 	 */
 	public addPlayer(gameId: string, playerId: string, ws: WebSocket): void {
+		if (!this.connectedPlayers.has(gameId)) {
+			this.connectedPlayers.set(gameId, new Map());
+		}
+
+		this.connectedPlayers.get(gameId)!.set(playerId, ws);
+
+		// Log player join event
+		gameLogger.info(`Player ${playerId} joined game ${gameId}`);
+		logGameEvent(gameId, 'player_connect', {
+			player_id: playerId,
+			total_players: this.connectedPlayers.get(gameId)?.size || 0
+		});
+
 		const players = this.connectedPlayers.get(gameId);
 		const game = this.games.get(gameId);
 
@@ -238,6 +272,14 @@ class Enhanced3DPongGame {
 	}
 
 	public updatePlayerInputState(gameId: string, playerId: string, direction: 'up' | 'down' | 'stop'): void {
+		// Log player input for activity tracking
+		if (direction !== 'stop') {
+			logGameEvent(gameId, 'player_input', {
+				player_id: playerId,
+				input: direction
+			});
+		}
+		
 		if (!this.currentInputStates.has(gameId)) {
 			this.currentInputStates.set(gameId, new Map());
 		}
@@ -259,12 +301,48 @@ class Enhanced3DPongGame {
 		this.gameLoopRunning.set(gameId, false);
 		this.currentInputStates.delete(gameId);
 		console.log(`Game loop stopped for game ${gameId}`);
+
+		// Log game loop stop event
+		const game = this.games.get(gameId);
+		if (game) {
+			gameLogger.info(`Game loop stopped for game ${gameId}`);
+			logGameEvent(gameId, 'game_end', {
+				final_status: game.status,
+				player1_score: game.player1?.score || 0,
+				player2_score: game.player2?.score || 0,
+				duration: this.calculateGameDuration(game),
+				ended_at: new Date().toISOString()
+			});
+		}
 	}
 
+	/**
+	 * @description Calculate the duration of the game in milliseconds
+	 * @param game 
+	 * @returns duration in ms
+	 */
+	private calculateGameDuration(game: any): number {
+		// You can add a startTime property to your game state to track this
+		// For now, return a placeholder value
+		return Date.now() - (game.startTime || Date.now());
+	}
+
+	/**
+	 * Remove a player from a game
+	 * @param gameId - The ID of the game
+	 * @param playerId - The ID of the player
+	 */
 	public removePlayer(gameId: string, playerId: string): void {
 		const players = this.connectedPlayers.get(gameId);
 		if (players?.has(playerId)) {
 			players.delete(playerId);
+
+			// Log player leave event
+			gameLogger.info(`Player ${playerId} removed from game ${gameId}`);
+			logGameEvent(gameId, 'player_disconnect', {
+				player_id: playerId,
+				remaining_players: this.connectedPlayers.get(gameId)?.size || 0
+			});
 			console.log(`Player ${playerId} removed from game ${gameId}`);
 		}
 
@@ -289,6 +367,7 @@ class Enhanced3DPongGame {
 
 		const game = this.games.get(gameId);
 		if (!game) {
+			gameLogger.error(`Game ${gameId} not found, cannot start loop`);
 			console.log(`Game ${gameId} not found, cannot start loop`);
 			return;
 		}
@@ -296,10 +375,17 @@ class Enhanced3DPongGame {
 		this.gameLoopRunning.set(gameId, true);
 		console.log(`Starting game loop for game ${gameId}`);
 
+		gameLogger.info(`Starting game loop for game ${gameId}`);
+		logGameEvent(gameId, 'game_start', {
+			status: 'game_loop_started',
+			start_time: new Date().toISOString()
+		});
+
 		const targetFPS = 60;
 		const frameTime = 1000 / targetFPS;
 		let lastFrameTime = Date.now();
 
+		let updateCounter = 0;
 		const gameLoop = () => {
 			if (!this.gameLoopRunning.get(gameId)) {
 				return;
@@ -309,6 +395,17 @@ class Enhanced3DPongGame {
 			if (!currentGame || currentGame.status === 'finished') {
 				this.stopGameLoop(gameId);
 				return;
+			}
+
+			updateCounter++;
+
+			if (updateCounter % 100 === 0) {
+				logGameEvent(gameId, 'performance_metric', {
+					update_count: updateCounter,
+					active_players: this.connectedPlayers.get(gameId)?.size || 0,
+					game_status: game.status,  // if not working, try currentGame.status
+					timestamp: new Date().toISOString()
+				});
 			}
 
 			const currentTime = Date.now();
