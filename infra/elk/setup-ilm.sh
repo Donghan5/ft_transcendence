@@ -16,40 +16,63 @@ until curl -s -u "${ELASTIC_USER}:${ELASTIC_PASSWORD}" http://elasticsearch:9200
   sleep 10
 done
 
-# Verify retention-policy.json exists and is readable
-if [ ! -r /retention-policy.json ]; then
-  echo "Error: /retention-policy.json is missing or not readable."
+# Apply ILM policy with retry
+echo "Attempting to apply ILM policy..."
+attempt=0
+max_attempts=12
+until [ "$attempt" -ge "$max_attempts" ]
+do
+    response=$(curl -s -w "\n%{http_code}" -X PUT "http://elasticsearch:9200/_ilm/policy/pong_retention_policy" \
+      -u "${ELASTIC_USER}:${ELASTIC_PASSWORD}" \
+      -H 'Content-Type: application/json' \
+      -d @/retention-policy.json)
+    http_code=$(echo "$response" | tail -n1)
+    response_body=$(echo "$response" | sed -e '$d')
+
+    if [ "$http_code" -eq 200 ] && echo "$response_body" | grep -q '"acknowledged":true'; then
+      echo "ILM policy applied successfully."
+      break
+    fi
+    attempt=$((attempt+1))
+    echo "Failed to apply ILM policy (attempt $attempt/$max_attempts). Retrying in 10s..."
+    sleep 10
+done
+
+if [ "$attempt" -ge "$max_attempts" ]; then
+  echo "Error: Failed to apply ILM policy after $max_attempts attempts."
   exit 1
 fi
 
-# Apply ILM policy
-response=$(curl -s -w "\n%{http_code}" -X PUT "http://elasticsearch:9200/_ilm/policy/pong_retention_policy" \
-  -u "${ELASTIC_USER}:${ELASTIC_PASSWORD}" \
-  -H 'Content-Type: application/json' \
-  -d @/retention-policy.json)
-http_code=$(echo "$response" | tail -n1)
-response_body=$(echo "$response" | sed -e '$d')
-if [ "$http_code" -ne 200 ] || ! echo "$response_body" | grep -q '"acknowledged":true'; then
-  echo "Failed to apply retention policy. HTTP Code: $http_code, Response: $response_body"
-  exit 1
-fi
+# Create index template for pong-logs-* with retry
+echo "Attempting to create index template..."
+attempt=0
+until [ "$attempt" -ge "$max_attempts" ]
+do
+    response=$(curl -s -w "\n%{http_code}" -X PUT "http://elasticsearch:9200/_index_template/pong_logs_template" \
+      -u "${ELASTIC_USER}:${ELASTIC_PASSWORD}" \
+      -H 'Content-Type: application/json' \
+      -d '{
+        "index_patterns": ["pong-logs-*"],
+        "template": {
+          "settings": {
+            "index.lifecycle.name": "pong_retention_policy"
+          }
+        }
+      }')
+    http_code=$(echo "$response" | tail -n1)
+    response_body=$(echo "$response" | sed -e '$d')
 
-# Create index template for pong-logs-*
-response=$(curl -s -w "\n%{http_code}" -X PUT "http://elasticsearch:9200/_index_template/pong_logs_template" \
-  -u "${ELASTIC_USER}:${ELASTIC_PASSWORD}" \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "index_patterns": ["pong-logs-*"],
-    "template": {
-      "settings": {
-        "index.lifecycle.name": "pong_retention_policy"
-      }
-    }
-  }')
-http_code=$(echo "$response" | tail -n1)
-response_body=$(echo "$response" | sed -e '$d')
-if [ "$http_code" -ne 200 ] || ! echo "$response_body" | grep -q '"acknowledged":true'; then
-  echo "Failed to create index template. HTTP Code: $http_code, Response: $response_body"
+    if [ "$http_code" -eq 200 ] && echo "$response_body" | grep -q '"acknowledged":true'; then
+      echo "Index template created successfully."
+      break
+    fi
+    attempt=$((attempt+1))
+    echo "Failed to create index template (attempt $attempt/$max_attempts). Retrying in 10s..."
+    sleep 10
+done
+
+if [ "$attempt" -ge "$max_attempts" ]; then
+  echo "Error: Failed to create index template after $max_attempts attempts."
   exit 1
 fi
 
