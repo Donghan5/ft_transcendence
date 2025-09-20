@@ -429,7 +429,8 @@ export class TournamentManager {
             await dbRun('COMMIT');
 
             console.log(`Successfully processed game ${gameId} for match ${matchId}`);
-            await this.broadcastTournamentUpdate(updatedTournament.id, updatedTournament);
+            // This line commented temporarily to reduce the load (to solve next round issue)
+            // await this.broadcastTournamentUpdate(updatedTournament.id, updatedTournament);
 
             if (this.isRoundComplete(updatedTournament)) {
                 this.advanceToNextRound(updatedTournament);
