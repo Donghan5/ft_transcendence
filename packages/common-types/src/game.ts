@@ -12,6 +12,7 @@ export interface PlayerState {
   score: number;
   paddleZ: number;
   nickname?: string;
+  justHitBall?: boolean;
 }
 
 export interface BallState {

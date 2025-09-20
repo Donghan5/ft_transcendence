@@ -105,7 +105,7 @@ export class TournamentUI {
         }
         
         this.container.innerHTML = `
-            <div class="tournament-lobby bg-blue-500 border-thick shadow-sharp p-8 animate-pop">
+            <div class="tournament-lobby bg-white border-thick shadow-sharp p-8 animate-pop">
                 ${lobbyContentHtml}
                 <div id="tournament-status" class="mt-4 p-3 bg-gray-100 border-thick hidden">
                     <p id="status-text"></p>

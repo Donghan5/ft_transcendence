@@ -86,7 +86,7 @@
 
 42. pvp 매치 메이킹 관련 로직에 문제가 생김 (원래 보이던 waiting opponent (cancel 버튼)이 안보임) --> 토너먼트 기능 추가한 이후에 이렇게 된건가? --> FIX
 
-43. 처음 로컬 유저 등록 시, FAIL TO LOAD USER PROFILE 나옴 (큰 버그는 아닌데 찜찜함) --> FIXED (바로 로그인 이후 화면으로 접근을 시도해서 그런 거였음)
+43. 처음 로컬 유저 등록 시, FAIL TO LOAD USER PROFILE 나옴 (큰 버그는 아닌데 찜찜함) --> FIXED (바로 로그인 이후 화면으로 접근을 시도해서 그런 거였음) --> fix
 
 44. 가끔씩 처음으로 친구 창을 열 때도, 동일하게 FAIL TO LOAD 문제가 나옴 --> FIXED
 
@@ -209,29 +209,3 @@
 100. pvp 상대방 닉네임 opponent 로 표시 (닉네임으로 표시해야함) --> fix
 
 101. 매치 메이킹 api 404에러. --> FIX
-
-## ----- LOGIN Flow -----
-1. Google OAuth2 로그인
-	- @fastify/oauth2
-	- 구글 로그인의 핵심 --> Callback route 처리, 인증 성공 시 code가 담긴 URL로 전송 --> 이걸 잡아서 access_token 으로 교환하고 DB에 유저 정보 저장
-	- 1. /login/google -> 구글 로그인 리다이렉트
-	- 2. /auth/google/callback -> 구글이 리다이렉트함 -> code 로 access_token 요청 -> 유저 정보 확보
-	- 3. DB에 저장 또는 업데이트
-	- 4. JWT로 프론트에 전달 (세션 유지)
-
-
-## ----- INVITE FRIEND FLOW -----
-1. (Front) click invite button in friend-list, send request to backend
-2. (Back) Register invitation information in DB, send it to invited friend (via websocket)
-3. (Front) Pop-up ---> "Player XXX invited... [accept/reject]"
-4. (Front) if accept --> send the post request to backend
-5. (Back) gameEngine.createGame() --> create game of both player, send a signal "Game Start" via websocket
-6. Enter to game id, when they receive the signals
-
-
-## -------- 토너먼트 기능 ----------
-1. 토너먼트 대기방 입장
-2. 친구 초대 가능 최소 3명
-3. 어떤 기준(?)으로 대진표 만듬. 인원이 홀수인 경우에는 부전승
-4. 대진표를 기준으로 경기 진행
-5. 경기 결과를 기준으로 랭킹 반영해서 리더보드에 기록

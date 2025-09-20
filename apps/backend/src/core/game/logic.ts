@@ -169,6 +169,10 @@ function simulateSubstep(
                     game.ball.velocity.z = relativeIntersectRight * 15.0; // Increased from 0.5 to make angle changes more pronounced
                     game.ball.velocity.x = -Math.min(Math.abs(game.ball.velocity.x) * speedIncrease, maxSpeed);
                     game.ball.position.x = PADDLE_X_POSITION - PADDLE_WIDTH - BALL_RADIUS - 0.01;
+                    
+                    if (game.player2Id === 'AI') {
+                        game.player2.justHitBall = true; // Mark that AI just hit the ball
+                    }
                     break;
             }
         }

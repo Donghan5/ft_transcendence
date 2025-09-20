@@ -31,22 +31,52 @@ export function selectLevelAI(level: string): { accuracy: number, speed: number,
 	}
 }
 
+/**
+ * @description Dinamically predict the ball position when it reaches the AI paddle's x-coordinate
+ * @param ball 
+ * @param targetX 
+ * @param aiParams 
+ * @returns Coordinate Z where the ball is expected to cross the AI's paddle plane
+ */
 export function predictBallPosition(
 	ball: BallState,
-	targetX: number
+	targetX: number,
+    aiParams: { accuracy: number, speed: number, mistakeChance: number }
 ): number {
-	let predictedPosition: Vector3D = { ...ball.position };
-	let predictedVelocity: Vector3D = { ...ball.velocity };
+    let predictedPosition: Vector3D = { ...ball.position };
+    let predictedVelocity: Vector3D = { ...ball.velocity };
 
-	while (predictedVelocity.x > 0 && predictedPosition.x < targetX ||
-		predictedVelocity.x < 0 && predictedPosition.x > targetX) {
-		predictedPosition = addVectors(predictedPosition, predictedVelocity);
+    const timeToTarget = Math.abs((targetX - predictedPosition.x) / predictedVelocity.x);
+    const simulationSteps = Math.min(Math.floor(timeToTarget * 60), 120); 
+    
+	for (let i = 0; i < simulationSteps; i++) {
+        predictedPosition.x += predictedVelocity.x / 60;
+        predictedPosition.z += predictedVelocity.z / 60;
 
-		// before value was 140, -140. chaneged to 13, -13 to test
-		if (predictedPosition.z >= 13 || predictedPosition.z <= -13) {
-			predictedVelocity.z *= -1; // bounce off the top or bottom wall
-		}
-	}
+        if (predictedPosition.z >= 13 || predictedPosition.z <= -13) {
+            predictedVelocity.z *= -1;
+        }
 
-	return predictedPosition.z;
+        if ((predictedVelocity.x > 0 && predictedPosition.x >= targetX) ||
+            (predictedVelocity.x < 0 && predictedPosition.x <= targetX)) {
+            break;
+        }
+    }
+
+    const distanceFactor = Math.abs(ball.position.x - targetX) / 24;
+    const maxError = (1 - aiParams.accuracy) * 10;
+    const error = (Math.random() - 0.5) * maxError * distanceFactor;
+
+    let finalZ = predictedPosition.z + error;
+
+    if (Math.random() < 0.2) {
+        const speedMisjudgeFactor = (Math.random() - 0.5) * 0.2;
+        finalZ += predictedVelocity.z * timeToTarget * speedMisjudgeFactor;
+    }
+
+    const arenaLimit = 13;
+    if (finalZ > arenaLimit) finalZ = arenaLimit;
+    if (finalZ < -arenaLimit) finalZ = -arenaLimit;
+
+    return finalZ;
 }

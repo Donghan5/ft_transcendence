@@ -695,8 +695,12 @@ async function showFriendsScreen() {
         }
     };
 
-    // Initial render
-    await renderFriendLists();
+	if (statusManager) {
+        await renderFriendLists();
+    } else {
+        console.error("StatusManager is not initialized.");
+        friendsListEl.innerHTML = '<li class="text-red-400">Failed to load data. Status manager not available.</li>';
+	}
 }
 
 async function showPublicProfileScreen(nickname: string) {

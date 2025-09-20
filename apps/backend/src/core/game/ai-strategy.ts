@@ -6,6 +6,23 @@ class AiStrategy {
 	private gameState: GameState;
 	private level: string;
 
+	/**
+	 * I don't have any idea how to use it...
+	 */
+	private AI_STRATEGIES = {
+		DEFENSIVE: {
+			targetOffset: 0,
+			description: "Defensive: Stays near the center to block shots.",
+		},
+		BALANCED: {
+			targetOffset: 5,
+			description: "Balanced: Mixes offense and defense.",
+		},
+		AGGRESSIVE: {
+			targetOffset: 10,
+			description: "Aggressive: Moves forward to attack more.",
+		}
+	}
 
 	/**
 	 * @param gameState
@@ -26,7 +43,7 @@ class AiStrategy {
 	public updateAIPaddle(game: GameState): void {
 	const levelKey = (game.aiLevel?.toUpperCase() || 'MIDDLE') as keyof typeof AI_LEVEL;
 	const level = AI_LEVEL[levelKey] || AI_LEVEL.MIDDLE;   // if logic implemented, this level will be set by user input
-
+	const humanPlayer = game.player1;
 	const aiPlayer = game.player2;
 	const ball = game.ball;
 
@@ -35,11 +52,19 @@ class AiStrategy {
         return;
     }
 
-	if (ball.velocity.x > 0) {
-		let targetZ = predictBallPosition(ball, aiPlayer.position.x);
+	const scoreDiff = aiPlayer.score - humanPlayer.score;
+	let strategy;
 
-		const errorMargin = (1 - level.accuracy) * 30;
-		targetZ += (Math.random() - 0.5) * errorMargin;
+	if (scoreDiff >= -2) {
+		strategy = this.AI_STRATEGIES.DEFENSIVE;
+	} else if (scoreDiff >= 2) {
+		strategy = this.AI_STRATEGIES.AGGRESSIVE;
+	} else {
+		strategy = this.AI_STRATEGIES.BALANCED;
+	}
+
+	if (ball.velocity.x > 0) {
+		let targetZ = predictBallPosition(ball, aiPlayer.position.x, level);
 
 		const diff = targetZ - aiPlayer.paddleZ;
 		const move = diff * level.speed;
@@ -47,7 +72,12 @@ class AiStrategy {
 		aiPlayer.paddleZ += move;
 	} else {
 		const diff = 0 - aiPlayer.paddleZ;
-		aiPlayer.paddleZ += diff * 0.02;
+
+		aiPlayer.paddleZ += diff * 0.08;
+
+		if (aiPlayer.justHitBall) {
+			aiPlayer.justHitBall = false; // Reset the flag after moving back to center
+		}
 	}
 
 	const paddleLimit = 12;
