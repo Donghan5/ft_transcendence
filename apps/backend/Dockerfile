@@ -18,9 +18,10 @@ COPY packages/common-types/tsconfig.json ./packages/common-types/tsconfig.json
 
 RUN npm run build --workspace=ft-transcendence-backend
 
-# RUN cp -r apps/backend/src/database/migrations apps/backend/dist/database/
-
 COPY apps/backend/src/database/migrations /usr/src/app/apps/backend/migrations/
+
+# Create log directory
+RUN mkdir -p /var/log/pong && chmod 755 /var/log/pong 
 
 CMD ["node", "apps/backend/dist/src/main.js"]
 
