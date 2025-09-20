@@ -153,9 +153,31 @@ services:
     restart: unless-stopped
     networks: [ts_transcendence]
 
+  # ─────────────────── Dashboard Setup
+  kibana-setup:
+    image: curlimages/curl:latest
+    container_name: pong-kibana-setup
+    environment:
+      - ELASTIC_USER=${ELASTIC_USER}
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+    volumes:
+      - ./infra/elk/kibana/dashboards.ndjson:/dashboards.ndjson:ro
+      - ./infra/elk/kibana/import-dashboard.sh:/import-dashboard.sh:ro
+    networks: [ts_transcendence]
+    depends_on:
+      kibana:
+        condition: service_healthy
+      elk-setup:
+        condition: service_completed_successfully
+    entrypoint: ["/bin/sh", "/import-dashboard.sh"]
+    restart: "no"
+
+
 volumes:
   db-data:
   uploads-data:
+  pong_logs:
+  elasticsearch_data:
 
 networks:
   ts_transcendence:
