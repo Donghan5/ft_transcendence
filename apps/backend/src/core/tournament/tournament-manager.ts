@@ -430,7 +430,7 @@ export class TournamentManager {
 
             console.log(`Successfully processed game ${gameId} for match ${matchId}`);
             // This line commented temporarily to reduce the load (to solve next round issue)
-            // await this.broadcastTournamentUpdate(updatedTournament.id, updatedTournament);
+            await this.broadcastTournamentUpdate(updatedTournament.id, updatedTournament);
 
             if (this.isRoundComplete(updatedTournament)) {
                 this.advanceToNextRound(updatedTournament);
