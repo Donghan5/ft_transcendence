@@ -24,7 +24,7 @@ sleep 10
 
 echo "Importing dashboards..."
 attempt=0
-max_attempts=12
+max_attempts=30
 until [ "$attempt" -ge "$max_attempts" ]
 do
     response=$(curl -s -u ${ELASTIC_USER}:${ELASTIC_PASSWORD} -w "\nHTTP_STATUS:%{http_code}" -X POST "http://kibana:5601/api/saved_objects/_import?overwrite=true" \
