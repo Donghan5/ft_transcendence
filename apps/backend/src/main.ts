@@ -37,7 +37,16 @@ export async function buildServer(): Promise<FastifyInstance> {
     await server.register(cookie);
 
 
-	const callbackUri = `${process.env.BACKEND_URL}/api/users/login/google/callback`;
+	const backendUrl = process.env.BACKEND_URL;
+    if (!backendUrl) {
+        throw new Error("BACKEND_URL is not set");
+    }
+    
+    const url = new URL(backendUrl);
+    url.protocol = 'https';
+    const callbackUri = `${url.toString()}api/users/login/google/callback`;
+
+    console.log('Forced HTTPS Google OAuth2 callback URI:', callbackUri);
 
     // Google OAuth2
     server.register<any>(fastifyOAuth2, {

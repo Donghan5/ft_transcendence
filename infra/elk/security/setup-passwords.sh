@@ -1,5 +1,4 @@
 #!/bin/bash
-# infra/elk/security/setup-passwords.sh
 set -e
 
 echo "Setting up ELK Security..."

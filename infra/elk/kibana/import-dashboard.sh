@@ -1,5 +1,4 @@
 #!/bin/sh
-# infra/elk/kibana/import-dashboard.sh
 
 echo "Waiting for Kibana to be ready..."
 max_attempts=60

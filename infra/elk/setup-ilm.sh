@@ -7,19 +7,21 @@ if ! command -v curl >/dev/null 2>&1; then
 fi
 
 # Wait for Elasticsearch to be ready
+attempt=0
 until curl -s -u "${ELASTIC_USER}:${ELASTIC_PASSWORD}" http://elasticsearch:9200/_cluster/health | grep -q '"status":"green"\|"status":"yellow"'; do
   if [ $attempt -ge 12 ]; then
     echo "Error: Elasticsearch not ready after 12 attempts."
     exit 1
   fi
   attempt=$((attempt + 1))
+  echo "Waiting for Elasticsearch to be ready... (attempt: ${attempt})"
   sleep 10
 done
 
 # Apply ILM policy with retry
 echo "Attempting to apply ILM policy..."
 attempt=0
-max_attempts=12
+max_attempts=30
 until [ "$attempt" -ge "$max_attempts" ]
 do
     response=$(curl -s -w "\n%{http_code}" -X PUT "http://elasticsearch:9200/_ilm/policy/pong_retention_policy" \
