@@ -12,7 +12,7 @@ services:
       - cluster.name=pong-logs-cluster
       - discovery.type=single-node
       - bootstrap.memory_lock=false
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
       - xpack.security.enabled=true
       - xpack.security.authc.api_key.enabled=true
       - ELASTIC_USER=${ELASTIC_USER}
@@ -30,10 +30,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 2g
 
   # ─────────────────── LOGSTASH
   logstash:
@@ -56,10 +52,6 @@ services:
         condition: service_healthy
       elk-setup:
         condition: service_completed_successfully
-    deploy:
-      resources:
-        limits:
-          memory: 512m
 
   # ─────────────────── KIBANA
   kibana:
@@ -83,10 +75,6 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-    deploy:
-      resources:
-        limits:
-          memory: 2g
 
   # ─────────────────── ELK Setup
   elk-setup:
@@ -107,18 +95,7 @@ services:
     depends_on:
       elasticsearch:
         condition: service_healthy
-    # entrypoint: ["/bin/bash", "-c", "/setup-passwords.sh && sleep 20 && /setup-ilm.sh"]
-    entrypoint: >
-      /bin/bash -c "
-        /setup-passwords.sh &&
-        echo 'Passwords set. Waiting for Elasticsearch to become healthy again...' &&
-        until curl -s -u \"${ELASTIC_USER}:${ELASTIC_PASSWORD}\" http://elasticsearch:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'; do
-          echo 'Still waiting for Elasticsearch...';
-          sleep 10;
-        done &&
-        echo 'Elasticsearch is healthy. Running ILM setup.' &&
-        /setup-ilm.sh
-      "
+    entrypoint: ["/bin/bash", "-c", "/setup-passwords.sh && sleep 20 && /setup-ilm.sh"]
     restart: "no"
 
   # ─────────────────── Front
