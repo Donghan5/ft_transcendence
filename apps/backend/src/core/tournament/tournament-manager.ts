@@ -984,6 +984,20 @@ export class TournamentManager {
             }
         }
     }
+
+    public findMatchByGameId(gameId: string): { tournamentId: string; match: Match } | null {
+        for (const [tournamentId, tournament] of this.tournaments.entries()) {
+            if (tournament.bracket) {
+                for (const round of tournament.bracket) {
+                    const match = round.find(m => m.gameId === gameId);
+                    if (match) {
+                        return { tournamentId, match };
+                    }
+                }
+            }
+        }
+        return null;
+    }
 }
 
 export const tournamentManager = new TournamentManager();

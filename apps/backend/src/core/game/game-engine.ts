@@ -5,7 +5,7 @@ import { dbRun } from '../../database/helpers';
 import { OnlineStatusManager } from '../../core/status/online-status-manager';
 import { UserStatsManager } from '../../core/stats/user-stats-manager';
 import { gameLogger, logGameEvent, logUserActivity } from '../../utils/logger';
-
+import { tournamentManager } from '../tournament/tournament-manager';
 
 class Enhanced3DPongGame {
 	private games = new Map<string, GameState>();
@@ -489,7 +489,21 @@ class Enhanced3DPongGame {
 
 			if (game.isTournamentGame) {
 				console.log(`Game ${gameId} is a tournament game, updating tournament status`);
-				// check with polling system
+
+				const tournamentInfo = tournamentManager.findMatchByGameId(gameId);
+
+				if (tournamentInfo) {
+					const { tournamentId, match } = tournamentInfo;
+					const tournament = await tournamentManager.getTournamentInfo(tournamentId);
+
+					if (tournament) {
+						await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
+					} else {
+						console.error(`Tournament ${tournamentId} not found for game ${gameId}`);
+					}
+				} else {
+					console.error(`No tournament match found for game ${gameId}`);
+				}
 			}
 
 			try {
