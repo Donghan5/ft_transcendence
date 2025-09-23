@@ -42,11 +42,20 @@ export async function buildServer(): Promise<FastifyInstance> {
         throw new Error("BACKEND_URL is not set");
     }
     
-    const url = new URL(backendUrl);
-    url.protocol = 'https';
-    const callbackUri = `${url.toString()}api/users/login/google/callback`;
+    // Changed
+    // const url = new URL(backendUrl);
+    // url.protocol = 'https';
+    // const callbackUri = `${url.toString()}api/users/login/google/callback`;
 
-    console.log('Forced HTTPS Google OAuth2 callback URI:', callbackUri);
+    // console.log('Forced HTTPS Google OAuth2 callback URI:', callbackUri);
+
+    const callbackUri = `${process.env.BACKEND_URL}/api/users/login/google/callback`;
+
+    console.log('Google OAuth2 callback URI:', callbackUri);
+
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+        throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in the environment.");
+    }
 
     // Google OAuth2
     server.register<any>(fastifyOAuth2, {
