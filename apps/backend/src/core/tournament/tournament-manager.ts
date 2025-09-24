@@ -402,7 +402,7 @@ export class TournamentManager {
      * @param gameState The state of the game.
      * @returns
      */
-    public async handleGameEnd(gameId: string, _staleTournament: Tournament, matchId: string, gameState: any): Promise<void> {
+     public async handleGameEnd(gameId: string, _staleTournament: Tournament, matchId: string, gameState: any): Promise<void> {
         const db = await getDatabase();
         try {
             await dbRun('BEGIN TRANSACTION');
@@ -420,15 +420,29 @@ export class TournamentManager {
             const match = this.findMatch(initialTournament, matchId);
             if (!match) throw new Error(`Match not found`);
 
-            const winnerId = gameState.player1.score > gameState.player2.score ? gameState.player1Id : gameState.player2Id;
-            match.winner = winnerId === match.player1?.id.toString() ? match.player1 : match.player2;
+            if (!match.player1 || !match.player2) {
+                console.error(`handleGameEnd called for a match with missing players: ${matchId}`);
+                await dbRun('ROLLBACK');
+                return;
+            }
+
+            let winnerPlayer: TournamentPlayer | null = null;
+            if (String(match.player1.id) === gameState.player1Id && String(match.player2.id) === gameState.player2Id) {
+                winnerPlayer = gameState.player1.score > gameState.player2.score ? match.player1 : match.player2;
+            } else if (String(match.player1.id) === gameState.player2Id && String(match.player2.id) === gameState.player1Id) {
+                winnerPlayer = gameState.player2.score > gameState.player1.score ? match.player1 : match.player2;
+            } else {
+                console.error(`Player ID mismatch between gameState and match ${matchId}`);
+                await dbRun('ROLLBACK');
+                return;
+            }
+            match.winner = winnerPlayer;
 
             const updatedTournament = await this.placeWinnerInNextRound(initialTournament, match);
 
             await dbRun('COMMIT');
 
             console.log(`Successfully processed game ${gameId} for match ${matchId}`);
-            // This line commented temporarily to reduce the load (to solve next round issue)
             await this.broadcastTournamentUpdate(updatedTournament.id, updatedTournament);
 
             if (this.isRoundComplete(updatedTournament)) {
