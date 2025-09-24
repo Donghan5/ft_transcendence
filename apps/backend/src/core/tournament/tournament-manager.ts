@@ -5,7 +5,7 @@ import { Tournament, TournamentPlayer, Match } from '@trans/common-types';
 
 export class TournamentManager {
     private tournaments: Map<string, Tournament> = new Map();
-    private playerTournamentMap: Map<string, string> = new Map();
+    private playerTournamentMap: Map<number, string> = new Map();
     private tournamentSockets = new Map<string, Map<string, WebSocket>>();
 
     async initializeTournaments(): Promise<void> {
@@ -30,7 +30,7 @@ export class TournamentManager {
      * @param playerId
      * @returns
      */
-    public async setPlayerReady(tournamentId: string, playerId: string) {
+    public async setPlayerReady(tournamentId: string, playerId: number) {
         const tournament = await this.getTournamentInfo(tournamentId);
 
         if (!tournament) return;
@@ -42,7 +42,7 @@ export class TournamentManager {
 
         await dbRun(
             `UPDATE tournament_participants SET is_ready = 1 WHERE tournament_id = ? AND user_id = ?`,
-            [tournamentId, parseInt(playerId)]
+            [tournamentId, playerId]
         );
 
         await this.broadcastTournamentUpdate(tournamentId, tournament);
@@ -80,7 +80,7 @@ export class TournamentManager {
                     `UPDATE tournament_participants
                     SET seed = ?
                     WHERE tournament_id = ? AND user_id = ?`,
-                    [player.seed, tournament.id, parseInt(player.id)]
+                    [player.seed, tournament.id, player.id]
                 );
             }
 
@@ -90,12 +90,12 @@ export class TournamentManager {
         }
     }
 
-    async createTournament(creatorId: string, name: string): Promise<string> {
+    async createTournament(creatorId: number, name: string): Promise<string> {
         const tournamentId = `tournament_${Date.now()}`;
 
         const creator = await dbGet(
             `SELECT id, nickname, rating FROM users WHERE id = ?`,
-            [parseInt(creatorId)]
+            [creatorId]
         );
 
         if (!creator) {
@@ -127,8 +127,7 @@ export class TournamentManager {
         return tournamentId;
     }
 
-
-    public async joinTournament(tournamentId: string, playerId: string): Promise<boolean> {
+    public async joinTournament(tournamentId: string, playerId: number): Promise<boolean> {
         // let tournament = this.tournaments.get(tournamentId);
         let tournament: Tournament | undefined | null = this.tournaments.get(tournamentId);
 
@@ -155,7 +154,7 @@ export class TournamentManager {
             FROM users u
             LEFT JOIN user_stats us ON u.id = us.user_id
             WHERE u.id = ?`,
-            [parseInt(playerId)]
+            [playerId]
         );
 
         if (!user) {
@@ -302,9 +301,9 @@ export class TournamentManager {
                         tournament.id,
                         match.round,
                         match.matchNumber,
-                        match.player1 ? parseInt(match.player1.id) : null,
-                        match.player2 ? parseInt(match.player2.id) : null,
-                        match.winner ? parseInt(match.winner.id) : null,
+                        match.player1 ? match.player1.id : null,
+                        match.player2 ? match.player2.id : null,
+                        match.winner ? match.winner.id : null,
                         match.winner ? 'walkover' : 'waiting'
                     ]
                 );
@@ -350,14 +349,14 @@ export class TournamentManager {
 
 
     private async createTournamentGame(
-        player1Id: string,
-        player2Id: string,
+        player1Id: number,
+        player2Id: number,
         player1Nickname: string,
         player2Nickname: string
     ): Promise<string> {
         const gameId = gameEngine.createGame(
-            player1Id,
-            player2Id,
+            player1Id.toString(),
+            player2Id.toString(),
             'TOURNAMENT',
             undefined, // AI level not used in tournaments
             player1Nickname,
@@ -422,7 +421,7 @@ export class TournamentManager {
             if (!match) throw new Error(`Match not found`);
 
             const winnerId = gameState.player1.score > gameState.player2.score ? gameState.player1Id : gameState.player2Id;
-            match.winner = winnerId === match.player1?.id ? match.player1 : match.player2;
+            match.winner = winnerId === match.player1?.id.toString() ? match.player1 : match.player2;
 
             const updatedTournament = await this.placeWinnerInNextRound(initialTournament, match);
 
@@ -455,7 +454,7 @@ export class TournamentManager {
 
         await dbRun(
             `UPDATE tournament_matches SET winner_id = ?, status = 'finished' WHERE id = ?`,
-            [winner ? parseInt(winner.id) : null, match.id]
+            [winner ? winner.id : null, match.id]
         );
 
         if (match.round >= tournament.bracket.length) {
@@ -475,7 +474,7 @@ export class TournamentManager {
         const dbField = playerField === 'player1' ? 'player1_id' : 'player2_id';
         await dbRun(
             `UPDATE tournament_matches SET ${dbField} = ? WHERE id = ?`,
-            [winner ? parseInt(winner.id) : null, nextMatch.id]
+            [winner ? winner.id : null, nextMatch.id]
         );
 
         return tournament;
@@ -526,7 +525,7 @@ export class TournamentManager {
                 [
                     tournament.id,
                     tournament.name,
-                    tournament.winner ? parseInt(tournament.winner.id) : null
+                    tournament.winner ? tournament.winner.id : null
                 ]
             );
 
@@ -539,7 +538,7 @@ export class TournamentManager {
                     VALUES (?, ?, ?)`,
                     [
                         tournament.id,
-                        parseInt(tournament.players[i].id),
+                        tournament.players[i].id,
                         i + 1, // Placement is 1-based index
                     ]
                 )
@@ -564,7 +563,7 @@ export class TournamentManager {
                 await dbRun(
                     `UPDATE users SET tournament_points = tournament_points + ?, tournament_wins = tournament_wins + 1
                     WHERE id = ?`,
-                    [points.winner, parseInt(tournament.winner.id)]
+                    [points.winner, tournament.winner.id]
                 );
             }
 
@@ -575,7 +574,7 @@ export class TournamentManager {
                 await dbRun(
                     `UPDATE users SET tournament_points = tournament_points + ?
                     WHERE id = ?`,
-                    [points.finalist, parseInt(finalist.id)]
+                    [points.finalist, finalist.id]
                 );
             }
         } catch (error) {
@@ -584,7 +583,7 @@ export class TournamentManager {
     }
 
     // I'm not sure of the return value
-    public async inviteToTournament(tournamentId: string, playerId: string): Promise<boolean> {
+    public async inviteToTournament(tournamentId: string, playerId: number): Promise<boolean> {
         const tournament = this.tournaments.get(tournamentId);
         if (!tournament || tournament.status !== 'waiting') {
             console.error(`Tournament with ID ${tournamentId} not found or already started.`);
@@ -597,7 +596,7 @@ export class TournamentManager {
         }
 
         const user = await dbGet(
-            `SELECT id, nickname, rating FROM users WHERE id = ?`, [parseInt(playerId)]
+            `SELECT id, nickname, rating FROM users WHERE id = ?`, [playerId]
         );
 
         if (!user) {
@@ -626,7 +625,7 @@ export class TournamentManager {
         );
 
         return players.map(p => ({
-            id: p.id.toString(),
+            id: p.id,
             nickname: p.nickname,
             rating: p.rating || 1000,
             seed: p.seed || 0
@@ -653,9 +652,9 @@ export class TournamentManager {
             }
             bracket[match.round - 1][match.match_number] = {
                 id: match.id,
-                player1: players.find(p => p.id === match.player1_id?.toString()) || null,
-                player2: players.find(p => p.id === match.player2_id?.toString()) || null,
-                winner: players.find(p => p.id === match.winner_id?.toString()) || null,
+                player1: players.find(p => p.id === match.player1_id) || null,
+                player2: players.find(p => p.id === match.player2_id) || null,
+                winner: players.find(p => p.id === match.winner_id) || null,
                 round: match.round,
                 matchNumber: match.match_number,
                 gameId: match.game_id,
@@ -669,8 +668,8 @@ export class TournamentManager {
             bracket: bracket,
             status: tournamentData.status,
             currentRound: tournamentData.current_round,
-            winner: players.find(p => p.id === tournamentData.winner_id?.toString()) || null,
-            createdBy: tournamentData.created_by.toString(),
+            winner: players.find(p => p.id === tournamentData.winner_id) || null,
+            createdBy: tournamentData.created_by,
         };
 
         return tournament;
@@ -696,7 +695,7 @@ export class TournamentManager {
             id: dbTournament.id,
             name: dbTournament.name,
             players: participants.map(p => ({
-                id: p.id.toString(),
+                id: p.id,
                 nickname: p.nickname,
                 rating: p.rating || 1000,
                 seed: p.seed || 0
@@ -705,7 +704,7 @@ export class TournamentManager {
             status: dbTournament.status,
             currentRound: dbTournament.current_round || 0,
             winner: null,
-            createdBy: dbTournament.created_by.toString()
+            createdBy: dbTournament.created_by
         };
 
         if (tournament.id) {
@@ -752,7 +751,7 @@ export class TournamentManager {
         return currentRound.filter(m => m.gameId && !m.winner);
     }
 
-    async cancelTournament(tournamentId: string, userId: string): Promise<boolean> {
+    async cancelTournament(tournamentId: string, userId: number): Promise<boolean> {
         const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
 
         console.log('Cancelling tournament:', tournamentId);
@@ -803,7 +802,7 @@ export class TournamentManager {
      */
     private async addPlayerToTournament(
         tournament: Tournament,
-        playerId: string,
+        playerId: number,
         user: any
     ): Promise<void> {
         tournament.players.push({
@@ -818,7 +817,7 @@ export class TournamentManager {
         await dbRun(
             `INSERT INTO tournament_participants (tournament_id, user_id, seed)
             VALUES (?, ?, ?)`,
-            [tournament.id, parseInt(playerId), 0]
+            [tournament.id, playerId, 0]
         );
     }
 
@@ -827,7 +826,7 @@ export class TournamentManager {
      * @param playerId
      * @returns string | null - tournament ID or null if not participating
      */
-    async getUserCurrentTournament(playerId: string): Promise<string | null> {
+    async getUserCurrentTournament(playerId: number): Promise<string | null> {
         let tournamentId = this.playerTournamentMap.get(playerId) || null;
 
         if (!tournamentId) {
@@ -835,7 +834,7 @@ export class TournamentManager {
                 `SELECT tournament_id FROM tournament_participants tp
                 JOIN tournaments t ON tp.tournament_id = t.id
                 WHERE tp.user_id = ? AND t.status IN ('waiting', 'in_progress')`,
-                [parseInt(playerId)]
+                [playerId]
             );
 
             if (result) {
@@ -856,7 +855,7 @@ export class TournamentManager {
      * @param userId
      * @returns boolean
      */
-    async isUserTournamentCreator(tournamentId: string, userId: string): Promise<boolean> {
+    async isUserTournamentCreator(tournamentId: string, userId: number): Promise<boolean> {
         const tournament = await this.getTournamentInfo(tournamentId);
         return tournament ? tournament.createdBy === userId : false;
     }
@@ -867,12 +866,12 @@ export class TournamentManager {
      * @param userId
      * @returns boolean
      */
-    async isUserInTournament(tournamentId: string, userId: string): Promise<boolean> {
+    async isUserInTournament(tournamentId: string, userId: number): Promise<boolean> {
         const tournament = await this.getTournamentInfo(tournamentId);
         return tournament ? tournament.players.some(p => p.id === userId) : false;
     }
 
-    async leaveTournament(tournamentId: string, userId: string): Promise<boolean> {
+    async leaveTournament(tournamentId: string, userId: number): Promise<boolean> {
         const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
         console.log('Tournament info:', tournament);
         
@@ -899,7 +898,7 @@ export class TournamentManager {
 
             const result = await dbRun(
                 `DELETE FROM tournament_participants WHERE tournament_id = ? AND user_id = ?`,
-                [tournamentId, parseInt(userId)]
+                [tournamentId, userId]
             );
 
             if (result.changes > 0) {

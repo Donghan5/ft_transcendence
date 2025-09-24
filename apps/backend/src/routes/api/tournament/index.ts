@@ -37,9 +37,9 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(400).send({ error: 'Tournament name already exists' });
             }
 
-            const tournamentId = await tournamentManager.createTournament(userId.toString(), name.trim());
+            const tournamentId = await tournamentManager.createTournament(userId, name.trim());
         
-            await tournamentManager.joinTournament(tournamentId, userId.toString());
+            await tournamentManager.joinTournament(tournamentId, userId);
         
             return reply.code(201).send({
                 success: true,
@@ -69,7 +69,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(400).send({ error: 'Tournament ID is required' });
             }
 
-            const success = await tournamentManager.joinTournament(tournamentId, userId.toString());
+            const success = await tournamentManager.joinTournament(tournamentId, userId);
             
             if (!success) {
                 return reply.code(404).send({ error: 'Tournament not found or already full' });
@@ -117,11 +117,11 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(404).send({ error: 'Tournament not found' });
             }
 
-            if (tournament.createdBy !== userId.toString()) {
+            if (tournament.createdBy !== userId) {
                 return reply.code(403).send({ error: 'Only the tournament creator can invite players' });
             }
 
-            if (tournament.players.some(p => p.id === targetUserId)) {
+            if (tournament.players.some(p => p.id === parseInt(targetUserId, 10))) {
                 return reply.code(400).send({ error: 'Player is already in the tournament' });
             }
 
@@ -187,7 +187,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(404).send({ error: 'Tournament not found' });
             }
 
-            if (tournament.createdBy !== userId.toString()) {
+            if (tournament.createdBy !== userId) {
                 return reply.code(403).send({ error: 'Only the tournament creator can start it' });
             }
 
@@ -319,7 +319,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(400).send({ error: 'Tournament ID is required' });
             }
 
-            const success = await tournamentManager.cancelTournament(tournamentId, userId.toString());
+            const success = await tournamentManager.cancelTournament(tournamentId, userId);
 
             if (!success) {
                 return reply.code(403).send({ error: 'Cannot cancel tournament' });
@@ -345,7 +345,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
      */
     fastify.get('/me', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
-            const userId = (request as any).user?.userId?.toString();
+            const userId = (request as any).user?.userId;
 
             if (!userId) {
                 return reply.code(401).send({ error: 'Unauthorized' });
@@ -402,7 +402,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
             return reply.code(400).send({ error: 'Tournament ID is required' });
         }
 
-        const success = await tournamentManager.leaveTournament(tournamentId, userId.toString());
+        const success = await tournamentManager.leaveTournament(tournamentId, userId);
         
         if (!success) {
             return reply.code(400).send({ error: 'Failed to leave tournament' });
@@ -461,7 +461,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
             return reply.code(400).send({ error: 'Tournament ID is required' });
         }
 
-        await tournamentManager.setPlayerReady(tournamentId, userId.toString());
+        await tournamentManager.setPlayerReady(tournamentId, userId);
 
         return reply.send({
             success: true,

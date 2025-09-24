@@ -88,8 +88,8 @@ describe('TournamentManager - Full Flow Test', () => {
 
         const creatorJoinedPromise = waitForStateUpdate(wsCreator, (p: Tournament) => p.players.length === 1, "creator joining");
 
-        await new Promise((resolve, reject) => {
-            wsCreator.on('open', resolve);
+        await new Promise<void>((resolve, reject) => {
+            wsCreator.on('open', () => resolve());
             wsCreator.on('error', reject);
         });
 

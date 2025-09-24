@@ -1,5 +1,5 @@
 export interface TournamentPlayer {
-    id: string;
+    id: number;
     nickname: string;
     rating: number;
     seed: number;
@@ -25,5 +25,5 @@ export interface Tournament {
     status: 'waiting' | 'in_progress' | 'finished';
     currentRound: number;
     winner: TournamentPlayer | null;
-    createdBy: string;
+    createdBy: number;
 }

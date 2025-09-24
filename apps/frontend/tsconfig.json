@@ -21,6 +21,6 @@
     },
 	"types": ["vite/client"]
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "../../packages/common-types/src/shared-constants.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

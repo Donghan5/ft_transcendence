@@ -1,6 +1,25 @@
 // apps/backend/src/core/game/logic.ts
-import { WIN_SCORE, POINT_PER_GOAL, BALL_RADIUS, ARENA_DEPTH,PADDLE_WIDTH, PADDLE_DEPTH, PADDLE_HEIGHT, PADDLE_X_POSITION } from "./constant";
-import { GameState, PlayerState, BallState, initialBallVelocity, GameStatus, Vector3D } from "@trans/common-types"; // 👍 수정된 부분
+import {
+    WIN_SCORE,
+    POINT_PER_GOAL,
+    BALL_RADIUS,
+    ARENA_DEPTH,
+    PADDLE_WIDTH,
+    PADDLE_HEIGHT,
+    PADDLE_DEPTH,
+    PADDLE_X_POSITION,
+    PHYSICS_SUBSTEPS,
+    BALL_MAX_SPEED,
+    BALL_SPEED_INCREASE,
+    BALL_ANGLE_MODIFIER,
+    GOAL_LINE_LEFT,
+    GOAL_LINE_RIGHT,
+    PADDLE_SPEED,
+    PADDLE_Z_LIMIT,
+    FIXED_DELTA_TIME,
+    BALL_INITIAL_SPEED
+} from "@trans/common-types";
+import { GameState, PlayerState, BallState, initialBallVelocity, GameStatus, Vector3D } from "@trans/common-types"; 
 import { gameEngine } from "./game-engine"; // Import the games map from game-engine
 import { strategy } from "./ai-strategy";
 import WebSocket from 'ws'; // Import WebSocket for broadcasting game state
@@ -72,28 +91,25 @@ export function isGameOver(state: GameState): boolean {
 // ... (imports and other functions remain the same)
 
 export function updatePhysics(game: GameState, deltaTime: number): void {
-    const substeps = 4; // Increased to 4 for better accuracy (reduces dt to 0.125, lowering overshoot risk without high cost)
-    const dt = deltaTime / substeps;
+    const dt = deltaTime / PHYSICS_SUBSTEPS;
     const wallZ = ARENA_DEPTH / 2 - BALL_RADIUS;
-    const maxSpeed = 25.0; // Reduced from 0.8 to make the ball feel slower at max
-    const speedIncrease = 1.015; // Reduced from 1.02 for slower acceleration
 
-    for (let i = 0; i < substeps; i++) {
-        // Simulate the substep with continuous collision detection
-        simulateSubstep(game, dt, BALL_RADIUS, wallZ, PADDLE_WIDTH, PADDLE_HEIGHT, maxSpeed, speedIncrease);
+    for (let i = 0; i < PHYSICS_SUBSTEPS; i++) {
+        simulateSubstep(game, dt, BALL_RADIUS, wallZ, PADDLE_WIDTH, PADDLE_HEIGHT, BALL_MAX_SPEED, BALL_SPEED_INCREASE);
     }
 
     if (game.player2Id === 'AI') {
         strategy.updateAIPaddle(game);
     }
 
-    const scorerSide = game.ball.position.x < -16 ? 'right' : game.ball.position.x > 16 ? 'left' : null;
+    const scorerSide = game.ball.position.x < GOAL_LINE_LEFT ? 'right' :
+                       game.ball.position.x > GOAL_LINE_RIGHT ? 'left' : null;
+                      
     if (scorerSide) {
         const scorerId = scorerSide === 'left' ? game.player1Id : game.player2Id;
         const updatedState = addPoint(game, scorerId);
         gameEngine.getGames().set(game.gameId, updatedState);
         resetBall(updatedState);
-
         if (isGameOver(updatedState)) {
             updatedState.status = 'finished';
             gameEngine.getGames().set(game.gameId, updatedState);
@@ -195,7 +211,7 @@ function calculateCollisionTimes(
     ballRadius: number,
     wallZ: number,
     paddleWidth: number,
-	paddleHeight: number
+    paddleDepth: number
 ): {
     topWall: number;
     bottomWall: number;
@@ -204,56 +220,50 @@ function calculateCollisionTimes(
 } {
     const pos = game.ball.position;
     const vel = game.ball.velocity;
-    const player1X = -12;
-    const player2X = 12;
+    const player1X = -PADDLE_X_POSITION;
+    const player2X = PADDLE_X_POSITION;
     const paddle1Front = player1X + (paddleWidth / 2);
     const paddle2Front = player2X - (paddleWidth / 2);
-
     let topWall = -1;
     if (vel.z > 0) {
         topWall = (wallZ - pos.z) / vel.z;
         if (topWall < 0 || topWall > dt) topWall = -1;
     }
-
     let bottomWall = -1;
     if (vel.z < 0) {
         bottomWall = (-wallZ - pos.z) / vel.z;
         if (bottomWall < 0 || bottomWall > dt) bottomWall = -1;
     }
-
     let leftPaddle = -1;
     if (vel.x < 0) {
         const ballLeft = pos.x - ballRadius;
-        leftPaddle = (paddle1Front - ballLeft) / vel.x; // Since vel.x < 0, this is positive if approaching
+        leftPaddle = (paddle1Front - ballLeft) / vel.x;
         if (leftPaddle < 0 || leftPaddle > dt) {
             leftPaddle = -1;
         } else {
-            // Predict z at hit time and check if within paddle height
             const hitZ = pos.z + vel.z * leftPaddle;
-            const paddleTop = game.player1.paddleZ - (paddleHeight / 2) - BALL_RADIUS;
-            const paddleBottom = game.player1.paddleZ + (paddleHeight / 2) + BALL_RADIUS;
+            const paddleTop = game.player1.paddleZ - (paddleDepth / 2) - BALL_RADIUS;
+            const paddleBottom = game.player1.paddleZ + (paddleDepth / 2) + BALL_RADIUS;
             if (hitZ < paddleTop || hitZ > paddleBottom) {
-                leftPaddle = -1; // Miss if not in height
+                leftPaddle = -1;
             }
         }
     }
-
     let rightPaddle = -1;
     if (vel.x > 0) {
         const ballRight = pos.x + ballRadius;
-        rightPaddle = (paddle2Front - ballRight) / vel.x; // vel.x > 0
+        rightPaddle = (paddle2Front - ballRight) / vel.x;
         if (rightPaddle < 0 || rightPaddle > dt) {
             rightPaddle = -1;
         } else {
             const hitZ = pos.z + vel.z * rightPaddle;
-            const paddleTop = game.player2.paddleZ - (paddleHeight / 2) - BALL_RADIUS;
-            const paddleBottom = game.player2.paddleZ + (paddleHeight / 2) + BALL_RADIUS;
+            const paddleTop = game.player2.paddleZ - (paddleDepth / 2) - BALL_RADIUS;
+            const paddleBottom = game.player2.paddleZ + (paddleDepth / 2) + BALL_RADIUS;
             if (hitZ < paddleTop || hitZ > paddleBottom) {
                 rightPaddle = -1;
             }
         }
     }
-
     return { topWall, bottomWall, leftPaddle, rightPaddle };
 }
 
@@ -261,16 +271,11 @@ export function processPlayerInput(
     game: GameState,
     playerId: string,
     direction: 'up' | 'down' | 'stop',
-    deltaTime: number = 1/60
+    deltaTime: number = FIXED_DELTA_TIME
 ): void {
-    const PADDLE_SPEED = 0.6;
-    const PADDLE_LIMIT = 12;
-
     const playerKey = getPlayerKey(playerId, game);
     if (!playerKey) return;
-
     let currentPaddleZ = game[playerKey].paddleZ;
-
     switch (direction) {
         case 'up':
             currentPaddleZ += PADDLE_SPEED;
@@ -281,17 +286,14 @@ export function processPlayerInput(
         case 'stop':
             break;
     }
-
-    if (currentPaddleZ > PADDLE_LIMIT) currentPaddleZ = PADDLE_LIMIT;
-    if (currentPaddleZ < -PADDLE_LIMIT) currentPaddleZ = -PADDLE_LIMIT;
-    
+    if (currentPaddleZ > PADDLE_Z_LIMIT) currentPaddleZ = PADDLE_Z_LIMIT;
+    if (currentPaddleZ < -PADDLE_Z_LIMIT) currentPaddleZ = -PADDLE_Z_LIMIT;
     game[playerKey].paddleZ = currentPaddleZ;
-    
     if (playerKey === 'player1') {
-        game.player1.position.x = -12;
+        game.player1.position.x = -PADDLE_X_POSITION;
         game.player1.position.z = currentPaddleZ;
     } else {
-        game.player2.position.x = 12;
+        game.player2.position.x = PADDLE_X_POSITION;
         game.player2.position.z = currentPaddleZ;
     }
 }
@@ -308,12 +310,12 @@ function getPlayerKey(playerId: string, game: GameState): 'player1' | 'player2' 
 }
 
 export function resetBall(game: GameState): void {
-	game.ball.position = { x: 0, y: 1, z: 0 };
-	game.ball.velocity = {
-		x: game.ball.velocity.x > 0 ? -15.0 : 15.0,
-		y: 0,
-		z: (Math.random() - 0.5) * 40
-	};
+    game.ball.position = { x: 0, y: 1, z: 0 };
+    game.ball.velocity = {
+        x: game.ball.velocity.x > 0 ? -BALL_INITIAL_SPEED : BALL_INITIAL_SPEED,
+        y: 0,
+        z: (Math.random() - 0.5) * 40
+    };
 }
 
 export function broadcastGameState(gameId: string): void {

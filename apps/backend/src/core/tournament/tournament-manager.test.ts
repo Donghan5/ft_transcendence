@@ -1,8 +1,3 @@
-/**
- * @description Tests the TournamentManager class.
- * @usage first build docker environment, then run tests
- */
-
 import { expect } from 'chai';
 import 'mocha';
 import { TournamentManager } from './tournament-manager';
@@ -17,7 +12,7 @@ import { initializeDatabase } from '../../database/db';
  */
 const createMockPlayers = (count: number): TournamentPlayer[] => {
     return Array.from({ length: count }, (_, i) => ({
-        id: (i + 1).toString(),
+        id: (i + 1),
         nickname: `Player ${i + 1}`,
         rating: 1000 + (count - i) * 10,
         seed: 0,
@@ -48,7 +43,7 @@ describe('TournamentManager - generateBracket', () => {
             status: 'waiting',
             currentRound: 0,
             winner: null,
-            createdBy: '1'
+            createdBy: 1
         };
 
         // @ts-ignore
@@ -61,10 +56,10 @@ describe('TournamentManager - generateBracket', () => {
         expect(bracket[1]).to.have.lengthOf(1);
 
         const firstRound: Match[] = bracket[0];
-        expect(firstRound[0].player1?.id).to.equal('1');
-        expect(firstRound[0].player2?.id).to.equal('4');
-        expect(firstRound[1].player1?.id).to.equal('2');
-        expect(firstRound[1].player2?.id).to.equal('3');
+        expect(firstRound[0].player1?.id).to.equal(1);
+        expect(firstRound[0].player2?.id).to.equal(4);
+        expect(firstRound[1].player1?.id).to.equal(2);
+        expect(firstRound[1].player2?.id).to.equal(3);
     });
 
     // Scenario 2: Test case of 6 participants (non power of 2, but pair number) --> walk-over
@@ -81,7 +76,7 @@ describe('TournamentManager - generateBracket', () => {
             status: 'waiting',
             currentRound: 0,
             winner: null,
-            createdBy: '1'
+            createdBy: 1
         };
 
         // @ts-ignore
@@ -95,15 +90,15 @@ describe('TournamentManager - generateBracket', () => {
         const firstRound: Match[] = bracket[0];
         const byes = firstRound.filter((match: Match) => match.player2 === null);
         expect(byes).to.have.lengthOf(2);
-        expect(byes[0].player1?.id).to.equal('1');
-        expect(byes[1].player1?.id).to.equal('2');
+        expect(byes[0].player1?.id).to.equal(1);
+        expect(byes[1].player1?.id).to.equal(2);
 
         const actualMatches = firstRound.filter((match: Match) => match.player2 !== null);
         expect(actualMatches).to.have.lengthOf(2);
-        expect(actualMatches[0].player1?.id).to.equal('3');
-        expect(actualMatches[0].player2?.id).to.equal('6');
-        expect(actualMatches[1].player1?.id).to.equal('4');
-        expect(actualMatches[1].player2?.id).to.equal('5');
+        expect(actualMatches[0].player1?.id).to.equal(3);
+        expect(actualMatches[0].player2?.id).to.equal(6);
+        expect(actualMatches[1].player1?.id).to.equal(4);
+        expect(actualMatches[1].player2?.id).to.equal(5);
     });
 
     // Scenario 3: 5 Participants (odd number), with walk-over
@@ -121,7 +116,7 @@ describe('TournamentManager - generateBracket', () => {
             status: 'waiting',
             currentRound: 0,
             winner: null,
-            createdBy: '1'
+            createdBy: 1
         };
 
         // @ts-ignore
@@ -135,12 +130,12 @@ describe('TournamentManager - generateBracket', () => {
         const firstRound: Match[] = bracket[0];
         const byes = firstRound.filter((match: Match) => match.player2 === null);
         expect(byes).to.have.lengthOf(3);
-        expect(byes.map((b: Match) => b.winner?.id)).to.deep.equal(['1', '2', '3']);
+        expect(byes.map((b: Match) => b.winner?.id)).to.deep.equal([1, 2, 3]);
 
         const actualMatch = firstRound.find((match: Match) => match.player2 !== null);
         expect(actualMatch).to.exist;
-        expect(actualMatch!.player1?.id).to.equal('4');
-        expect(actualMatch!.player2?.id).to.equal('5');
+        expect(actualMatch!.player1?.id).to.equal(4);
+        expect(actualMatch!.player2?.id).to.equal(5);
     });
 
     // Scenario 4: 3 Participants (minimum players)
@@ -157,7 +152,7 @@ describe('TournamentManager - generateBracket', () => {
             status: 'waiting',
             currentRound: 0,
             winner: null,
-            createdBy: '1'
+            createdBy: 1
         };
 
         // @ts-ignore
@@ -171,11 +166,11 @@ describe('TournamentManager - generateBracket', () => {
         const firstRound: Match[] = bracket[0];
         const byeMatch = firstRound.find((match: Match) => match.player2 === null);
         expect(byeMatch).to.exist;
-        expect(byeMatch!.player1?.id).to.equal('1');
+        expect(byeMatch!.player1?.id).to.equal(1);
 
         const actualMatch = firstRound.find((match: Match) => match.player2 !== null);
         expect(actualMatch).to.exist;
-        expect(actualMatch!.player1?.id).to.equal('2');
-        expect(actualMatch!.player2?.id).to.equal('3');
+        expect(actualMatch!.player1?.id).to.equal(2);
+        expect(actualMatch!.player2?.id).to.equal(3);
     });
 });
