@@ -374,7 +374,7 @@ export class TournamentManager {
      * @param match The match object.
      * @fix --> It will be changed to WebSocket method
      */
-    private startGameEndPolling(gameId: string, tournament: Tournament, match: Match) {
+    private async startGameEndPolling(gameId: string, tournament: Tournament, match: Match) {
         const checkInterval = setInterval(() => {
             const gameState = gameEngine.getGameState(gameId);
 
@@ -402,7 +402,7 @@ export class TournamentManager {
      * @param gameState The state of the game.
      * @returns
      */
-    public async handleGameEnd(gameId: string, _staleTournament: Tournament, matchId: string, gameState: any) {
+    public async handleGameEnd(gameId: string, _staleTournament: Tournament, matchId: string, gameState: any): Promise<void> {
         const db = await getDatabase();
         try {
             await dbRun('BEGIN TRANSACTION');
@@ -440,6 +440,7 @@ export class TournamentManager {
         } catch (error) {
             console.error(`Error processing game ${gameId} for match ${matchId}:`, error);
             await dbRun('ROLLBACK');
+            throw error;
         }
     }
 

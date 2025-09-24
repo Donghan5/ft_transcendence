@@ -1,5 +1,5 @@
 import { GameState, PlayerState, BallState, Vector3D, scaleVector, addVectors } from "@trans/common-types";
-import { POINT_PER_GOAL, WIN_SCORE } from "./constant";
+import { POINT_PER_GOAL, WIN_SCORE } from "@trans/common-types";
 
 /**
  * @elements accuracy: how accurate the AI is in predicting the ball's position

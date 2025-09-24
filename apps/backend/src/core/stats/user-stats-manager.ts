@@ -302,16 +302,6 @@ export class UserStatsManager {
      * @param userId
      */
     private async getUserRankInfo(userId: number) {
-        await dbRun(`
-            CREATE TABLE IF NOT EXISTS user_stats (
-                user_id INTEGER PRIMARY KEY,
-                rank_points INTEGER DEFAULT 1000,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id)
-            )
-        `, []);
-
         let userRank = await dbGet('SELECT * FROM user_stats WHERE user_id = ?', [userId]);
         
         if (!userRank) {
