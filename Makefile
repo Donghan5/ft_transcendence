@@ -71,6 +71,14 @@ test: fclean
 	@echo "Running tests in backend..."
 	@docker-compose exec -e NODE_ENV=test -w /usr/src/app/apps/backend backend npm test
 
+
+web-game: fclean
+	@echo "Rebuilding project without ELK setups"
+	@docker-compose build --no-cache backend frontend nginx
+	@echo "Starting up non-ELK services..."
+	@docker-compose up -d backend frontend nginx
+	@open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || xdg-open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || echo "Open https://transcendence.${LOCAL_IP}.nip.io:8443"
+
 check-env:
 	@if [ ! -f .env ]; then \
 		echo "Error: .env file is missing. Please create a .env file with all required variables."; \
