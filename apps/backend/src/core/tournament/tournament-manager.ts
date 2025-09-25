@@ -207,7 +207,8 @@ export class TournamentManager {
         const firstRound = tournamentWithBracket.bracket[0];
         for (const match of firstRound) {
             if (match.winner) {
-                tournamentWithBracket = await this.placeWinnerInNextRound(tournamentWithBracket, match);
+                const result = await this.placeWinnerInNextRound(tournamentWithBracket, match);
+                tournamentWithBracket = result.tournament;
             }
         }
 
@@ -402,7 +403,7 @@ export class TournamentManager {
      * @param gameState The state of the game.
      * @returns
      */
-     public async handleGameEnd(gameId: string, _staleTournament: Tournament, matchId: string, gameState: any): Promise<void> {
+     public async handleGameEnd(gameId: string, _staleTournament: Tournament, matchId: string, gameState: any): Promise<{ tournamentFinished: boolean, winner: TournamentPlayer | null }> {
         const db = await getDatabase();
         try {
             await dbRun('BEGIN TRANSACTION');
@@ -410,7 +411,7 @@ export class TournamentManager {
             const matchInDb = await dbGet('SELECT winner_id FROM tournament_matches WHERE id = ?', [matchId]);
             if (matchInDb && matchInDb.winner_id !== null) {
                 await dbRun('COMMIT');
-                return;
+                return { tournamentFinished: false, winner: null };
             }
 
             const tournamentId = matchId.split('_r')[0];
@@ -423,7 +424,7 @@ export class TournamentManager {
             if (!match.player1 || !match.player2) {
                 console.error(`handleGameEnd called for a match with missing players: ${matchId}`);
                 await dbRun('ROLLBACK');
-                return;
+                return { tournamentFinished: false, winner: null };
             }
 
             let winnerPlayer: TournamentPlayer | null = null;
@@ -434,11 +435,12 @@ export class TournamentManager {
             } else {
                 console.error(`Player ID mismatch between gameState and match ${matchId}`);
                 await dbRun('ROLLBACK');
-                return;
+                return { tournamentFinished: false, winner: null };
             }
+
             match.winner = winnerPlayer;
 
-            const updatedTournament = await this.placeWinnerInNextRound(initialTournament, match);
+            const { tournament: updatedTournament, isFinalMatch } = await this.placeWinnerInNextRound(initialTournament, match);
 
             await dbRun('COMMIT');
 
@@ -450,6 +452,8 @@ export class TournamentManager {
             } else {
                 this.startNextMatch(updatedTournament);
             }
+
+            return { tournamentFinished: isFinalMatch, winner: updatedTournament.winner };
 
         } catch (error) {
             console.error(`Error processing game ${gameId} for match ${matchId}:`, error);
@@ -464,7 +468,7 @@ export class TournamentManager {
      * @param match The match object.
      * @returns
      */
-    private async placeWinnerInNextRound(tournament: Tournament, match: Match): Promise<Tournament> {
+    private async placeWinnerInNextRound(tournament: Tournament, match: Match): Promise<{ tournament: Tournament, isFinalMatch: boolean }> {
         const winner = match.winner;
 
         await dbRun(
@@ -476,7 +480,7 @@ export class TournamentManager {
             tournament.winner = winner;
             tournament.status = 'finished';
             await this.saveTournamentResults(tournament);
-            return tournament;
+            return { tournament, isFinalMatch: true };
         }
 
         const nextRoundIndex = match.round;
@@ -492,7 +496,7 @@ export class TournamentManager {
             [winner ? winner.id : null, nextMatch.id]
         );
 
-        return tournament;
+        return { tournament, isFinalMatch: false };
     }
 
 

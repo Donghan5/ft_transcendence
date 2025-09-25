@@ -487,6 +487,8 @@ class Enhanced3DPongGame {
 			await this.updatePlayersStats(game, winnerId);
 			await this.setPlayersBackOnline(game);
 
+			let isTournamentFinal = false;
+
 			if (game.isTournamentGame) {
 				console.log(`Game ${gameId} is a tournament game, updating tournament status`);
 
@@ -497,7 +499,8 @@ class Enhanced3DPongGame {
 					const tournament = await tournamentManager.getTournamentInfo(tournamentId);
 
 					if (tournament) {
-						await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
+						const result = await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
+                		isTournamentFinal = result.tournamentFinished;
 					} else {
 						console.error(`Tournament ${tournamentId} not found for game ${gameId}`);
 					}
@@ -540,7 +543,8 @@ class Enhanced3DPongGame {
 						finalScore: {
 							player1: game.player1.score,
 							player2: game.player2.score
-						}
+						},
+						isTournamentFinal: isTournamentFinal
 					}
 				});
 				players.forEach((ws) => {

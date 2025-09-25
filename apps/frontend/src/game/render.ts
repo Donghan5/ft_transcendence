@@ -566,7 +566,7 @@ export class PongGame3D {
         }, 600);
     }
 
-    private onGameEnd(data: { winnerId: string, winnerNickname: string }): void {
+    private onGameEnd(data: { winnerId: string, winnerNickname: string, isTournamentFinal: boolean }): void {
         console.log(`[DEBUG] onGameEnd called with winner: ${data.winnerNickname}`);
 
         const modal = document.getElementById('gameOverModal');
@@ -577,12 +577,23 @@ export class PongGame3D {
         if (this.gameMode === 'tournament') {
             if (modal && winnerMessage && gameOverTitle && returnBtn) {
                 const isWinner = data.winnerId === this.localPlayerId;
-                if (isWinner) {
-                    winnerMessage.textContent = 'You won the match! Proceeding to the next round.';
-                    gameOverTitle.textContent = 'VICTORY';
+
+                if (data.isTournamentFinal) {
+                    if (isWinner) {
+                        winnerMessage.textContent = 'Congratulations, you won the tournament!';
+                        gameOverTitle.textContent = 'TOURNAMENT CHAMPION';
+                    } else {
+                        winnerMessage.textContent = `The tournament is over. Winner: ${data.winnerNickname}.`;
+                        gameOverTitle.textContent = 'DEFEAT';
+                    }
                 } else {
-                    winnerMessage.textContent = 'You have been eliminated from the tournament.';
-                    gameOverTitle.textContent = 'DEFEAT';
+                    if (isWinner) {
+                        winnerMessage.textContent = 'You won the match! Proceeding to the next round.';
+                        gameOverTitle.textContent = 'VICTORY';
+                    } else {
+                        winnerMessage.textContent = 'You have been eliminated from the tournament.';
+                        gameOverTitle.textContent = 'DEFEAT';
+                    }
                 }
                 modal.classList.remove('hidden');
 
