@@ -427,9 +427,9 @@ export class TournamentManager {
             }
 
             let winnerPlayer: TournamentPlayer | null = null;
-            if (String(match.player1.id) === gameState.player1Id && String(match.player2.id) === gameState.player2Id) {
+            if (String(match.player1.id) === String(gameState.player1Id) && String(match.player2.id) === String(gameState.player2Id)) {
                 winnerPlayer = gameState.player1.score > gameState.player2.score ? match.player1 : match.player2;
-            } else if (String(match.player1.id) === gameState.player2Id && String(match.player2.id) === gameState.player1Id) {
+            } else if (String(match.player1.id) === String(gameState.player2Id) && String(match.player2.id) === String(gameState.player1Id)) {
                 winnerPlayer = gameState.player2.score > gameState.player1.score ? match.player1 : match.player2;
             } else {
                 console.error(`Player ID mismatch between gameState and match ${matchId}`);
