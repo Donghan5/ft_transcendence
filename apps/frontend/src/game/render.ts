@@ -194,28 +194,6 @@ export class PongGame3D {
         });
     }
 
-    private createScreenShake(intensity: number = 0.5): void {
-        const camera = this.scene.activeCamera as ArcRotateCamera;
-        if (!camera) return;
-        const originalAlpha = camera.alpha;
-        const originalBeta = camera.beta;
-        const originalRadius = camera.radius;
-        let shakeTime = 0;
-        const shakeObserver = this.scene.onBeforeRenderObservable.add(() => {
-            shakeTime += 0.1;
-            if (shakeTime > 1) {
-                camera.alpha = originalAlpha;
-                camera.beta = originalBeta;
-                camera.radius = originalRadius;
-                this.scene.onBeforeRenderObservable.remove(shakeObserver);
-                return;
-            }
-            camera.alpha = originalAlpha + Math.sin(shakeTime * 50) * intensity * 0.01;
-            camera.beta = originalBeta + Math.cos(shakeTime * 50) * intensity * 0.01;
-            camera.radius = originalRadius + Math.sin(shakeTime * 30) * intensity;
-        });
-    }
-
     private updateBallSpeedEffects(): void {
         if (!this.state || !this.ball) return;
         const velocity = this.state.ball.velocity;

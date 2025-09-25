@@ -11,7 +11,8 @@ import {
     ArcRotateCamera,
     HemisphericLight,
     CubeTexture,
-    TrailMesh
+    TrailMesh,
+    DynamicTexture
 } from '@babylonjs/core';
 import '@babylonjs/core/Rendering/outlineRenderer';
 import {
@@ -151,7 +152,7 @@ function createVisualBorders(scene: Scene) {
     const bottomWall = topWall.clone("bottomWall");
     bottomWall.position.z = -(WALL_Z_POSITION + (BORDER_THICKNESS / 2));
 
-    const leftWall = MeshBuilder.CreatBox("leftWall", {
+    const leftWall = MeshBuilder.CreateBox("leftWall", {
         width: BORDER_THICKNESS,
         height: BORDER_HEIGHT,
         depth: VISUAL_PLAYFIELD_DEPTH + BORDER_THICKNESS

@@ -62,8 +62,8 @@ export class TournamentUI {
         let lobbyContentHtml = '';
 
         if (tournament && this.currentUserId) {
-            const isCreator = tournament.createdBy === this.currentUserId;
-            const me = tournament.players.find(p => p.id === this.currentUserId);
+            const isCreator = String(tournament.createdBy) === this.currentUserId;
+            const me = tournament.players.find(p => String(p.id) === this.currentUserId);
             const allReady = tournament.players.length >= 3 && tournament.players.every(p => p.isReady);
 
              lobbyContentHtml = `
@@ -125,7 +125,7 @@ export class TournamentUI {
      * @Todo adding ready or start button depending on the user role (creator or not) 
     */
     showBracket(tournament: Tournament): void {
-        const isCreator = tournament.createdBy === this.currentUserId;
+        const isCreator = String(tournament.createdBy) === this.currentUserId;
         const myMatch = this.findMyCurrentMatch(tournament);
         const arePlayersReady = myMatch && myMatch.player1?.isReady && myMatch.player2?.isReady;
 
@@ -902,7 +902,7 @@ export class TournamentUI {
 
         return currentRoundMatches.find(match =>
             !match.winner && 
-            (match.player1?.id === this.currentUserId || match.player2?.id === this.currentUserId)
+            (String(match.player1?.id) === this.currentUserId || String(match.player2?.id) === this.currentUserId)
         ) || null;
     }
 

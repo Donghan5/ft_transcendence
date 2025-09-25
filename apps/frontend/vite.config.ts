@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import path from 'path'
 
 export default defineConfig({
   root: '.',
@@ -14,5 +15,10 @@ export default defineConfig({
   server: {
     port: 3001,
     host: true
+  },
+  resolve: {
+    alias: {
+      '@trans/common-types': path.resolve(__dirname, '../../packages/common-types/src')
+    }
   }
 })
