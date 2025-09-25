@@ -560,6 +560,20 @@ export class TournamentManager {
             }
 
             await this.updateLeaderboard(tournament);
+
+            // clean-up memory resources
+            this.tournaments.delete(tournament.id);
+            tournament.players.forEach(player => {
+                if (this.playerTournamentMap.get(player.id) === tournament.id) {
+                    this.playerTournamentMap.delete(player.id);
+                }
+            });
+
+            const sockets = this.tournamentSockets.get(tournament.id);
+            if (sockets) {
+                sockets.forEach(ws => ws.close());
+                this.tournamentSockets.delete(tournament.id);
+            }
         } catch (error) {
             console.error(`Error saving tournament results: ${error}`);
         }
