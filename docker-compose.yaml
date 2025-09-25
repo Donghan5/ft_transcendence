@@ -28,6 +28,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    profiles: ["elk"]
 
   # ─────────────────── LOGSTASH
   logstash:
@@ -50,6 +51,7 @@ services:
         condition: service_healthy
       elk-setup:
         condition: service_completed_successfully
+    profiles: ["elk"]
 
   # ─────────────────── KIBANA
   kibana:
@@ -73,6 +75,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
+    profiles: ["elk"]
 
   # ─────────────────── ELK Setup
   elk-setup:
@@ -95,6 +98,7 @@ services:
         condition: service_healthy
     entrypoint: ["/bin/bash", "-c", "/setup-passwords.sh && sleep 20 && /setup-ilm.sh"]
     restart: "no"
+    profiles: ["elk"]
 
   # ─────────────────── Front
   frontend:
@@ -134,8 +138,8 @@ services:
     ports: ["3000:3000"]
     restart: unless-stopped
     networks: [ts_transcendence]
-    depends_on:
-      - logstash
+    # depends_on:
+      # - logstash
 
   # ─────────────────── Nginx Gateway
   nginx:
@@ -175,6 +179,7 @@ services:
         condition: service_completed_successfully
     entrypoint: ["/bin/sh", "/import-dashboard.sh"]
     restart: "no"
+    profiles: ["elk"]
 
 volumes:
   db-data:

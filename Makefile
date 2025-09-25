@@ -28,7 +28,7 @@ build:
 	docker-compose build --pull
 
 up: check-env
-	docker-compose up --build -d
+	docker-compose --profile elk up --build -d
 	@open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || xdg-open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || echo "Open https://transcendence.${LOCAL_IP}.nip.io:8443"
 
 
@@ -72,11 +72,9 @@ test: fclean
 	@docker-compose exec -e NODE_ENV=test -w /usr/src/app/apps/backend backend npm test
 
 
-web-game: fclean
-	@echo "Rebuilding project without ELK setups"
-	@docker-compose build --no-cache backend frontend nginx
-	@echo "Starting up non-ELK services..."
-	@docker-compose up -d backend frontend nginx
+web-game: check-env
+	@echo "Starting up non-ELK services (frontend, backend, nginx)..."
+	@docker-compose up --build -d
 	@open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || xdg-open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || echo "Open https://transcendence.${LOCAL_IP}.nip.io:8443"
 
 check-env:

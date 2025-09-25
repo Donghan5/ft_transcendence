@@ -489,7 +489,7 @@ class Enhanced3DPongGame {
 
 			let isTournamentFinal = false;
 
-			if (game.isTournamentGame) {
+			if (game.gameMode === 'TOURNAMENT') {
 				console.log(`Game ${gameId} is a tournament game, updating tournament status`);
 
 				const tournamentInfo = tournamentManager.findMatchByGameId(gameId);
