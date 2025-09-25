@@ -566,25 +566,44 @@ export class PongGame3D {
         }, 600);
     }
 
-    private onGameEnd(data: { winnerNickname: string }): void {
-		console.log(`[DEBUG] onGameEnd called with winner: ${data.winnerNickname}`);
+    private onGameEnd(data: { winnerId: string, winnerNickname: string }): void {
+        console.log(`[DEBUG] onGameEnd called with winner: ${data.winnerNickname}`);
 
-		const modal = document.getElementById('gameOverModal');
-		const returnBtn = document.getElementById('gameOverReturnBtn');
-		const winnerMessage = document.getElementById('winnerMessage');
+        const modal = document.getElementById('gameOverModal');
+        const returnBtn = document.getElementById('gameOverReturnBtn');
+        const winnerMessage = document.getElementById('winnerMessage');
+        const gameOverTitle = document.getElementById('gameOverTitle');
 
-		if (modal && winnerMessage) {
-			winnerMessage.textContent = `Game Over! ${data.winnerNickname} wins!`;
+        if (this.gameMode === 'tournament') {
+            if (modal && winnerMessage && gameOverTitle && returnBtn) {
+                const isWinner = data.winnerId === this.localPlayerId;
+                if (isWinner) {
+                    winnerMessage.textContent = 'You won the match! Proceeding to the next round.';
+                    gameOverTitle.textContent = 'VICTORY';
+                } else {
+                    winnerMessage.textContent = 'You have been eliminated from the tournament.';
+                    gameOverTitle.textContent = 'DEFEAT';
+                }
+                modal.classList.remove('hidden');
 
-			modal.classList.remove('hidden');
+                const returnToMenuHandler = () => {
+                    modal.classList.add('hidden');
+                    returnToMainMenu();
+                };
+                returnBtn.addEventListener('click', returnToMenuHandler, { once: true });
+            }
+        } else {
+            if (modal && winnerMessage && returnBtn) {
+                winnerMessage.textContent = `Game Over! ${data.winnerNickname} wins!`;
+                modal.classList.remove('hidden');
 
-			const returnToMenuHandler = () => {
-				returnToMainMenu();
-				console.log('Returned to main menu from game over modal');
-			};
-
-			returnBtn?.addEventListener('click', returnToMenuHandler, { once: true });
-		}
+                const returnToMenuHandler = () => {
+                    modal.classList.add('hidden');
+                    returnToMainMenu();
+                };
+                returnBtn.addEventListener('click', returnToMenuHandler, { once: true });
+            }
+        }
     }
 
     public dispose(): void {

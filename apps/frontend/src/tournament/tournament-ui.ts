@@ -6,7 +6,7 @@ declare global {
     }
 }
 
-import { returnToMainMenu } from 'main';
+import { returnToMainMenu } from '../../main';
 import StateManager from '../utils/state-manager';
 import { Tournament, TournamentPlayer, Match } from '@trans/common-types';
 
@@ -560,17 +560,27 @@ export class TournamentUI {
     }
 
     private showTournamentComplete(tournament: Tournament): void {
-        const winnerSection = document.querySelector('.mt-6.p-4.bg-yellow-300');
-        if (!winnerSection && tournament.winner) {
-            const container = document.querySelector('.tournament-bracket');
-            if (container) {
-                const winnerDiv = document.createElement('div');
-                winnerDiv.className = 'mt-6 p-4 bg-yellow-300 border-thick';
-                winnerDiv.innerHTML = `
-                    <h3 class="text-2xl font-bold">🏆 Tournament Winner: ${tournament.winner.nickname}!</h3>
-                    <p class="text-sm mt-2">Congrat! Tournament done!</p>
-                `;
-                container.appendChild(winnerDiv);
+        if (tournament.winner) {
+            const modal = document.getElementById('gameOverModal');
+            const returnBtn = document.getElementById('gameOverReturnBtn');
+            const winnerMessage = document.getElementById('winnerMessage');
+            const gameOverTitle = document.getElementById('gameOverTitle');
+
+            if (modal && winnerMessage && gameOverTitle && returnBtn) {
+                if (tournament.winner.id.toString() === this.currentUserId) {
+                    winnerMessage.textContent = `You are the champion!`;
+                    gameOverTitle.textContent = 'TOURNAMENT WINNER';
+                } else {
+                    winnerMessage.textContent = `The tournament has concluded. Winner: ${tournament.winner.nickname}`;
+                    gameOverTitle.textContent = 'TOURNAMENT OVER';
+                }
+                modal.classList.remove('hidden');
+
+                const returnToMenuHandler = () => {
+                    modal.classList.add('hidden');
+                    returnToMainMenu();
+                };
+                returnBtn.addEventListener('click', returnToMenuHandler, { once: true });
             }
         }
     }
