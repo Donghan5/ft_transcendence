@@ -874,6 +874,18 @@ export class TournamentUI {
             if (message.type === 'tournamentUpdate') {
                 const tournament: Tournament = message.payload;
 
+                if (tournament.status === 'finished') {
+                    this.showTournamentComplete(tournament);
+                    this.cleanup();
+                    StateManager.clearTournamentState();
+
+                    setTimeout(() => {
+                        returnToMainMenu();
+                    }, 2000);
+                    
+                    return;
+                }
+
                 const myMatch = this.findMyCurrentMatch(tournament);
 
                 if (myMatch && myMatch.gameId && !this.isGameActive(myMatch.gameId)) {

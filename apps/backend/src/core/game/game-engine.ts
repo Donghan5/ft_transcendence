@@ -470,6 +470,7 @@ class Enhanced3DPongGame {
 		});
 	}
 
+
 	public async endGame(gameId: string): Promise<void> {
 		console.log(`Ending game ${gameId}`);
 
@@ -481,32 +482,31 @@ class Enhanced3DPongGame {
 		if (game) {
 			game.status = 'finished';
 			const winnerId = game.player1.score > game.player2.score ? game.player1Id : game.player2Id;
-
 			const winner = winnerId === game.player1Id ? game.player1 : game.player2;
 
 			await this.updatePlayersStats(game, winnerId);
 			await this.setPlayersBackOnline(game);
 
-			let isTournamentFinal = false;
+			const isTournamentGame = game.gameMode === 'TOURNAMENT';
 
-			if (game.gameMode === 'TOURNAMENT') {
-				console.log(`Game ${gameId} is a tournament game, updating tournament status`);
-
-				const tournamentInfo = tournamentManager.findMatchByGameId(gameId);
-
-				if (tournamentInfo) {
-					const { tournamentId, match } = tournamentInfo;
-					const tournament = await tournamentManager.getTournamentInfo(tournamentId);
-
-					if (tournament) {
-						const result = await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
-                		isTournamentFinal = result.tournamentFinished;
-					} else {
-						console.error(`Tournament ${tournamentId} not found for game ${gameId}`);
+			if (players) {
+				const message = JSON.stringify({
+					type: 'gameEnd',
+					payload: {
+						winnerId: winnerId,
+						winnerNickname: winner.nickname,
+						finalScore: {
+							player1: game.player1.score,
+							player2: game.player2.score
+						},
+						isTournamentFinal: false
 					}
-				} else {
-					console.error(`No tournament match found for game ${gameId}`);
-				}
+				});
+				players.forEach((ws) => {
+					if (ws.readyState === WebSocket.OPEN) {
+						ws.send(message);
+					}
+				});
 			}
 
 			try {
@@ -533,37 +533,35 @@ class Enhanced3DPongGame {
 			} catch (error) {
 				console.error(`Error saving game result for ${gameId}:`, error);
 			}
-
-			if (players) {
-				const message = JSON.stringify({ 
-					type: 'gameEnd', 
-					payload: {
-						winnerId: winnerId,
-						winnerNickname: winner.nickname,
-						finalScore: {
-							player1: game.player1.score,
-							player2: game.player2.score
-						},
-						isTournamentFinal: isTournamentFinal
+			
+			if (isTournamentGame) {
+				setTimeout(async () => {
+					console.log(`Updating tournament status for game ${gameId}`);
+					const tournamentInfo = tournamentManager.findMatchByGameId(gameId);
+					if (tournamentInfo) {
+						const { tournamentId, match } = tournamentInfo;
+						const tournament = await tournamentManager.getTournamentInfo(tournamentId);
+						if (tournament) {
+							await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
+						} else {
+							console.error(`Tournament ${tournamentId} not found for game ${gameId}`);
+						}
+					} else {
+						console.error(`No tournament match found for game ${gameId}`);
 					}
-				});
-				players.forEach((ws) => {
-					if (ws.readyState === WebSocket.OPEN) {
-						ws.send(message);
-					}
-				});
+				}, 2000);
 			}
+
+			console.log(`Game ${gameId} ended successfully`);
+
+			setTimeout(() => {
+				this.games.delete(gameId);
+				this.connectedPlayers.delete(gameId);
+				this.gameLoopRunning.delete(gameId);
+				this.currentInputStates.delete(gameId);
+				console.log(`Game ${gameId} data cleaned up`);
+			}, 30000);
 		}
-
-		console.log(`Game ${gameId} ended successfully`);
-
-		setTimeout(() => {
-			this.games.delete(gameId);
-			this.connectedPlayers.delete(gameId);
-			this.gameLoopRunning.delete(gameId);
-			this.currentInputStates.delete(gameId);
-			console.log(`Game ${gameId} data cleaned up`);
-		}, 30000);
 	}
 
 	 private async updatePlayersStats(game: GameState, winnerId: string): Promise<void> {

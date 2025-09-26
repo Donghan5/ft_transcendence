@@ -480,6 +480,7 @@ export class TournamentManager {
             tournament.winner = winner;
             tournament.status = 'finished';
             await this.saveTournamentResults(tournament);
+            await this.broadcastTournamentUpdate(tournament.id, tournament);
             return { tournament, isFinalMatch: true };
         }
 

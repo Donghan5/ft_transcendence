@@ -28,6 +28,7 @@ build:
 	docker-compose build --pull
 
 up: check-env
+	@echo "Please verify, the dependency of backend"
 	docker-compose --profile elk up --build -d
 	@open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || xdg-open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || echo "Open https://transcendence.${LOCAL_IP}.nip.io:8443"
 
@@ -73,6 +74,7 @@ test: fclean
 
 
 web-game: check-env
+	@echo "Please verify, the dependency of backend"
 	@echo "Starting up non-ELK services (frontend, backend, nginx)..."
 	@docker-compose up --build -d
 	@open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || xdg-open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || echo "Open https://transcendence.${LOCAL_IP}.nip.io:8443"
