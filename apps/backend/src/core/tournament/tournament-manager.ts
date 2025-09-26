@@ -341,7 +341,7 @@ export class TournamentManager {
 
             await this.broadcastTournamentUpdate(tournament.id, tournament);
 
-            this.startGameEndPolling(gameId, tournament, nextMatch);
+            // this.startGa<meEndPolling(gameId, tournament, nextMatch);
 
         } else if (this.isRoundComplete(tournament)) {
             this.advanceToNextRound(tournament);
@@ -375,25 +375,25 @@ export class TournamentManager {
      * @param match The match object.
      * @fix --> It will be changed to WebSocket method
      */
-    private async startGameEndPolling(gameId: string, tournament: Tournament, match: Match) {
-        const checkInterval = setInterval(() => {
-            const gameState = gameEngine.getGameState(gameId);
+    // private async startGameEndPolling(gameId: string, tournament: Tournament, match: Match) {
+    //     const checkInterval = setInterval(() => {
+    //         const gameState = gameEngine.getGameState(gameId);
 
-            if (!gameState) {
-                clearInterval(checkInterval);
-                return;
-            }
+    //         if (!gameState) {
+    //             clearInterval(checkInterval);
+    //             return;
+    //         }
 
-            if (gameState.status === 'finished') {
-                clearInterval(checkInterval);
-                this.handleGameEnd(gameId, tournament, match.id, gameState);
-            }
-        }, 1000);
+    //         if (gameState.status === 'finished') {
+    //             clearInterval(checkInterval);
+    //             this.handleGameEnd(gameId, tournament, match.id, gameState);
+    //         }
+    //     }, 1000);
 
-        setTimeout(() => {
-            clearInterval(checkInterval);
-        }, 10 * 60 * 1000);
-    }
+    //     setTimeout(() => {
+    //         clearInterval(checkInterval);
+    //     }, 10 * 60 * 1000);
+    // }
 
     /**
      * @description Handles the end of a tournament game.
@@ -445,9 +445,12 @@ export class TournamentManager {
             await dbRun('COMMIT');
 
             console.log(`Successfully processed game ${gameId} for match ${matchId}`);
+            
             await this.broadcastTournamentUpdate(updatedTournament.id, updatedTournament);
 
-            if (this.isRoundComplete(updatedTournament)) {
+            if (isFinalMatch) {
+                console.log(`Tournament ${updatedTournament.name} has concluded! Winner: ${updatedTournament.winner?.nickname}`);
+            } else if (this.isRoundComplete(updatedTournament)) {
                 this.advanceToNextRound(updatedTournament);
             } else {
                 this.startNextMatch(updatedTournament);

@@ -535,21 +535,19 @@ class Enhanced3DPongGame {
 			}
 			
 			if (isTournamentGame) {
-				setTimeout(async () => {
-					console.log(`Updating tournament status for game ${gameId}`);
-					const tournamentInfo = tournamentManager.findMatchByGameId(gameId);
-					if (tournamentInfo) {
-						const { tournamentId, match } = tournamentInfo;
-						const tournament = await tournamentManager.getTournamentInfo(tournamentId);
-						if (tournament) {
-							await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
-						} else {
-							console.error(`Tournament ${tournamentId} not found for game ${gameId}`);
-						}
+				console.log(`Updating tournament status for game ${gameId}`);
+				const tournamentInfo = tournamentManager.findMatchByGameId(gameId);
+				if (tournamentInfo) {
+					const { tournamentId, match } = tournamentInfo;
+					const tournament = await tournamentManager.getTournamentInfo(tournamentId);
+					if (tournament) {
+						await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
 					} else {
-						console.error(`No tournament match found for game ${gameId}`);
+						console.error(`Tournament ${tournamentId} not found for game ${gameId}`);
 					}
-				}, 2000);
+				} else {
+					console.error(`No tournament match found for game ${gameId}`);
+				}
 			}
 
 			console.log(`Game ${gameId} ended successfully`);
