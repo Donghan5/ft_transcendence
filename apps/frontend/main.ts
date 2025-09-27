@@ -43,6 +43,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         console.trace(); // check
     });
+
+	document.addEventListener('requestReturnToHeroSection', () => {
+        console.log('Returning to hero section by request...');
+        cleanupCurrentGame();
+        showSection('hero');
+    });
 	
 	setupLocalAuthHandlers();
 	updateLoginStatus();
@@ -296,10 +302,17 @@ function setupEventListeners() {
 		});
 	}
 
+	document.addEventListener('tournamentMatchEnded', (e: any) => {
+		const { didWin, opponentNickname, finalScore } = e.detail;
+		showMatchResultModal(didWin, opponentNickname, finalScore);
+	});
+
 	const cancelMatchmakingButton = document.getElementById('cancelMatchmakingBtn');
     if (cancelMatchmakingButton) {
         cancelMatchmakingButton.addEventListener('click', cancelMatchmaking);
     }
+
+
 
 	const profileWidgetBtn = document.getElementById('profileWidgetBtn');
     const profileDropdown = document.getElementById('profileDropdown');
@@ -344,6 +357,51 @@ function setupEventListeners() {
 
 	setupPongLogoRedirect();
 }
+
+function showMatchResultModal(didWin: boolean, opponentNickname: string, finalScore: { player1: number, player2: number }): void {
+    const modal = document.createElement('div');
+    modal.id = 'matchResultModal';
+    modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center';
+    modal.style.zIndex = '3000';
+
+    const resultTitle = didWin ? 'VICTORY' : 'DEFEAT';
+    const titleColor = didWin ? 'text-green-500' : 'text-red-500';
+    const message = didWin ? `You defeated ${opponentNickname}!` : `You were defeated by ${opponentNickname}.`;
+    const scoreText = finalScore ? `${finalScore.player1} - ${finalScore.player2}` : '';
+
+    modal.innerHTML = `
+        <div class="bg-yellow-300 border-thick shadow-sharp p-8 max-w-md w-full mx-4 text-center animate-pop">
+            <h3 class="text-6xl text-outline-black ${titleColor} mb-4">${resultTitle}</h3>
+            <p class="text-3xl uppercase mb-2 font-teko">${message}</p>
+            <p class="text-2xl uppercase mb-8 font-teko">${scoreText}</p>
+            <button id="returnToBracketBtn" class="w-full bg-black text-white px-6 py-4 text-2xl uppercase border-thick shadow-sharp hover-anarchy">
+                Return to Bracket
+            </button>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    const returnBtn = document.getElementById('returnToBracketBtn');
+    if (returnBtn) {
+        returnBtn.addEventListener('click', () => {
+            modal.remove();
+            if (tournamentUI) {
+                showSection('tournamentLobby');
+                const tournamentId = tournamentUI.getCurrentTournamentId();
+                if (tournamentId) {
+                    tournamentUI.getTournament(tournamentId).then(tournament => {
+                        if(tournament) {
+                           tournamentUI!.showBracket(tournament);
+                        }
+                    });
+                }
+            } else {
+                returnToMainMenu();
+            }
+        }, { once: true });
+    }
+}	
 
 /**
  * Mapping URL and Section ID

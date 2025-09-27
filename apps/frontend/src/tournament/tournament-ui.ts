@@ -129,14 +129,24 @@ export class TournamentUI {
         const myMatch = this.findMyCurrentMatch(tournament);
         const arePlayersReady = myMatch && myMatch.player1?.isReady && myMatch.player2?.isReady;
 
-        let actionButtonsHTML = `
-            <button id="refresh-bracket" class="flex-1 bg-blue-500 text-white py-3 px-6 border-thick hover-anarchy">
-                Refresh Bracket
-            </button>
-            <button id="back-to-lobby" class="flex-1 bg-gray-500 text-white py-3 px-6 border-thick hover-anarchy">
-                Go Back to Lobby
-            </button>
-        `;
+        let actionButtonsHTML = '';
+
+        if (tournament.status === 'finished') {
+            actionButtonsHTML = `
+                <button id="back-to-menu" class="flex-1 bg-green-500 text-white py-3 px-6 border-thick hover-anarchy">
+                    Go Back to Main Menu
+                </button>
+            `;
+        } else {
+            actionButtonsHTML = `
+                <button id="refresh-bracket" class="flex-1 bg-blue-500 text-white py-3 px-6 border-thick hover-anarchy">
+                    Refresh Bracket
+                </button>
+                <button id="back-to-lobby" class="flex-1 bg-gray-500 text-white py-3 px-6 border-thick hover-anarchy">
+                    Go Back to Lobby
+                </button>
+            `;
+        }
 
         this.container.innerHTML = `
             <div class="tournament-bracket bg-white border-thick shadow-sharp p-8">
@@ -491,6 +501,14 @@ export class TournamentUI {
                     this.showTournamentLobby(tournament);
             });
         }
+
+        const backToMenuBtn = document.getElementById('back-to-menu');
+        if (backToMenuBtn) {
+            backToMenuBtn.addEventListener('click', () => {
+                this.cleanup();
+                returnToMainMenu();
+            });
+        }
     }
 
     private connectToTournament(tournamentId: string): void {
@@ -578,9 +596,13 @@ export class TournamentUI {
 
                 const returnToMenuHandler = () => {
                     modal.classList.add('hidden');
-                    returnToMainMenu();
+                    this.cleanup();
+                    StateManager.clearTournamentState();
+                    document.dispatchEvent(new CustomEvent('requestReturnToHeroSection'));
                 };
-                returnBtn.addEventListener('click', returnToMenuHandler, { once: true });
+                const newReturnBtn = returnBtn.cloneNode(true);
+                returnBtn.parentNode!.replaceChild(newReturnBtn, returnBtn);
+                newReturnBtn.addEventListener('click', returnToMenuHandler, { once: true });
             }
         }
     }
@@ -876,13 +898,7 @@ export class TournamentUI {
 
                 if (tournament.status === 'finished') {
                     this.showTournamentComplete(tournament);
-                    this.cleanup();
-                    StateManager.clearTournamentState();
 
-                    setTimeout(() => {
-                        returnToMainMenu();
-                    }, 2000);
-                    
                     return;
                 }
 

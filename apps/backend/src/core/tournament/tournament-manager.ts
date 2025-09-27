@@ -445,6 +445,8 @@ export class TournamentManager {
             await dbRun('COMMIT');
 
             console.log(`Successfully processed game ${gameId} for match ${matchId}`);
+
+            this.tournaments.set(updatedTournament.id, updatedTournament);
             
             await this.broadcastTournamentUpdate(updatedTournament.id, updatedTournament);
 
@@ -479,11 +481,15 @@ export class TournamentManager {
             [winner ? winner.id : null, match.id]
         );
 
-        if (match.round >= tournament.bracket.length) {
+        const isFinalMatch = match.round === tournament.bracket.length;
+
+        console.log(`[DEBUG] Final match check: round=${match.round}, bracket_length=${tournament.bracket.length}, isFinal=${isFinalMatch}`);
+
+        if (isFinalMatch) {
             tournament.winner = winner;
             tournament.status = 'finished';
-            await this.saveTournamentResults(tournament);
             await this.broadcastTournamentUpdate(tournament.id, tournament);
+            await this.saveTournamentResults(tournament);
             return { tournament, isFinalMatch: true };
         }
 

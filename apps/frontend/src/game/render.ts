@@ -567,53 +567,39 @@ export class PongGame3D {
     }
 
     private onGameEnd(data: { winnerId: string, winnerNickname: string, isTournamentFinal: boolean }): void {
-        console.log(`[DEBUG] onGameEnd called with winner: ${data.winnerNickname}`);
+        console.log(`[DEBUG] onGameEnd received. Mode: ${this.gameMode}, Winner: ${data.winnerNickname}`);
+
+        if (this.gameMode === 'tournament') {
+            if (!data.isTournamentFinal) {
+                console.log('[DEBUG] Tournament game ended. Dispatching event to show match result.');
+                const didWin = data.winnerId === this.localPlayerId;
+                document.dispatchEvent(new CustomEvent('tournamentMatchEnded', {
+                    detail: {
+                        didWin,
+                        opponentNickname: this.state?.player1Id === this.localPlayerId ? this.state?.player2.nickname : this.state?.player1.nickname,
+                    }
+                }));
+            }
+
+            this.dispose();
+            return;
+        }
 
         const modal = document.getElementById('gameOverModal');
         const returnBtn = document.getElementById('gameOverReturnBtn');
         const winnerMessage = document.getElementById('winnerMessage');
         const gameOverTitle = document.getElementById('gameOverTitle');
 
-        if (this.gameMode === 'tournament') {
-            if (modal && winnerMessage && gameOverTitle && returnBtn) {
-                const isWinner = data.winnerId === this.localPlayerId;
+        if (modal && winnerMessage && gameOverTitle && returnBtn) {
+            gameOverTitle.textContent = 'GAME OVER';
+            winnerMessage.textContent = `${data.winnerNickname} wins!`;
+            modal.classList.remove('hidden');
 
-                if (data.isTournamentFinal) {
-                    if (isWinner) {
-                        winnerMessage.textContent = 'Congratulations, you won the tournament!';
-                        gameOverTitle.textContent = 'TOURNAMENT CHAMPION';
-                    } else {
-                        winnerMessage.textContent = `The tournament is over. Winner: ${data.winnerNickname}.`;
-                        gameOverTitle.textContent = 'DEFEAT';
-                    }
-                } else {
-                    if (isWinner) {
-                        winnerMessage.textContent = 'You won the match! Proceeding to the next round.';
-                        gameOverTitle.textContent = 'VICTORY';
-                    } else {
-                        winnerMessage.textContent = 'You have been eliminated from the tournament.';
-                        gameOverTitle.textContent = 'DEFEAT';
-                    }
-                }
-                modal.classList.remove('hidden');
-
-                const returnToMenuHandler = () => {
-                    modal.classList.add('hidden');
-                    returnToMainMenu();
-                };
-                returnBtn.addEventListener('click', returnToMenuHandler, { once: true });
-            }
-        } else {
-            if (modal && winnerMessage && returnBtn) {
-                winnerMessage.textContent = `Game Over! ${data.winnerNickname} wins!`;
-                modal.classList.remove('hidden');
-
-                const returnToMenuHandler = () => {
-                    modal.classList.add('hidden');
-                    returnToMainMenu();
-                };
-                returnBtn.addEventListener('click', returnToMenuHandler, { once: true });
-            }
+            const returnToMenuHandler = () => {
+                modal.classList.add('hidden');
+                returnToMainMenu();
+            };
+            returnBtn.addEventListener('click', returnToMenuHandler, { once: true });
         }
     }
 

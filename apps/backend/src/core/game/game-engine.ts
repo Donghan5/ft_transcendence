@@ -488,6 +488,7 @@ class Enhanced3DPongGame {
 			await this.setPlayersBackOnline(game);
 
 			const isTournamentGame = game.gameMode === 'TOURNAMENT';
+			let isTournamentFinal = false;
 
 			if (players) {
 				const message = JSON.stringify({
@@ -541,7 +542,8 @@ class Enhanced3DPongGame {
 					const { tournamentId, match } = tournamentInfo;
 					const tournament = await tournamentManager.getTournamentInfo(tournamentId);
 					if (tournament) {
-						await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
+						const result = await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
+						isTournamentFinal = result.tournamentFinished;
 					} else {
 						console.error(`Tournament ${tournamentId} not found for game ${gameId}`);
 					}
