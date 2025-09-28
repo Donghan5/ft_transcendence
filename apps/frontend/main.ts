@@ -1826,7 +1826,9 @@ function showTournamentScreen() {
 	});
 }
 
-
+/**
+ * @TODO - This made with polling --> change to websocket later
+ */
 async function loadActiveTournaments(): Promise<void> {
 	try {
 		const response = await fetch('/api/tournaments/active/list', {
