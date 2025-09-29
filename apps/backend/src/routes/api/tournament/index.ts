@@ -328,6 +328,8 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
                 return reply.code(403).send({ error: 'Cannot cancel tournament' });
             }
 
+            tournamentManager.broadcastActiveTournamentsUpdate();
+
             return reply.send({
                 success: true,
                 message: 'Tournament cancelled successfully'
