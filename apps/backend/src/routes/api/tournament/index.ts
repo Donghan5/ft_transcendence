@@ -5,6 +5,7 @@ import { authMiddleware } from '../../../middleware/auth.middleware';
 import { OnlineStatusManager } from '../../../core/status/online-status-manager';
 import jwt from 'jsonwebtoken';
 
+
 export default async function tournamentRoutes(fastify: FastifyInstance) {
     fastify.post('/create', { preHandler: [authMiddleware] }, async (request, reply) => {
         try {
@@ -41,6 +42,8 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         
             await tournamentManager.joinTournament(tournamentId, userId);
         
+            tournamentManager.broadcastActiveTournamentsUpdate();
+
             return reply.code(201).send({
                 success: true,
                 message: 'Tournament created successfully',
@@ -466,6 +469,16 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         return reply.send({
             success: true,
             message: 'Player is ready'
+        });
+    });
+
+    /**
+     * @description WebSocket for active tournaments list updates
+     */
+    fastify.get('/ws/active', { websocket: true }, (connection, request) => {
+        tournamentManager.addActiveTournamentsSocket(connection as unknown as WebSocket);
+        connection.on('close', () => {
+            tournamentManager.removeActiveTournamentsSocket(connection as unknown as WebSocket);
         });
     });
 }

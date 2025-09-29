@@ -17,6 +17,7 @@ let statusManager: StatusManager;
 let statsManager: StatsManager | null = null;
 let tournamentUI: TournamentUI | null = null;
 let currentSection: string | null = null;
+let activeTournamentsWs: WebSocket | null = null;
 
 document.addEventListener('DOMContentLoaded', () => {
 	const path = window.location.pathname;
@@ -577,7 +578,7 @@ async function showAppScreen(user: any) {
 	if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
 	if (widgetNickname) widgetNickname.textContent = user.nickname || user.name;
 
-	loadHomeTournaments();
+	connectToActiveTournamentsWS();
 }
 
 function showTournamentLobby() {
@@ -1843,6 +1844,39 @@ async function loadActiveTournaments(): Promise<void> {
 		console.error('Error loading active tournaments:', error);
 	}
 }
+
+
+function connectToActiveTournamentsWS() {
+    if (activeTournamentsWs) {
+        activeTournamentsWs.close();
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/tournament/ws/active`;
+
+    activeTournamentsWs = new WebSocket(wsUrl);
+
+    activeTournamentsWs.onopen = () => {
+        console.log('Connected to active tournaments WebSocket');
+    };
+
+    activeTournamentsWs.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'activeTournaments') {
+            displayHomeTournaments(data.payload);
+        }
+    };
+
+    activeTournamentsWs.onclose = () => {
+        console.log('Disconnected from active tournaments WebSocket');
+        // Optional: implement a reconnection logic here
+    };
+
+    activeTournamentsWs.onerror = (error) => {
+        console.error('Active tournaments WebSocket error:', error);
+    };
+}
+
 
 /**
  * @description Display active tournaments in the sidebar

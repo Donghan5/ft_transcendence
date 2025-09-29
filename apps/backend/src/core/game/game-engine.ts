@@ -544,6 +544,9 @@ class Enhanced3DPongGame {
 					if (tournament) {
 						const result = await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
 						isTournamentFinal = result.tournamentFinished;
+						if (isTournamentFinal) {
+							tournamentManager.broadcastActiveTournamentsUpdate();
+						}
 					} else {
 						console.error(`Tournament ${tournamentId} not found for game ${gameId}`);
 					}

@@ -14,7 +14,6 @@ export class TournamentUI {
     private container: HTMLElement;
     private tournamentId: string | null = null;
     private websocket: WebSocket | null = null;
-    // private pollInterval: number | null = null;
     private statusManager: any = null;
     private currentUserId: string | null = null;
 

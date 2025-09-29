@@ -7,6 +7,38 @@ export class TournamentManager {
     private tournaments: Map<string, Tournament> = new Map();
     private playerTournamentMap: Map<number, string> = new Map();
     private tournamentSockets = new Map<string, Map<string, WebSocket>>();
+    private activeTournamentsSockets = new Set<WebSocket>();
+
+    public addActiveTournamentsSocket(ws: WebSocket) {
+        this.activeTournamentsSockets.add(ws);
+        this.sendActiveTournaments(ws);
+    }
+
+    public removeActiveTournamentsSocket(ws: WebSocket) {
+        this.activeTournamentsSockets.delete(ws);
+    }
+
+    private async sendActiveTournaments(ws: WebSocket) {
+        if (ws.readyState !== WebSocket.OPEN) return;
+
+        const tournaments = await this.getActiveTournaments();
+        const message = JSON.stringify({ type: 'activeTournaments', payload: tournaments });
+        this.activeTournamentsSockets.forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(message);
+            }
+        });
+    }
+
+    public async broadcastActiveTournamentsUpdate(): Promise<void> {
+        const tournaments = await this.getActiveTournaments();
+        const message = JSON.stringify({ type: 'activeTournaments', payload: tournaments });
+        this.activeTournamentsSockets.forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(message);
+            }
+        });
+    }
 
     async initializeTournaments(): Promise<void> {
         const activeTournaments = await dbAll(
