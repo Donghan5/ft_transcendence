@@ -32,7 +32,6 @@ up: check-env
 	docker-compose --profile elk up --build -d
 	@open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || xdg-open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || echo "Open https://transcendence.${LOCAL_IP}.nip.io:8443"
 
-
 down:
 	docker-compose down --remove-orphans
 
@@ -72,13 +71,6 @@ test: fclean
 	@echo "Running tests in backend..."
 	@docker-compose exec -e NODE_ENV=test -w /usr/src/app/apps/backend backend npm test
 
-
-web-game: check-env
-	@echo "Please verify, the dependency of backend"
-	@echo "Starting up non-ELK services (frontend, backend, nginx)..."
-	@docker-compose up --build -d
-	@open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || xdg-open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || echo "Open https://transcendence.${LOCAL_IP}.nip.io:8443"
-
 check-env:
 	@if [ ! -f .env ]; then \
 		echo "Error: .env file is missing. Please create a .env file with all required variables."; \
@@ -104,5 +96,11 @@ kibana-open:
 	@echo "Password: $${ELASTIC_PASSWORD}"
 	@open http://localhost:5601 2>/dev/null || xdg-open http://localhost:5601 2>/dev/null || echo "Open http://localhost:5601"
 
+web-game: check-env
+	@echo "Please verify, the dependency of backend"
+	@echo "Starting up non-ELK services (frontend, backend, nginx)..."
+	@docker-compose up --build -d
+	@open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || xdg-open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || echo "Open https://transcendence.${LOCAL_IP}.nip.io:8443"
 
-.PHONY: all start build up down clean fclean re logs ps sh debug test check-env kibana-open
+
+.PHONY: all start build up down clean fclean re logs ps sh debug test check-env kibana-open web-game

@@ -13,10 +13,15 @@ let currentGame: PongGame3D | null = null;
 let currentGameId: string | null = null;
 let currentUser: any | null = null;
 let matchmakingWs: WebSocket | null = null;
-let statusManager: StatusManager;
+let statusManager: StatusManager | null = null;
 let statsManager: StatsManager | null = null;
 let tournamentUI: TournamentUI | null = null;
 let currentSection: string | null = null;
+let isSpectatorMode = false; // Track if current game is in spectator mode
+let currentGameMode: string = ''; // Track current game mode
+let currentTournament: any = null;
+let activeTournamentsData: any[] = [];
+let tournamentRefreshInterval: ReturnType<typeof setInterval> | null = null;
 let activeTournamentsWs: WebSocket | null = null;
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -44,16 +49,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         console.trace(); // check
     });
-
-	document.addEventListener('requestReturnToHeroSection', () => {
-        console.log('Returning to hero section by request...');
-        cleanupCurrentGame();
-        showSection('hero');
-    });
 	
 	setupLocalAuthHandlers();
 	updateLoginStatus();
-
     console.log('Start beautiful PONG game!');
 	setupEventListeners();
 })
@@ -61,28 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('requestReturnToMainMenu', () => {
     returnToMainMenu();
 });
-
-/**
- * @description checking auth status
- */
-async function checkAuthStatus() {
-	console.log('Checking authentication status...');
-    const authStatus = await AuthService.checkAuthStatus();
-	console.log('Auth status:', authStatus);
-
-    if (authStatus.isAuthenticated && authStatus.user) {
-        console.log('User is authenticated:', authStatus.user);
-        if (!authStatus.profileComplete) {
-            console.log('Profile setup required');
-            showSection('nicknameSetup');  // same flow as google-login ==> have to check it (always true)
-        } else {
-            showAppScreen(authStatus.user);
-        }
-    } else {
-        console.log('User not authenticated, showing login');
-        showLoginScreen();
-    }
-}
 
 function setupPongLogoRedirect(): void {
 	const pongLogo = document.getElementById('pongLogo');
@@ -97,55 +73,121 @@ function setupPongLogoRedirect(): void {
 /**
  * @description handler setting up local authentication handlers
  */
-function setupLocalAuthHandlers() {
-	(window as any).showAuthTab = showAuthTab;
-
-	const loginForm = document.getElementById('loginForm');
-	if (loginForm) {
-		loginForm.addEventListener('submit', handleLocalLogin);
-	}
-
-	const registerForm = document.getElementById('registerForm');
-	if (registerForm) {
-		registerForm.addEventListener('submit', handleLocalRegister);
-	}
+function setupLocalAuthHandlers(): void {
+    // Initialize auth tabs
+    initializeAuthTabs();
+    
+    // Setup all auth event listeners
+    setupAuthEventListeners();
 }
 
 /**
- * @description Show the specified authentication tab
+ * @description Show the specified authentication tab with proper styling
  * @param tabName - The name of the tab to show ('login' or 'register')
  */
-function showAuthTab(tabName: 'login' | 'register') {
-	const loginForm = document.getElementById('login-form');
-	const registerForm = document.getElementById('register-form');
-	const tabButtons = document.querySelectorAll('.tab-button');
+function showAuthTab(tabName: 'login' | 'register'): void {
+    console.log('Switching to tab:', tabName);
+    
+    // Get form elements
+    const loginForm = document.getElementById('login-form') as HTMLElement;
+    const registerForm = document.getElementById('register-form') as HTMLElement;
+    
+    // Get tab button elements
+    const loginTab = document.querySelector('[data-tab="login"]') as HTMLElement;
+    const registerTab = document.querySelector('[data-tab="register"]') as HTMLElement;
 
-	tabButtons.forEach(btn => btn.classList.remove('active'));
+    if (!loginForm || !registerForm || !loginTab || !registerTab) {
+        console.error('Auth tab elements not found');
+        return;
+    }
 
-	if (tabName === 'login') {
-		loginForm?.classList.remove('hidden');
-		registerForm?.classList.add('hidden');
-		tabButtons[0]?.classList.add('active');
-	} else {
-		loginForm?.classList.add('hidden');
-		registerForm?.classList.remove('hidden');
-		tabButtons[1]?.classList.add('active');
-	}
+    // Hide both forms
+    loginForm.classList.add('hidden');
+    registerForm.classList.add('hidden');
 
-	clearAuthMessages();
+    // Reset both tabs to inactive state using direct style manipulation to override Tailwind
+    const inactiveStyles = {
+        backgroundColor: 'rgb(229, 231, 235)', // gray-200
+        color: 'rgb(75, 85, 99)' // gray-600
+    };
+
+    const activeStyles = {
+        backgroundColor: 'rgb(253, 224, 71)', // yellow-300
+        color: 'rgb(0, 0, 0)' // black
+    };
+
+    // Apply inactive styles to both tabs first
+    Object.assign(loginTab.style, inactiveStyles);
+    Object.assign(registerTab.style, inactiveStyles);
+
+    // Show selected form and activate corresponding tab
+    if (tabName === 'login') {
+        loginForm.classList.remove('hidden');
+        Object.assign(loginTab.style, activeStyles);
+        console.log('Login tab activated');
+    } else if (tabName === 'register') {
+        registerForm.classList.remove('hidden');
+        Object.assign(registerTab.style, activeStyles);
+        console.log('Register tab activated');
+    }
+
+    // Clear any error/success messages
+    clearAuthMessages();
 }
 
 /**
- * @description initializes auth messages
+ * @description Clear all authentication error and success messages
  */
-function clearAuthMessages() {
-	const errorElements = document.querySelectorAll('#loginError, #registerError');
-	const successElements = document.querySelectorAll('#loginSuccess, #registerSuccess');
+function clearAuthMessages(): void {
+    const messageElements = document.querySelectorAll('#loginError, #registerError, #loginSuccess, #registerSuccess');
+    messageElements.forEach(el => {
+        el.classList.add('hidden');
+        el.textContent = '';
+    });
+}
 
-	[...errorElements, ...successElements].forEach(el => {
-		el.classList.add('hidden');
-		el.textContent = '';
-	});
+/**
+ * @description Initialize auth tabs when DOM is loaded
+ */
+function initializeAuthTabs(): void {
+    // Make function globally available for onclick handlers
+    (window as any).showAuthTab = showAuthTab;
+    
+    // Set login as default active tab
+    showAuthTab('login');
+    
+    console.log('Auth tabs initialized');
+}
+
+/**
+ * @description Setup authentication event listeners
+ */
+function setupAuthEventListeners(): void {
+    // Add event listeners for tab buttons (alternative to onclick)
+    const loginTab = document.querySelector('[data-tab="login"]') as HTMLElement;
+    const registerTab = document.querySelector('[data-tab="register"]') as HTMLElement;
+    
+    if (loginTab) {
+        loginTab.addEventListener('click', () => showAuthTab('login'));
+    }
+    
+    if (registerTab) {
+        registerTab.addEventListener('click', () => showAuthTab('register'));
+    }
+
+    // Form submission handlers
+    const loginForm = document.getElementById('loginForm') as HTMLFormElement;
+    const registerForm = document.getElementById('registerForm') as HTMLFormElement;
+
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLocalLogin);
+    }
+
+    if (registerForm) {
+        registerForm.addEventListener('submit', handleLocalRegister);
+    }
+
+    console.log('Auth event listeners setup complete');
 }
 
 /**
@@ -262,28 +304,27 @@ async function handleLocalRegister(e: Event) {
 }
 
 function setupEventListeners() {
-	const quickPlayButton = document.getElementById('quickPlayBtn')
+	const quickPlayButton = document.getElementById('quickPlayBtn');
 	if (quickPlayButton) {
 		quickPlayButton.addEventListener('click', () => {
-			console.log("Quickly play!")
-			handleGameStart('quick')
+			console.log("Quickly play!");
+			handleGameStart('quick');
 		});
 	}
 
-	const pvpPlayButton = document.getElementById('pvpPlayBtn')
+	const pvpPlayButton = document.getElementById('pvpPlayBtn');
 	if (pvpPlayButton) {
 		pvpPlayButton.addEventListener('click', () => {
-			console.log("PVP play!")
-			handleGameStart('pvp')
+			console.log("PVP play!");
+			handleGameStart('pvp');
 		});
 	}
 
-	// AI play have to think implement
-	const aiPlayButton = document.getElementById('aiPlayBtn')
+	const aiPlayButton = document.getElementById('aiPlayBtn');
 	if (aiPlayButton) {
 		aiPlayButton.addEventListener('click', () => {
-			console.log("AI play!")
-			handleGameStart('ai')
+			console.log("AI play!");
+			handleGameStart('ai');
 		});
 	}
 
@@ -295,25 +336,18 @@ function setupEventListeners() {
 		});
 	}
 
-	const logoutButton = document.getElementById('logoutBtn')
+    const logoutButton = document.getElementById('logoutBtn');
 	if (logoutButton) {
 		logoutButton.addEventListener('click', () => {
-			window.location.href = '/api/auth/logout'
-			console.log('Logout action needed')
+			window.location.href = '/api/auth/logout';
+			console.log('Logout action needed');
 		});
 	}
 
-	document.addEventListener('tournamentMatchEnded', (e: any) => {
-		const { didWin, opponentNickname, finalScore } = e.detail;
-		showMatchResultModal(didWin, opponentNickname, finalScore);
-	});
-
-	const cancelMatchmakingButton = document.getElementById('cancelMatchmakingBtn');
+    const cancelMatchmakingButton = document.getElementById('cancelMatchmakingBtn');
     if (cancelMatchmakingButton) {
         cancelMatchmakingButton.addEventListener('click', cancelMatchmaking);
     }
-
-
 
 	const profileWidgetBtn = document.getElementById('profileWidgetBtn');
     const profileDropdown = document.getElementById('profileDropdown');
@@ -341,9 +375,9 @@ function setupEventListeners() {
         profileDropdown?.classList.add('hidden');
     });
 
-    document.getElementById('dropdownFriendsBtn')?.addEventListener('click', () => {
-        showFriendsScreen();
+    document.getElementById('dropdownFriendsBtn')?.addEventListener('click', async () => {
         profileDropdown?.classList.add('hidden');
+        await showFriendsScreen();
     });
 
     document.getElementById('dropdownLogoutBtn')?.addEventListener('click', () => {
@@ -356,53 +390,33 @@ function setupEventListeners() {
 
 	document.getElementById('publicProfileReturnBtn')?.addEventListener('click', showFriendsScreen);
 
+	window.addEventListener('navigate', (event: any) => {
+		const detail = event.detail;
+		console.log('Custom navigate event:', detail);
+		
+		if (typeof detail === 'string') {
+			showSection(detail as any);
+		} else if (detail && typeof detail === 'object') {
+			if (detail.sectionId === 'game' && detail.gameId) {
+				console.log(`Navigating to game: ${detail.gameId} (mode: ${detail.mode || 'player'})`);
+				showGameScreen();
+				
+				// Determine game mode based on context
+				let gameMode = 'tournament';
+				if (detail.mode === 'spectator') {
+					gameMode = 'spectator';
+					showNotification('Spectator mode - you can watch but not play', 'info');
+				}
+				
+				startGame(detail.gameId, String(currentUser.id), gameMode);
+			} else if (detail.sectionId) {
+				showSection(detail.sectionId);
+			}
+		}
+	});
+
 	setupPongLogoRedirect();
 }
-
-function showMatchResultModal(didWin: boolean, opponentNickname: string, finalScore: { player1: number, player2: number }): void {
-    const modal = document.createElement('div');
-    modal.id = 'matchResultModal';
-    modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center';
-    modal.style.zIndex = '3000';
-
-    const resultTitle = didWin ? 'VICTORY' : 'DEFEAT';
-    const titleColor = didWin ? 'text-green-500' : 'text-red-500';
-    const message = didWin ? `You defeated ${opponentNickname}!` : `You were defeated by ${opponentNickname}.`;
-    const scoreText = finalScore ? `${finalScore.player1} - ${finalScore.player2}` : '';
-
-    modal.innerHTML = `
-        <div class="bg-yellow-300 border-thick shadow-sharp p-8 max-w-md w-full mx-4 text-center animate-pop">
-            <h3 class="text-6xl text-outline-black ${titleColor} mb-4">${resultTitle}</h3>
-            <p class="text-3xl uppercase mb-2 font-teko">${message}</p>
-            <p class="text-2xl uppercase mb-8 font-teko">${scoreText}</p>
-            <button id="returnToBracketBtn" class="w-full bg-black text-white px-6 py-4 text-2xl uppercase border-thick shadow-sharp hover-anarchy">
-                Return to Bracket
-            </button>
-        </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    const returnBtn = document.getElementById('returnToBracketBtn');
-    if (returnBtn) {
-        returnBtn.addEventListener('click', () => {
-            modal.remove();
-            if (tournamentUI) {
-                showSection('tournamentLobby');
-                const tournamentId = tournamentUI.getCurrentTournamentId();
-                if (tournamentId) {
-                    tournamentUI.getTournament(tournamentId).then(tournament => {
-                        if(tournament) {
-                           tournamentUI!.showBracket(tournament);
-                        }
-                    });
-                }
-            } else {
-                returnToMainMenu();
-            }
-        }, { once: true });
-    }
-}	
 
 /**
  * Mapping URL and Section ID
@@ -410,53 +424,53 @@ function showMatchResultModal(didWin: boolean, opponentNickname: string, finalSc
  * @returns 
  */
 function getUrlForSection(sectionId: string): string {
-	const urlMap: Record<string, string> = {
-		'hero': '/',
-		'game': '/game',
-		'profile': '/profile',
-		'login': '/login',
-		'nicknameSetup': '/nickname-setup',
-		'friends': '/friends',
-		'publicProfile': '/public-profile',
-		'waiting': '/waiting',
-		'tournamentLobby': '/tournament-lobby'
-	};
-	return urlMap[sectionId] || '/';
+	switch (sectionId) {
+		case 'hero': return '/';
+		case 'game': return '/game';
+		case 'profile': return '/profile';
+		case 'login': return '/login';
+		case 'nicknameSetup': return '/nickname-setup';
+		case 'friends': return '/friends';
+		case 'publicProfile': return '/public-profile';
+		case 'waiting': return '/waiting';
+		case 'tournament': return '/tournament';
+		default: return '/';
+	}
 }
 
 function getTitleForSection(sectionId: string): string {
-	const titles: Record<string, string> = {
-		'hero': 'PONG - Pick Your Battle',
-        'game': 'PONG - Game in Progress',
-        'profile': 'PONG - Profile',
-        'login': 'PONG - Login',
-        'nicknameSetup': 'PONG - Set Up Nickname',
-        'friends': 'PONG - Friends',
-        'publicProfile': 'PONG - User Profile',
-        'waiting': 'PONG - Waiting for Opponent',
-        'tournamentLobby': 'PONG - Tournament Lobby'
-	};
-	return titles[sectionId] || 'PONG';
+	switch (sectionId) {
+		case 'hero': return 'PONG - Main Menu';
+		case 'game': return 'PONG - Game';
+		case 'profile': return 'PONG - Profile';
+		case 'login': return 'PONG - Login';
+		case 'nicknameSetup': return 'PONG - Setup Nickname';
+		case 'friends': return 'PONG - Friends';
+		case 'publicProfile': return 'PONG - Public Profile';
+		case 'waiting': return 'PONG - Waiting';
+		case 'tournament': return 'PONG - Tournaments';
+		default: return 'PONG';
+	}
 }
 
 /**
  * @param sectionId - The ID of the section to show
  * @description Show a specific section by ID and hide others
  */
-function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting' | 'tournamentLobby', pushToHistory: boolean = true) {
-    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection', 'publicProfileSection', 'waitingSection', 'tournamentLobbySection'];
+function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting' | 'tournament', pushToHistory: boolean = true) {
+    const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection', 'publicProfileSection', 'waitingSection', 'tournamentSection'];
     
-	console.log(`SHOW SECTION with ${sectionId}, ${pushToHistory}`);
+    console.log(`SHOW SECTION with ${sectionId}, ${pushToHistory}`);
 
-	sections.forEach(id => {
+    sections.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
-			if ('loginSection' === id || 'nicknameSetupSection' === id) {
-				el.style.display = 'none';
-			} else {
-				el.classList.add('hidden');
-			}
-		}
+            if ('loginSection' === id || 'nicknameSetupSection' === id) {
+                el.style.display = 'none';
+            } else {
+                el.classList.add('hidden');
+            }
+        }
     });
 
     const targetSection = document.getElementById(`${sectionId}Section`);
@@ -477,43 +491,66 @@ function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknam
         }
     }
 
-	if (currentSection === sectionId && pushToHistory) {
+    // Initialize tournament UI when showing tournament section
+    if (sectionId === 'tournament') {
+        if (tournamentUI) {
+            tournamentUI.cleanup();
+        }
+        tournamentUI = new TournamentUI('tournamentSection');
+        
+        if (currentUser) {
+            tournamentUI.setCurrentUser(currentUser);
+        }
+        
+        // Show the main tournament home screen
+        tournamentUI.showTournamentHome();
+    }
+
+    // Start/stop tournament polling based on section
+    if (sectionId === 'hero') {
+        // Load tournaments immediately when showing hero
+        if (currentUser) {
+            loadHomeTournaments();
+            // startTournamentPolling();
+        }
+    } else {
+        // Stop polling when leaving hero section to save resources
+        // stopTournamentPolling();
+    }
+
+    // Rest of the showSection logic...
+    if (currentSection === sectionId && pushToHistory) {
         console.log(`Already in section ${sectionId}, skipping history push`);
         return;
     }
 
-	if (pushToHistory && currentSection !== sectionId) {
-		const url = getUrlForSection(sectionId);
-		const title = getTitleForSection(sectionId);
+    if (pushToHistory && currentSection !== sectionId) {
+        const url = getUrlForSection(sectionId);
+        const title = getTitleForSection(sectionId);
+        const cleanUrl = url.replace(/#.*$/, '');
+        const state = { sectionId };
+        history.pushState(state, title, cleanUrl);
+        document.title = title;
+    }
 
-		// clean the hash
-		const cleanUrl = url.replace(/#.*$/, '');
-
-		const state = { sectionId };
-
-		history.pushState(state, title, cleanUrl);
-		document.title = title;
-	}
-
-	currentSection = sectionId;
+    currentSection = sectionId;
 }
 
 /**
  * @description popstate event listener for browser navigation
  */
 window.addEventListener('popstate', (event) => {
-	console.log('Browser navigation detected:', {
+    console.log('Browser navigation detected:', {
         state: event.state,
         url: window.location.href,
         hash: window.location.hash
     });
 
     if (event.state && event.state.sectionId) {
-		console.log('event.state.sectionId:', event.state.sectionId);
+        console.log('event.state.sectionId:', event.state.sectionId);
         showSection(event.state.sectionId, false);
-    } 
-	else {
-		const path = window.location.pathname;
+    } else {
+        const path = window.location.pathname;
         let sectionId: any = 'hero';
         
         if (path === '/game') sectionId = 'game';
@@ -523,17 +560,19 @@ window.addEventListener('popstate', (event) => {
         else if (path === '/friends') sectionId = 'friends';
         else if (path === '/public-profile') sectionId = 'publicProfile';
         else if (path === '/waiting') sectionId = 'waiting';
-        else if (path === '/tournament-lobby') sectionId = 'tournamentLobby';
-		
-		console.log('sectionId:', sectionId);
-
-		// if (window.location.hash) {
-        //     history.replaceState({ sectionId }, document.title, path);
-        // }
-		showSection(sectionId, false);
+        else if (path === '/tournament') sectionId = 'tournament';
+        
+        console.log('sectionId:', sectionId);
+        showSection(sectionId, false);
     }
 });
 
+function cleanupTournamentUI() {
+	if (tournamentUI) {
+		tournamentUI.cleanup();
+		tournamentUI = null;
+	}
+}
 
 /**
  * showing login screen
@@ -565,11 +604,6 @@ function showLoginScreen(){
  */
 async function showAppScreen(user: any) {
 	currentUser = user;
-    
-	// temporary add
-	if (await checkAndRestoreTournamentState(user)) {
-		return;
-	}
 
 	showSection('hero');
 	
@@ -578,188 +612,26 @@ async function showAppScreen(user: any) {
 	if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
 	if (widgetNickname) widgetNickname.textContent = user.nickname || user.name;
 
-	connectToActiveTournamentsWS();
+	// Load tournaments initially
+	await loadHomeTournaments();
+
+    connectActiveTournamentsSocket();
+	
 }
 
-function showTournamentLobby() {
-    showSection('tournamentLobby');
+function showTournamentView(tournament: any) {
+    showSection('tournament');
     
     if (!tournamentUI) {
-        // tournamentUI = new TournamentUI('tournamentContent');
-		tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
+        tournamentUI = new TournamentUI('tournamentSection');
     }
 
-	if (currentUser && tournamentUI) {
-		tournamentUI.setCurrentUserId(currentUser.id.toString());
-	}
+    if (currentUser && tournamentUI) {
+        tournamentUI.setCurrentUser(currentUser);
+    }
 
-    tournamentUI.showTournamentLobby();
-}
-
-/**
- * @description Show friends screen
- */
-async function showFriendsScreen() {
-    showSection('friends', true);
-
-    const friendsListEl = document.getElementById('friendsList');
-    const receivedRequestsListEl = document.getElementById('receivedRequestsList');
-    const sentRequestsListEl = document.getElementById('sentRequestsList');
-    const addFriendForm = document.getElementById('addFriendForm');
-    const friendNicknameInput = document.getElementById('friendNicknameInput') as HTMLInputElement;
-    const addFriendStatus = document.getElementById('addFriendStatus');
-
-    if (!friendsListEl || !receivedRequestsListEl || !sentRequestsListEl || !addFriendForm || !addFriendStatus) return;
-
-    // Function to render all lists
-    const renderFriendLists = async () => {
-        try {
-            const response = await fetch('/api/user/friends/all', { credentials: 'include' });
-            if (!response.ok) throw new Error('Failed to fetch friends data');
-
-            const data = await response.json();
-
-			const friendStatuses = statusManager.getFriends();
-			console.log('Friend statuses:', friendStatuses);
-
-            // Render Friends List
-            friendsListEl.innerHTML = data.friends.map((friend: any) => {
-            // Find matching status from friendStatuses
-            const statusInfo = friendStatuses.find(f => f.userId === friend.id);
-            const status = statusInfo ? statusInfo.status : 'offline'; // Default to offline if not found
-            const statusColor = getStatusColor(status); // Reuse existing getStatusColor function
-
-            return `
-					<li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-						<div class="flex items-center gap-x-3">
-							<div class="w-3 h-3 rounded-full ${statusColor}" title="${status.charAt(0).toUpperCase() + status.slice(1)}"></div>
-							<img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full">
-							<span class="text-black font-bold">${friend.nickname}</span>
-						</div>
-						<div class="flex items-center gap-x-2">
-							<button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE & STATS</button>
-							<button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg border-thick hover-anarchy">REMOVE</button>
-						</div>
-					</li>
-				`;
-			}).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
-            // Render Received Requests
-            receivedRequestsListEl.innerHTML = data.receivedRequests.map((req: any) => `
-                <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-					<img src="${req.avatarUrl || '/default-avatar.png'}" alt="${req.nickname}" class="w-10 h-10 rounded-full mr-3">
-                    <span>${req.nickname}</span>
-                    <div>
-                        <button data-request-id="${req.id}" class="accept-friend-btn bg-green-500 text-white px-3 py-1 text-lg hover-anarchy mr-2">ACCEPT</button>
-                        <button data-request-id="${req.id}" class="reject-friend-btn bg-gray-500 text-white px-3 py-1 text-lg hover-anarchy">REJECT</button>
-                    </div>
-                </li>
-            `).join('') || '<li class="bg-white p-3 border-thick text-black">No new friend requests.</li>';
-
-            // Render Sent Requests
-            sentRequestsListEl.innerHTML = data.sentRequests.map((req: any) => `
-                 <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-                    <span>${req.nickname}</span>
-                    <span class="text-gray-500">Pending</span>
-                </li>
-            `).join('') || '<li class="bg-white p-3 border-thick text-black">No sent requests.</li>';
-
-            attachFriendActionListeners();
-
-        } catch (error) {
-            console.error('Error loading friends screen:', error);
-            friendsListEl.innerHTML = '<li class="text-red-400">Failed to load data.</li>';
-        }
-    };
-
-    // Function to attach event listeners to buttons
-    const attachFriendActionListeners = () => {
-        document.querySelectorAll('.accept-friend-btn').forEach(button => {
-            button.addEventListener('click', async (e) => {
-                const requestId = (e.target as HTMLElement).dataset.requestId;
-                await handleFriendAction('/api/user/friends/accept', 'PUT', { requestId });
-            });
-        });
-        document.querySelectorAll('.reject-friend-btn').forEach(button => {
-            button.addEventListener('click', async (e) => {
-                const requestId = (e.target as HTMLElement).dataset.requestId;
-                await handleFriendAction('/api/user/friends/reject', 'PUT', { requestId });
-            });
-        });
-        document.querySelectorAll('.remove-friend-btn').forEach(button => {
-            button.addEventListener('click', async (e) => {
-                const friendId = (e.target as HTMLElement).dataset.friendId;
-                await handleFriendAction(`/api/user/friends/${friendId}`, 'DELETE');
-            });
-        });
-
-		document.querySelectorAll('.friend-item').forEach(item => {
-			item.addEventListener('click', async (e) => {
-				const nickname = (e.currentTarget as HTMLElement).dataset.nickname;
-				if (nickname) {
-					await showPublicProfileScreen(nickname);
-				}
-			});
-		});
-    };
-
-    // Generic handler for friend actions
-    const handleFriendAction = async (url: string, method: string, body?: object) => {
-        try {
-
-			const headers: HeadersInit = { };
-			if (body) {
-				headers['Content-Type'] = 'application/json';
-			}
-            const response = await fetch(url, {
-                method,
-                headers,
-                body: body ? JSON.stringify(body) : undefined,
-                credentials: 'include'
-            });
-            const result = await response.json();
-            if (!response.ok) throw new Error(result.error || 'Action failed');
-
-            // Re-render lists to show changes
-            await renderFriendLists();
-
-        } catch (error) {
-            console.error(`Failed to ${method} ${url}:`, error);
-            alert(`Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`);
-        }
-    };
-
-    // Handler for submitting the "add friend" form
-    addFriendForm.onsubmit = async (e) => {
-        e.preventDefault();
-        const friendNickname = friendNicknameInput.value.trim();
-        if (!friendNickname) return;
-
-        addFriendStatus.textContent = 'Sending...';
-        try {
-            const response = await fetch('/api/user/friends/request', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ friendNickname }),
-                credentials: 'include'
-            });
-            const result = await response.json();
-            if (!response.ok) {
-                throw new Error(result.error || 'Failed to send request');
-            }
-            addFriendStatus.textContent = 'Friend request sent!';
-            friendNicknameInput.value = '';
-            await renderFriendLists(); // Refresh lists
-        } catch (error) {
-            addFriendStatus.textContent = `Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`;
-        }
-    };
-
-	if (statusManager) {
-        await renderFriendLists();
-    } else {
-        console.error("StatusManager is not initialized.");
-        friendsListEl.innerHTML = '<li class="text-red-400">Failed to load data. Status manager not available.</li>';
-	}
+    // Show the specific tournament view (this is the "lobby" for a specific tournament)
+    tournamentUI.showTournamentView(tournament);
 }
 
 async function showPublicProfileScreen(nickname: string) {
@@ -1017,6 +889,10 @@ async function handleGameStart(gameMode: string) {
     console.log(`Player ${currentUser.name} is starting a ${gameMode} game.`);
 
     try {
+        if (gameMode === 'tournament') {
+            showSection('tournament');
+            return;
+        }
         await createNewGame(gameMode);
     } catch (error) {
         console.error('Failed to create game:', error);
@@ -1125,7 +1001,7 @@ async function createNewGame(gameMode: string) {
 				connectingMatchmaking();
 				break;
 			case 'tournament':
-				showTournamentLobby();
+                showSection('tournament');
 				return;
 			default:
 				throw new Error('Invalid game mode selected');
@@ -1199,31 +1075,330 @@ function connectingMatchmaking() {
 	}
 }
 
-export function startGame(gameId: string, playerId: string, gameMode: string) {
-	showGameScreen();
-	console.log('Starting initialize game...')
+/**
+ * @description Enhanced startGame function to properly set tournament context
+ */
+export function startGame(gameId: string, playerId: string, gameMode: string, tournamentId?: string) {
+    showGameScreen();
+    console.log(`Starting initialize game... GameID: ${gameId}, PlayerID: ${playerId}, Mode: ${gameMode}`);
 
-	if (currentGame) {
-		currentGame.dispose()
-	}
+    // Track current game mode and spectator status
+    currentGameMode = gameMode;
+    isSpectatorMode = gameMode === 'spectator';
 
-	currentGame = initializeGame('gameContainer', gameId, playerId, gameMode, currentUser.nickname);
+    // For tournament games, ensure we have tournament context
+    if (gameMode === 'tournament' && tournamentId) {
+        // Store tournament ID for later retrieval
+        localStorage.setItem('currentTournamentId', tournamentId);
+        console.log(`Tournament game started, stored tournament ID: ${tournamentId}`);
+    }
 
-	if (currentGame) {
-		console.log('Game initialized successfully')
-		const canvas = document.getElementById('game-canvas');
-		if (canvas) canvas.focus();
-		updateConnectionStatus('connected')
-	} else {
-		console.error('Failed to initialize game')
-		updateConnectionStatus('disconnected')
-	}
-	console.log(`Start game with game mode: ${gameMode}`);
-}	
+    if (currentGame) {
+        currentGame.dispose();
+    }
+
+    // Call initializeGame with correct parameter order: containerId, gameId, playerId, gameMode, nickname
+    currentGame = initializeGame('gameContainer', gameId, playerId, gameMode, currentUser.nickname);
+
+    if (currentGame) {
+        console.log('Game initialized successfully');
+        const canvas = document.getElementById('game-canvas');
+        if (canvas) canvas.focus();
+        updateConnectionStatus('connected');
+
+        // For tournament games, make sure the game starts automatically
+        if (gameMode === 'tournament') {
+            console.log('Tournament game - starting automatically');
+        }
+    } else {
+        console.error('Failed to initialize game');
+        updateConnectionStatus('disconnected');
+    }
+    console.log(`Start game with game mode: ${gameMode}`);
+}
+
+function returnToTournamentLobby() {
+    try {
+        console.log('Returning to tournament lobby...');
+        
+        // Check if tournament UI is available and we have a current tournament
+        if (tournamentUI && currentTournament) {
+            showSection('tournament');
+            
+            // Refresh the tournament view to get latest state
+            tournamentUI.openTournament(currentTournament.id);
+            showNotification('Returned to tournament lobby', 'info');
+        } else {
+            console.log('No tournament context available, returning to main menu');
+            returnToMainMenu();
+        }
+    } catch (error) {
+        console.error('Error returning to tournament lobby:', error);
+        returnToMainMenu();
+    }
+}
+
+function triggerGameEnd(gameResult?: any) {
+    document.dispatchEvent(new CustomEvent('gameEnded', { 
+        detail: { 
+            gameResult,
+            gameMode: currentGameMode,
+            timestamp: Date.now()
+        } 
+    }));
+}
+
+function showMyTournaments(tournaments: any[]) {
+    if (!tournamentUI) return;
+    
+    const container = document.getElementById('tournamentSection');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="tournament-view animate-pop">
+            <button id="my-tournaments-return-btn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
+            
+            <div class="bg-white border-thick shadow-sharp p-8">
+                <h1 class="text-4xl text-white text-outline-black mb-8">MY HOSTED TOURNAMENTS</h1>
+
+                <div class="space-y-4">
+                    ${tournaments.length === 0 ? 
+                        `<div class="text-center py-12">
+                            <h2 class="text-2xl text-gray-600 mb-4">No Hosted Tournaments Yet</h2>
+                            <p class="text-lg text-gray-500 mb-6">You haven't created any tournaments yet.</p>
+                            <button id="create-tournament-from-empty" 
+                                    class="bg-green-500 text-white py-3 px-8 text-xl border-thick shadow-sharp hover-anarchy">
+                                CREATE YOUR FIRST TOURNAMENT
+                            </button>
+                        </div>` :
+                        tournaments.map(tournament => `
+                            <div class="bg-gray-100 border-thick p-4">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <h3 class="text-xl font-bold">${tournament.name}</h3>
+                                        <p class="text-sm">Status: ${tournament.status.toUpperCase()}</p>
+                                        <p class="text-sm">Players: ${tournament.players?.length || 0}/${tournament.maxPlayers || 8}</p>
+                                        <p class="text-sm">Created: ${new Date(tournament.createdAt).toLocaleDateString()}</p>
+                                        ${tournament.finishedAt ? 
+                                            `<p class="text-sm">Finished: ${new Date(tournament.finishedAt).toLocaleDateString()}</p>` : 
+                                            ''
+                                        }
+                                        ${tournament.winner ? 
+                                            `<p class="text-sm text-green-600">Winner: ${tournament.winner.nickname}</p>` : 
+                                            ''
+                                        }
+                                    </div>
+                                    <button onclick="openTournamentFromHome('${tournament.id}', 'host')" 
+                                            class="bg-blue-500 text-white px-4 py-2 border-thick hover-anarchy">
+                                        ${tournament.status === 'waiting' ? 'MANAGE' : 'VIEW'}
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')
+                    }
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('my-tournaments-return-btn')?.addEventListener('click', () => {
+        if (tournamentUI) {
+            tournamentUI.showTournamentHome();
+        }
+    });
+
+    if (tournaments.length === 0) {
+        document.getElementById('create-tournament-from-empty')?.addEventListener('click', () => {
+            if (tournamentUI) {
+                tournamentUI.showCreateTournament();
+            }
+        });
+    }
+}
+
+function showTournamentHistory(history: any[]) {
+    if (!tournamentUI) return;
+    
+    const container = document.getElementById('tournamentSection');
+    if (!container) return;
+
+    container.innerHTML = `
+        <div class="tournament-view animate-pop">
+            <button id="tournament-history-return-btn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
+            
+            <div class="bg-white border-thick shadow-sharp p-8">
+                <h1 class="text-4xl text-white text-outline-black mb-8">TOURNAMENT HISTORY</h1>
+
+                <div class="space-y-4">
+                    ${history.length === 0 ? 
+                        `<div class="text-center py-12">
+                            <h2 class="text-2xl text-gray-600 mb-4">No Tournament History</h2>
+                            <p class="text-lg text-gray-500 mb-6">You haven't participated in any completed tournaments yet.</p>
+                            <p class="text-md text-gray-400">Join or create tournaments to build your competitive history!</p>
+                            <button id="join-tournament-from-empty" 
+                                    class="bg-green-500 text-white py-3 px-8 text-xl border-thick shadow-sharp hover-anarchy mt-6">
+                                FIND TOURNAMENTS TO JOIN
+                            </button>
+                        </div>` :
+                        history.map(item => {
+                            const tournament = item.tournament;
+                            const myMatchesCount = item.myMatches.length;
+                            
+                            const wonMatches = item.myMatches.filter((match: any) => 
+                                match.winner && match.winner.id === currentUser?.id?.toString()
+                            ).length;
+                            
+                            return `
+                                <div class="bg-gray-100 border-thick p-4">
+                                    <div class="flex justify-between items-center">
+                                        <div>
+                                            <h3 class="text-xl font-bold">${tournament.name}</h3>
+                                            <p class="text-sm">Finished: ${new Date(tournament.finishedAt).toLocaleDateString()}</p>
+                                            <p class="text-sm">Winner: ${tournament.winner?.nickname || 'Unknown'}</p>
+                                            <p class="text-sm">Your Performance: ${wonMatches}/${myMatchesCount} matches won</p>
+                                            ${tournament.winner?.id === currentUser?.id?.toString() ? 
+                                                '<p class="text-sm text-green-600 font-bold">🏆 TOURNAMENT CHAMPION!</p>' : 
+                                                ''
+                                            }
+                                        </div>
+                                        <button onclick="openTournamentFromHome('${tournament.id}', 'spectator')" 
+                                                class="bg-purple-500 text-white px-4 py-2 border-thick hover-anarchy">
+                                            VIEW BRACKET
+                                        </button>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')
+                    }
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('tournament-history-return-btn')?.addEventListener('click', () => {
+        if (tournamentUI) {
+            tournamentUI.showTournamentHome();
+        }
+    });
+
+    if (history.length === 0) {
+        document.getElementById('join-tournament-from-empty')?.addEventListener('click', () => {
+            if (tournamentUI) {
+                tournamentUI.showTournamentHome();
+            }
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('click', (e) => {
+        if ((e.target as HTMLElement)?.id === 'gameOverReturnBtn') {
+            console.log('Game over return button clicked');
+            
+            const gameOverModal = document.getElementById('gameOverModal');
+            if (gameOverModal) {
+                gameOverModal.classList.add('hidden');
+            }
+            
+            // Only process if we're still in game section
+            if (currentSection === 'game') {
+                cleanupCurrentGame();
+                
+                // Then navigate (handles tournament redirection automatically)
+                returnToMainMenu();
+            }
+        }
+    });
+});
+
+function handleGameStateUpdate(gameState: any) {
+    // IMPORTANT: Don't process game state updates if game has ended
+    // The gameEnd WebSocket event handles the end game flow
+    if (gameState.status === 'finished') {
+        console.log('Game finished - ignoring state update (gameEnd event will handle this)');
+        return;
+    }
+    
+    // Show game over modal if needed (this should not be reached for 'finished' status)
+    const gameOverModal = document.getElementById('gameOverModal');
+    if (gameOverModal) {
+        const winnerMessage = document.getElementById('winnerMessage');
+        const gameOverTitle = document.getElementById('gameOverTitle');
+        
+        if (winnerMessage && gameOverTitle) {
+            const winnerId = gameState.winnerId;
+            const winnerNickname = gameState.winnerNickname || 'Unknown';
+            
+            if (winnerId === currentUser?.id?.toString()) {
+                gameOverTitle.textContent = 'VICTORY!';
+                winnerMessage.textContent = 'You won the match!';
+            } else {
+                gameOverTitle.textContent = 'DEFEAT!';
+                winnerMessage.textContent = `${winnerNickname} won the match!`;
+            }
+            
+            gameOverModal.classList.remove('hidden');
+        }
+    }
+}
+
+(window as any).triggerGameEnd = triggerGameEnd;
+const reminderCSS = `
+#esc-key-reminder {
+    position: fixed;
+    bottom: 1rem;
+    right: 1rem;
+    background-color: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 0.75rem 1rem;
+    font-family: 'Teko', sans-serif;
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    border: 2px solid white;
+    z-index: 9999;
+    border-radius: 4px;
+}
+`;
+
+// Add CSS if not already added
+if (!document.getElementById('esc-reminder-css')) {
+    const style = document.createElement('style');
+    style.id = 'esc-reminder-css';
+    style.textContent = reminderCSS;
+    document.head.appendChild(style);
+}
 
 function showGameScreen() {
-	showSection('game');
-	console.log('Game screen is shown');
+    showSection('game');
+    console.log('Game screen is shown');
+    
+    addEscKeyReminder();
+}
+
+function addEscKeyReminder() {
+    const existingReminder = document.getElementById('esc-key-reminder');
+    if (existingReminder) {
+        existingReminder.remove();
+    }
+
+    const reminder = document.createElement('div');
+    reminder.id = 'esc-key-reminder';
+    reminder.className = 'fixed bottom-4 right-4 bg-black/80 text-white px-3 py-2 text-sm font-teko uppercase border-2 border-white z-50';
+    
+    if (currentGameMode === 'spectator') {
+        reminder.textContent = 'Press ESC to exit';
+    } else {
+        reminder.textContent = 'Press ESC to forfeit';
+    }
+    
+    document.body.appendChild(reminder);
+}
+
+function removeEscKeyReminder() {
+    const reminder = document.getElementById('esc-key-reminder');
+    if (reminder) {
+        reminder.remove();
+    }
 }
 
 function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnected') {
@@ -1249,45 +1424,120 @@ function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnect
 	}
 }
 
-document.addEventListener('keydown', (event) => {
-	if (event.key === 'Escape' && currentGame) {
-		if (confirm('Are you sure you want to exit the game? You are going to forfeit the current game.')) {
-			cancelCurrentGame();
+function showNotification(message: string, type: 'success' | 'error' | 'info' = 'info') {
+	const notification = document.createElement('div');
+	notification.className = `fixed top-4 right-4 z-50 p-4 border-thick shadow-sharp animate-pop max-w-sm ${
+		type === 'success' ? 'bg-green-500 text-white' :
+		type === 'error' ? 'bg-red-500 text-white' :
+		'bg-blue-500 text-white'
+	}`;
+	notification.innerHTML = `
+		<div class="flex justify-between items-center">
+			<span class="font-teko text-lg uppercase">${message}</span>
+			<button class="ml-4 text-white hover:text-gray-200 text-xl">&times;</button>
+		</div>
+	`;
+	
+	document.body.appendChild(notification);
+	
+	// Auto remove after 4 seconds
+	setTimeout(() => {
+		if (notification.parentNode) {
+			notification.remove();
 		}
-		// console.log('ESC pressed, returning to menu');
-		// returnToMainMenu();
-	}
+	}, 4000);
+	
+	// Manual close
+	notification.querySelector('button')?.addEventListener('click', () => {
+		notification.remove();
+	});
+}
 
-	if (event.key === 'F11') {
-		event.preventDefault();
-		toggleFullscreen();
-	}
+async function forfeitCurrentGame() {
+    if (!currentGame || !currentUser) {
+        console.log('No active game or user to forfeit');
+        return;
+    }
+
+    console.log('Player forfeiting game...');
+
+    try {
+        const response = await fetch(`/api/games/forfeit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                gameId: currentGame.state?.gameId || currentGameId,
+                playerId: currentUser.id
+            }),
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            console.log('Game forfeited successfully');
+            showNotification('You forfeited the game', 'info');
+            
+            // The backend will send gameEnd WebSocket message to all players
+            // The render.ts onGameEnd() will show the modal
+            // User can then click "Return" button to leave
+            
+        } else {
+            console.error('Failed to forfeit game:', response.status);
+            showNotification('Failed to forfeit game', 'error');
+            
+            // If forfeit API failed, still clean up and return
+            cleanupCurrentGame();
+            returnToMainMenu();
+        }
+    } catch (error) {
+        console.error('Error forfeiting game:', error);
+        showNotification('Error forfeiting game', 'error');
+        
+        // If forfeit API failed, still clean up and return
+        cleanupCurrentGame();
+        returnToMainMenu();
+    }
+    
+    // Let the gameEnd WebSocket event flow handle it naturally:
+    // 1. Backend sends gameEnd event
+    // 2. render.ts onGameEnd() shows modal
+    // 3. User clicks "Return" button
+    // 4. Button handler calls returnToMainMenu()
+    // This ensures forfeiter sees the game end screen just like the winner
+}
+
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && currentGame && currentSection === 'game') {
+        event.preventDefault();
+        
+        if (currentGameMode === 'spectator') {
+            // For spectators, just close without forfeit
+            console.log('Spectator exiting game...');
+            cleanupCurrentGame();
+            returnToMainMenu(); // This will handle tournament redirect
+        } else {
+            // For players, forfeit the game
+            forfeitCurrentGame();
+        }
+    }
+
+    if (event.key === 'F11') {
+        event.preventDefault();
+        toggleFullscreen();
+    }
 });
 
-async function cancelCurrentGame() {
-	if (!currentGame || !currentUser) return;
-
-	try {
-		const response = await fetch(`/api/games/forfeit`, {
-			method: 'POST',
-			headers : { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				gameId: currentGame.state?.gameId,
-				playerId: currentUser.id
-			}),
-			credentials: 'include'
-		});
-
-		if (response.ok) {
-			const result = await response.json();
-			returnToMainMenu();
-		}
-	} catch (error) {
-		console.error('Error canceling current game:', error);
-		alert('Failed to cancel the game. Please try again later.');
-	}
-
-	cleanupCurrentGame();
+function exitSpectatorMode() {
+    console.log('Exiting spectator mode...');
+    cleanupCurrentGame();
+    removeEscKeyReminder();
+    
+    // Return to tournament if we came from there
+    if (currentGameMode === 'spectator' && tournamentUI && currentTournament) {
+        showSection('tournament');
+        tournamentUI.showTournamentView(currentTournament);
+    } else {
+        returnToMainMenu();
+    }
 }
 
 function toggleFullscreen() {
@@ -1301,47 +1551,146 @@ function toggleFullscreen() {
 }
 
 function returnToMainMenu() {
-	console.log('Returning to main menu...');
-	
-	if (currentSection === 'hero') {
-		return;
-	}
+    console.log('returnToMainMenu called - checking if should go to tournament...', { 
+        currentGameMode, 
+        isSpectatorMode,
+        hasTournamentUI: !!tournamentUI,
+        hasTournament: !!currentTournament 
+    });
+    
+    // Check if this was a tournament game OR a spectator watching a tournament
+    if (currentGameMode === 'tournament' || (currentGameMode === 'spectator' && currentTournament && tournamentUI)) {
+        console.log('Redirecting to tournament instead of main menu');
+        removeEscKeyReminder();
+        
+        // For spectators, use the currentTournament directly
+        if (currentGameMode === 'spectator' && currentTournament && tournamentUI) {
+            console.log(`Spectator returning to tournament: ${currentTournament.id}`);
+            showSection('tournament');
+            tournamentUI.showTournamentView(currentTournament);
+            
+            // Reset game mode
+            currentGameMode = '';
+            isSpectatorMode = false;
+            return;
+        }
+        
+        // For tournament players, get stored tournament ID
+        const tournamentId = localStorage.getItem('currentTournamentId');
+        
+        if (tournamentId) {
+            console.log(`Restoring tournament view for tournament: ${tournamentId}`);
+            
+            // Show tournament section
+            showSection('tournament');
+            
+            // Initialize tournament UI if needed
+            if (!tournamentUI) {
+                tournamentUI = new TournamentUI('tournamentSection');
+                if (currentUser) {
+                    tournamentUI.setCurrentUser(currentUser);
+                }
+            }
+            
+            // Open the tournament
+            tournamentUI.openTournament(tournamentId).then(() => {
+                console.log('Successfully returned to tournament room');
+                // Clean up stored tournament ID
+                localStorage.removeItem('currentTournamentId');
+            }).catch((error) => {
+                console.error('Failed to restore tournament view:', error);
+                // Fallback to main menu if tournament restoration fails
+                proceedToMainMenu();
+            });
+            
+        } else {
+            console.warn('Tournament game ended but no tournament ID stored, going to main menu');
+            proceedToMainMenu();
+        }
+        
+        // Reset game mode
+        currentGameMode = '';
+        isSpectatorMode = false;
+        return;
+    }
+    
+    // Normal main menu return for non-tournament games
+    proceedToMainMenu();
+}
 
-	history.back();
-	// showSection('hero');
+/**
+ * @description Helper function for normal main menu return
+ */
+function proceedToMainMenu() {
+    console.log('Returning to main menu...');
+    
+    if (currentSection === 'hero') {
+        return;
+    }
 
-	const gameOverModal = document.getElementById('gameOverModal');
-	if (gameOverModal) {
-		gameOverModal.classList.add('hidden');
-	}
+    if (currentSection === 'tournament') {
+        cleanupTournamentUI();
+    }
 
-	cleanupCurrentGame();
+    removeEscKeyReminder();
+    
+    // Use showSection instead of history.back() to avoid navigation issues
+    showSection('hero');
 
-	console.log('Returned to main menu');
+    const gameOverModal = document.getElementById('gameOverModal');
+    if (gameOverModal) {
+        gameOverModal.classList.add('hidden');
+    }
+
+    // Reset game mode
+    currentGameMode = '';
+    isSpectatorMode = false;
+    
+    console.log('Returned to main menu');
+}
+
+/**
+ * @description Update tournament UI calls to pass tournament ID when starting games
+ * Add this to your tournament UI when starting tournament games
+ */
+function startTournamentGame(gameId: string, playerId: string, tournamentId: string) {
+    console.log(`Starting tournament game: ${gameId} for tournament: ${tournamentId}`);
+    
+    // Call startGame with tournament ID
+    startGame(gameId, playerId, 'tournament', tournamentId);
 }
 
 function cleanupCurrentGame() {
-	if (currentGame) {
-		console.log('Disposing current game...');
-		try {
-			currentGame.dispose();
-			console.log('Current game disposed successfully');
-		} catch (error) {
-			console.error('Error disposing current game:', error);
-		} finally {
-			currentGame = null;
-			console.log('Current game reference cleared');
-		}
-	} else {
-		console.log('No game to dispose');
-	}
+    if (currentGame) {
+        console.log('Disposing current game...');
+        try {
+            currentGame.dispose();
+            console.log('Current game disposed successfully');
+        } catch (error) {
+            console.error('Error disposing current game:', error);
+        } finally {
+            currentGame = null;
+            console.log('Current game reference cleared');
+        }
+    }
+    
+    // Remove ESC reminder
+    const reminder = document.getElementById('esc-key-reminder');
+    if (reminder) {
+        reminder.remove();
+    }
 }
+
+function setCurrentTournament(tournament: any) {
+    currentTournament = tournament;
+}
+
+(window as any).setCurrentTournament = setCurrentTournament;
 
 export { returnToMainMenu };
 
 /**
- * Check login status and update UI accordingly
- * And handle user login
+ * @description Updated updateLoginStatus function
  */
 async function updateLoginStatus() {
     try {
@@ -1354,15 +1703,16 @@ async function updateLoginStatus() {
         const user = await response.json();
         currentUser = user;
         
+        // Initialize StatusManager once (non-blocking, fire-and-forget)
         if (!statusManager) {
             statusManager = StatusManager.getInstance();
-            await statusManager.initializeStatusConnection('', user);
-
-			statusManager.onStatusUpdate((friends) => {
-                if (currentSection === 'friends') {
-                     updateFriendsDisplay(friends);
-                }
-            });
+            statusManager.initializeStatusConnection('', user)
+                .then(() => {
+                    console.log('StatusManager initialized successfully');
+                })
+                .catch(error => {
+                    console.error('StatusManager initialization failed (non-critical):', error);
+                });
         }
         
         const currentPath = window.location.pathname;
@@ -1372,21 +1722,16 @@ async function updateLoginStatus() {
             return;
         }
         
-        if (currentPath === '/tournament-lobby') {
-            const tournamentRestored = await checkAndRestoreTournamentState(user);
-            if (!tournamentRestored) {
-                history.replaceState({ sectionId: 'hero' }, 'PONG - Pick Your Battle', '/');
-                showAppScreen(user);
-            }
-            return;
-        }
-        
+        // Handle normal navigation based on URL path
         if (currentPath === '/profile') {
             showAppScreen(user);
             showProfileScreen();
         } else if (currentPath === '/friends') {
             showAppScreen(user);
-            showFriendsScreen();
+            await showFriendsScreen();
+        } else if (currentPath === '/tournament') {
+            showAppScreen(user);
+            showSection('tournament');
         } else {
             showAppScreen(user);
         }
@@ -1398,55 +1743,267 @@ async function updateLoginStatus() {
 }
 
 /**
- * @description Restore tournament state if user was in a tournament
- * @param user 
+ * @description Show friends screen with real-time updates
+ */
+async function showFriendsScreen() {
+    showSection('friends', true);
+
+    const friendsListEl = document.getElementById('friendsList');
+    const receivedRequestsListEl = document.getElementById('receivedRequestsList');
+    const sentRequestsListEl = document.getElementById('sentRequestsList');
+    const addFriendForm = document.getElementById('addFriendForm');
+    const friendNicknameInput = document.getElementById('friendNicknameInput') as HTMLInputElement;
+    const addFriendStatus = document.getElementById('addFriendStatus');
+
+    if (!friendsListEl || !receivedRequestsListEl || !sentRequestsListEl || !addFriendForm || !addFriendStatus) {
+        console.error('Required DOM elements not found');
+        return;
+    }
+
+    // Function to render all lists
+    const renderFriendLists = async () => {
+        try {
+            const response = await fetch('/api/user/friends/all', { credentials: 'include' });
+            if (!response.ok) throw new Error('Failed to fetch friends data');
+
+            const data = await response.json();
+
+            // Get friend statuses if StatusManager is available
+            const friendStatuses = statusManager?.getFriends() || [];
+
+            // Render Friends List
+            friendsListEl.innerHTML = data.friends.map((friend: any) => {
+                const statusInfo = friendStatuses.find(f => f.userId === friend.id);
+                const status = statusInfo ? statusInfo.status : 'offline';
+                const statusColor = getStatusColor(status);
+
+                return `
+                    <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+                        <div class="flex items-center gap-x-3">
+                            <div class="w-3 h-3 rounded-full ${statusColor}" title="${status.charAt(0).toUpperCase() + status.slice(1)}"></div>
+                            <img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full">
+                            <span class="text-black font-bold">${friend.nickname}</span>
+                        </div>
+                        <div class="flex items-center gap-x-2">
+                            <button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE & STATS</button>
+                            <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg border-thick hover-anarchy">REMOVE</button>
+                        </div>
+                    </li>
+                `;
+            }).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
+
+            // Render Received Requests
+            receivedRequestsListEl.innerHTML = data.receivedRequests.map((req: any) => `
+                <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+                    <img src="${req.avatar_url || '/default-avatar.png'}" alt="${req.nickname}" class="w-10 h-10 rounded-full mr-3">
+                    <span>${req.nickname}</span>
+                    <div>
+                        <button data-request-id="${req.id}" class="accept-friend-btn bg-green-500 text-white px-3 py-1 text-lg hover-anarchy mr-2">ACCEPT</button>
+                        <button data-request-id="${req.id}" class="reject-friend-btn bg-gray-500 text-white px-3 py-1 text-lg hover-anarchy">REJECT</button>
+                    </div>
+                </li>
+            `).join('') || '<li class="bg-white p-3 border-thick text-black">No new friend requests.</li>';
+
+            // Render Sent Requests
+            sentRequestsListEl.innerHTML = data.sentRequests.map((req: any) => `
+                <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+                    <span>${req.nickname}</span>
+                    <span class="text-gray-500">Pending</span>
+                </li>
+            `).join('') || '<li class="bg-white p-3 border-thick text-black">No sent requests.</li>';
+
+            attachFriendActionListeners();
+
+        } catch (error) {
+            console.error('Error loading friends screen:', error);
+            friendsListEl.innerHTML = '<li class="text-red-400">Failed to load data.</li>';
+        }
+    };
+
+    // Function to attach event listeners to buttons
+    const attachFriendActionListeners = () => {
+        document.querySelectorAll('.accept-friend-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const requestId = (e.target as HTMLElement).dataset.requestId;
+                await handleFriendAction('/api/user/friends/accept', 'PUT', { requestId });
+            });
+        });
+        
+        document.querySelectorAll('.reject-friend-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const requestId = (e.target as HTMLElement).dataset.requestId;
+                await handleFriendAction('/api/user/friends/reject', 'PUT', { requestId });
+            });
+        });
+        
+        document.querySelectorAll('.remove-friend-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                const friendId = (e.target as HTMLElement).dataset.friendId;
+                await handleFriendAction(`/api/user/friends/${friendId}`, 'DELETE');
+            });
+        });
+
+        document.querySelectorAll('.friend-item').forEach(item => {
+            item.addEventListener('click', async (e) => {
+                const nickname = (e.currentTarget as HTMLElement).dataset.nickname;
+                if (nickname) {
+                    await showPublicProfileScreen(nickname);
+                }
+            });
+        });
+    };
+
+    // Generic handler for friend actions
+    const handleFriendAction = async (url: string, method: string, body?: object) => {
+        try {
+            const headers: HeadersInit = {};
+            if (body) {
+                headers['Content-Type'] = 'application/json';
+            }
+            const response = await fetch(url, {
+                method,
+                headers,
+                body: body ? JSON.stringify(body) : undefined,
+                credentials: 'include'
+            });
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Action failed');
+
+            await renderFriendLists();
+
+        } catch (error) {
+            console.error(`Failed to ${method} ${url}:`, error);
+            alert(`Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`);
+        }
+    };
+
+    // Handler for submitting the "add friend" form
+    addFriendForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const friendNickname = friendNicknameInput.value.trim();
+        if (!friendNickname) return;
+
+        addFriendStatus.textContent = 'Sending...';
+        try {
+            const response = await fetch('/api/user/friends/request', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ friendNickname }),
+                credentials: 'include'
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to send request');
+            }
+            addFriendStatus.textContent = 'Friend request sent!';
+            friendNicknameInput.value = '';
+            await renderFriendLists();
+        } catch (error) {
+            addFriendStatus.textContent = `Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`;
+        }
+    };
+
+    // Auto-refresh every 10 seconds
+    const refreshInterval = setInterval(() => {
+        if (currentSection === 'friends') {
+            renderFriendLists();
+        } else {
+            clearInterval(refreshInterval);
+        }
+    }, 10000);
+
+    // Initial render
+    await renderFriendLists();
+}
+
+/**
+ * @description Restore tournament state using existing APIs
+ * @param user - Current user object
+ * @returns Promise<boolean> - true if tournament state was restored, false otherwise
  */
 async function checkAndRestoreTournamentState(user: any): Promise<boolean> {
     try {
-        const tournamentResponse = await fetch('/api/tournament/me', {
+        console.log('Checking for existing tournament state...');
+        
+        // Get all active tournaments (existing endpoint)
+        const tournamentResponse = await fetch('/api/tournament/active', {
             credentials: 'include'
         });
         
-        if (tournamentResponse.ok) {
-            const tournamentData = await tournamentResponse.json();
-            
-            if (tournamentData.participating && tournamentData.tournament) {
-                const tournament = tournamentData.tournament;
-                
-                const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
-                const widgetNickname = document.getElementById('widgetNickname') as HTMLSpanElement;
-                if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
-                if (widgetNickname) widgetNickname.textContent = user.nickname || user.name;
-                
-                showSection('tournamentLobby', false);
-                
-                if (!tournamentUI) {
-                    tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
-                }
-
-				if (currentUser && tournamentUI) {
-					tournamentUI.setCurrentUserId(currentUser.id.toString());
-				}
-							
-                tournamentUI.setTournamentId(tournament.id);
-
-				 if (tournament.status === 'in_progress') {
-					const myMatch = (tournamentUI as any).findMyCurrentMatch(tournament); 
-
-					if (myMatch && myMatch.gameId && !(tournamentUI as any).isGameActive(myMatch.gameId)) {
-						console.log('[Restore] Joining active game:', myMatch.gameId);
-						window.startGame(myMatch.gameId, user.id.toString(), 'tournament');
-					} else {
-						tournamentUI.showBracket(tournament);
-					}
-				} else {
-					tournamentUI.showTournamentLobby(tournament);
-				}        
-                return true;
-            }
+        if (!tournamentResponse.ok) {
+            console.log('Failed to fetch active tournaments');
+            return false;
         }
         
-        return false;
+        const tournamentData = await tournamentResponse.json();
+        const activeTournaments = tournamentData.tournaments || [];
+        
+        if (activeTournaments.length === 0) {
+            console.log('No active tournaments found');
+            return false;
+        }
+        
+        // Find tournament where current user is a participant
+        const userTournament = activeTournaments.find((tournament: any) => {
+            return tournament.players && tournament.players.some((player: any) => 
+                player.id === user.id?.toString() || player.id === user.id
+            );
+        });
+        
+        if (!userTournament) {
+            console.log('User not participating in any active tournament');
+            return false;
+        }
+        
+        console.log('Found user tournament:', userTournament);
+        
+        // Set up UI widgets first
+        const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
+        const widgetNickname = document.getElementById('widgetNickname') as HTMLSpanElement;
+        if (widgetAvatar) widgetAvatar.src = user.avatarUrl || '/default-avatar.png';
+        if (widgetNickname) widgetNickname.textContent = user.nickname || user.name;
+        
+        // Initialize tournament UI
+        if (tournamentUI) {
+            tournamentUI.cleanup();
+        }
+        tournamentUI = new TournamentUI('tournamentSection');
+        
+        if (currentUser && tournamentUI) {
+            tournamentUI.setCurrentUser(currentUser);
+        }
+        
+        // Set current tournament for later reference
+        currentTournament = userTournament;
+        
+        // Show tournament section
+        showSection('tournament', false);
+        
+        // Handle different tournament states
+        if (userTournament.status === 'active') {
+            // Check if user has an active game in this tournament
+            const myMatch = findMyCurrentMatchFromTournament(userTournament, user.id);
+            
+            if (myMatch && myMatch.gameId && !isGameCurrentlyActive(myMatch.gameId)) {
+                console.log('[Restore] Joining active tournament game:', myMatch.gameId);
+                
+                // Start the game directly
+                startGame(myMatch.gameId, user.id.toString(), 'tournament');
+                return true;
+            } else {
+                // Show tournament bracket view
+                await tournamentUI.openTournament(userTournament.id);
+                return true;
+            }
+        } else if (userTournament.status === 'waiting') {
+            // Show tournament lobby
+            await tournamentUI.openTournament(userTournament.id);
+            return true;
+        } else {
+            // Default case - show tournament view
+            await tournamentUI.openTournament(userTournament.id);
+            return true;
+        }
         
     } catch (error) {
         console.error('Error restoring tournament state:', error);
@@ -1454,80 +2011,91 @@ async function checkAndRestoreTournamentState(user: any): Promise<boolean> {
     }
 }
 
-async function leaveTournament(tournamentId: string) {
-	try {
-		const response = await fetch('/api/tournament/leave',  {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({ tournamentId }),
-			credentials: 'include'
-		});
-
-		if (response.ok) {
-			if (tournamentUI) {
-				// statusManager.disconnect();
-				tournamentUI.cleanup();
-				tournamentUI = null;
-			}
-			StateManager.clearTournamentState();
-			showSection('hero');
-		}
-	} catch (error) {
-		console.error('Error leaving tournament:', error);
-		alert('Failed to leave the tournament. Please try again later.');
-	}
+/**
+ * @description Check if a game is currently active/running
+ * @param gameId - Game ID to check
+ * @returns boolean - true if game is active, false otherwise
+ */
+function isGameCurrentlyActive(gameId: string): boolean {
+    // Check if we have an active game with this ID
+    return currentGame !== null && 
+           currentGameId === gameId && 
+           currentSection === 'game';
 }
+
+/**
+ * @description Find user's current match from tournament data
+ * @param tournament - Tournament object from API
+ * @param userId - User ID to find match for
+ * @returns Match object if found, null otherwise
+ */
+function findMyCurrentMatchFromTournament(tournament: any, userId: string): any {
+    try {
+        if (!tournament.matches || !userId) {
+            return null;
+        }
+        
+        const userIdStr = userId.toString();
+        
+        // Find current round matches where user is a participant
+        const currentRoundMatches = tournament.matches.filter((match: any) => 
+            match.round === (tournament.current_round || 1) &&
+            (match.player1?.id === userIdStr || match.player2?.id === userIdStr) &&
+            match.status === 'active'
+        );
+        
+        return currentRoundMatches.length > 0 ? currentRoundMatches[0] : null;
+        
+    } catch (error) {
+        console.error('Error finding current match:', error);
+        return null;
+    }
+}
+
 
 (window as any).viewProfile = viewProfile;
 // (window as any).inviteToGame = inviteToGame;
 
 function updateFriendsDisplay(friends: any[]): void {
-	console.log('Updating friends display with data:', friends); 
+    console.log('Updating friends display with data:', friends); 
     const friendsList = document.getElementById('friendsList');
     if (!friendsList) return;
 
-   friendsList.innerHTML = friends.map(friend => {
-        const status = friend.status || 'offline';
-        const statusColor = getStatusColor(status);
+    // Fetch the current friends list from the API to get avatar URLs
+    fetch('/api/user/friends/all', { credentials: 'include' })
+        .then(response => response.json())
+        .then(data => {
+            friendsList.innerHTML = data.friends.map((friend: any) => {
+                const statusInfo = friends.find(f => f.userId === friend.id);
+                const status = statusInfo ? statusInfo.status : 'offline';
+                const statusColor = getStatusColor(status);
 
-        return `
-            <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-                <div class="flex items-center gap-x-3">
-                    <div class="w-3 h-3 rounded-full ${statusColor}" title="${status.charAt(0).toUpperCase() + status.slice(1)}"></div>
-                    <img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full">
-                    <span class="text-black font-bold">${friend.nickname}</span>
-                </div>
-                <div class="flex items-center gap-x-2">
-                    <button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE & STATS</button>
-                    <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg border-thick hover-anarchy">REMOVE</button>
-                </div>
-            </li>
-        `;
-    }).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
-
-
-	friendsList.querySelectorAll('.view-profile-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            const userId = parseInt((e.target as HTMLElement).dataset.userId!);
-            viewProfile(userId);
-        });
-    });
-
-	friendsList.querySelectorAll('.friend-item').forEach(item => {
-        item.addEventListener('click', async (e) => {
-            const nickname = (e.currentTarget as HTMLElement).dataset.nickname;
-            if (nickname) {
-                await showPublicProfileScreen(nickname);
-            }
-        });
-    });
-
-    // friendsList.querySelectorAll('.invite-game-btn').forEach(btn => {
-    //     btn.addEventListener('click', (e) => {
-    //         const userId = parseInt((e.target as HTMLElement).dataset.userId!);
-    //         inviteToGame(userId);
-    //     });
-    // });
+                return `
+                    <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
+                        <div class="flex items-center gap-x-3">
+                            <div class="w-3 h-3 rounded-full ${statusColor}" title="${status.charAt(0).toUpperCase() + status.slice(1)}"></div>
+                            <img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full">
+                            <span class="text-black font-bold">${friend.nickname}</span>
+                        </div>
+                        <div class="flex items-center gap-x-2">
+                            <button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE & STATS</button>
+                            <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg border-thick hover-anarchy">REMOVE</button>
+                        </div>
+                    </li>
+                `;
+            }).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
+            
+            // Re-attach event listeners after updating HTML
+            document.querySelectorAll('.friend-item').forEach(item => {
+                item.addEventListener('click', async (e) => {
+                    const nickname = (e.currentTarget as HTMLElement).dataset.nickname;
+                    if (nickname) {
+                        await showPublicProfileScreen(nickname);
+                    }
+                });
+            });
+        })
+        .catch(error => console.error('Error updating friends display:', error));
 }
 
 function getStatusColor(status: string): string {
@@ -1753,7 +2321,8 @@ function showNicknameSetupScreen() {
 // }
 
 window.addEventListener('beforeunload', () => {
-	console.log('Page unloading, cleaning up game');
+	// stopTournamentPolling();
+	cleanupTournamentUI();
 	cleanupCurrentGame();
 	
 	if (matchmakingWs) {
@@ -1772,244 +2341,147 @@ window.addEventListener('beforeunload', () => {
 console.log('Frontend main.ts loaded successfully')
 
 
-function showTournamentScreen() {
-	const appContainer = document.getElementById('app');
-	if (!appContainer) return;
+async function loadActiveTournaments(): Promise<any[]> {
+    try {
+        console.log('Loading active tournaments...');
+        const response = await fetch('/api/tournament/active', {
+            credentials: 'include'
+        });
 
-	appContainer.innerHTML = `
-		<div class="min-h-screen bg-gray-100 p-8">
-			<div class="max-w-7xl mx-auto">
-				<div class="flex justify-between items-center mb-8">
-					<h1 class="text-4xl font-bold text-center">Tournament Mode</h1>
-					<button onclick="returnToMainMenu()" class="bg-red-600 text-white px-4 py-2 text-lg border-thick hover-anarchy">
-						Back to Menu
-					</button>
-				</div>
-
-				<div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-					<div class="lg:col-span-2">
-						<div id="tournament-container"></div>
-					</div>
-					
-					<div class="bg-white p-4 border-thick shadow-sharp">
-						<h3 class="text-2xl uppercase font-bold mb-4">Active Tournaments</h3>
-						<div id="active-tournaments-list">
-							<p>Loading tournaments...</p>
-						</div>
-						<button id="refresh-tournaments" class="w-full mt-4 bg-blue-500 text-white py-2 border-thick hover-anarchy">
-							Refresh List
-						</button>
-					</div>
-				</div>
-			</div>
-		</div>
-	`;
-
-	if (!tournamentUI) {
-		tournamentUI = new TournamentUI('tournament-container', statusManager);
-		(window as any).tournamentUI = tournamentUI;
-	}
-
-	if (currentUser && tournamentUI) {
-		tournamentUI.setCurrentUserId(currentUser.id.toString());
-	}
-
-	tournamentUI.showTournamentLobby();
-
-	loadActiveTournaments();
-
-	document.getElementById('refresh-tournaments')?.addEventListener('click', () => {
-		loadActiveTournaments();
-	});
-
-	document.getElementById('back-to-main')?.addEventListener('click', () => {
-		showAppScreen(currentUser);
-	});
-}
-
-/**
- * @TODO - This made with polling --> change to websocket later
- */
-async function loadActiveTournaments(): Promise<void> {
-	try {
-		const response = await fetch('/api/tournaments/active/list', {
-			credentials: 'include'
-		});
-
-		if (response.ok) {
-			const data = await response.json();
-			displayActiveTournaments(data.tournaments);
-		}
-	} catch (error) {
-		console.error('Error loading active tournaments:', error);
-	}
-}
-
-
-function connectToActiveTournamentsWS() {
-    if (activeTournamentsWs) {
-        activeTournamentsWs.close();
-    }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/tournament/ws/active`;
-
-    activeTournamentsWs = new WebSocket(wsUrl);
-
-    activeTournamentsWs.onopen = () => {
-        console.log('Connected to active tournaments WebSocket');
-    };
-
-    activeTournamentsWs.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'activeTournaments') {
-            displayHomeTournaments(data.payload);
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Active tournaments loaded:', data.tournaments?.length || 0);
+            activeTournamentsData = data.tournaments || [];
+            return activeTournamentsData;
+        } else {
+            console.error('Failed to load active tournaments:', response.status);
+            activeTournamentsData = [];
+            return [];
         }
-    };
-
-    activeTournamentsWs.onclose = () => {
-        console.log('Disconnected from active tournaments WebSocket');
-        // Optional: implement a reconnection logic here
-    };
-
-    activeTournamentsWs.onerror = (error) => {
-        console.error('Active tournaments WebSocket error:', error);
-    };
+    } catch (error) {
+        console.error('Error loading active tournaments:', error);
+        activeTournamentsData = [];
+        return [];
+    }
 }
 
-
-/**
- * @description Display active tournaments in the sidebar
- * @param tournaments 
- * @returns 
- */
-function displayActiveTournaments(tournaments: any[]): void {
-    const listContainer = document.getElementById('active-tournaments-list');
-    if (!listContainer) return;
-    
-    if (tournaments.length === 0) {
-        listContainer.innerHTML = '<p class="text-gray-600">No active tournaments</p>';
+function renderActiveTournamentsList(containerId: string, showCreateButton: boolean = false): void {
+    const container = document.getElementById(containerId);
+    if (!container) {
+        console.warn(`Tournament container ${containerId} not found`);
         return;
     }
-    
-    listContainer.innerHTML = tournaments.map(tournament => `
-        <div class="mb-4 p-4 bg-gray-50 border-thick">
-            <h4 class="font-bold text-lg">${tournament.name}</h4>
-            <p class="text-sm text-gray-600">
-                Players: ${tournament.players.length} | 
-                Status: ${tournament.status}
-            </p>
-            ${tournament.status === 'waiting' ? `
-                <button onclick="joinExistingTournament('${tournament.id}')" 
-                        class="mt-2 w-full bg-blue-500 text-white py-2 border-thick hover-anarchy">
-                    Join Tournament
-                </button>
-            ` : `
-                <button onclick="spectTournament('${tournament.id}')" 
-                        class="mt-2 w-full bg-purple-500 text-white py-2 border-thick hover-anarchy">
-                    Spectate
-                </button>
-            `}
-        </div>
-    `).join('');
+
+    if (activeTournamentsData.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8">
+                <p class="text-gray-600 mb-4">No active tournaments at the moment</p>
+                ${showCreateButton ? `
+                    <button id="create-tournament-from-empty-${containerId}" 
+                            class="bg-green-500 text-white py-3 px-8 text-xl border-thick shadow-sharp hover-anarchy">
+                        CREATE TOURNAMENT
+                    </button>
+                ` : `
+                    <p class="text-black font-teko text-lg">Create your own tournament and invite friends!</p>
+                `}
+            </div>
+        `;
+        
+        if (showCreateButton) {
+            document.getElementById(`create-tournament-from-empty-${containerId}`)?.addEventListener('click', () => {
+                if (tournamentUI) {
+                    tournamentUI.showCreateTournament();
+                }
+            });
+        }
+        return;
+    }
+
+    // Rest of the rendering logic remains the same...
+    container.innerHTML = activeTournamentsData.map(tournament => {
+        const isParticipant = currentUser && tournament.players && 
+                              tournament.players.some((p: any) => p.id === currentUser.id?.toString());
+
+        let buttonText = '';
+        let buttonClass = '';
+        let buttonAction = '';
+
+        if (tournament.status === 'waiting') {
+            if (isParticipant) {
+                buttonText = 'OPEN';
+                buttonClass = 'bg-blue-500';
+                buttonAction = `openTournamentFromHome('${tournament.id}', 'participant')`;
+            } else if ((tournament.players?.length || 0) >= (tournament.maxPlayers || 8)) {
+                buttonText = 'FULL';
+                buttonClass = 'bg-gray-500';
+                buttonAction = '';
+            } else {
+                buttonText = 'JOIN';
+                buttonClass = 'bg-green-500';
+                buttonAction = `openTournamentFromHome('${tournament.id}', 'join')`;
+            }
+        } else if (tournament.status === 'active' || tournament.status === 'finished') {
+            if (isParticipant) {
+                buttonText = 'OPEN';
+                buttonClass = 'bg-blue-500';
+                buttonAction = `openTournamentFromHome('${tournament.id}', 'participant')`;
+            } else {
+                buttonText = 'VIEW';
+                buttonClass = 'bg-purple-500';
+                buttonAction = `openTournamentFromHome('${tournament.id}', 'spectator')`;
+            }
+        }
+
+        return `
+            <div class="bg-gray-50 border-thick p-4 mb-4">
+                <div class="flex justify-between items-center">
+                    <div class="text-left">
+                        <h4 class="font-bold text-xl text-black font-teko uppercase">${tournament.name}</h4>
+                        <p class="text-sm text-gray-600 font-teko">
+                            Players: ${tournament.players?.length || 0}/${tournament.maxPlayers || 8} | Status: ${tournament.status.toUpperCase()}
+                        </p>
+                        ${tournament.status === 'active' && !isParticipant ? 
+                            '<p class="text-xs text-purple-600 font-teko">You can spectate this tournament</p>' : ''}
+                    </div>
+                    <div class="flex gap-2">
+                        ${buttonAction ? `
+                            <button onclick="${buttonAction}" 
+                                    class="${buttonClass} text-white px-4 py-2 border-thick hover-anarchy font-teko uppercase"
+                                    ${buttonText === 'FULL' ? 'disabled' : ''}>
+                                ${buttonText}
+                            </button>
+                        ` : `
+                            <button class="${buttonClass} text-white px-4 py-2 border-thick font-teko uppercase" disabled>
+                                ${buttonText}
+                            </button>
+                        `}
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
-/**
- * @description Load tournaments for the home screen
- * @returns {Promise<void>}
- */
 async function loadHomeTournaments(): Promise<void> {
-	try {
-		const response = await fetch('/api/tournament/active/list', {
-			credentials: 'include'
-		});
-
-		if (response.ok) {
-			const data = await response.json();
-			displayHomeTournaments(data.tournaments);
-		}
-	} catch (error) {
-		console.error('Error loading home tournaments:', error);
-		const listContainer = document.getElementById('homeTournamentsList');
-		if (listContainer) {
-			listContainer.innerHTML = '<p class="text-red-500">Failed to load tournaments</p>';
-		}
-	}
+    await loadActiveTournaments();
+    renderActiveTournamentsList('homeTournamentsList', false);
 }
 
 function joinExistingTournament(tournamentId: string): void {
-	if (!tournamentUI) {
-		console.error('Tournament UI not initialized');
-		return;
-	}
+    if (!tournamentUI) {
+        tournamentUI = new TournamentUI('tournamentSection');
+    }
 
-	if (currentUser && tournamentUI) {
-		tournamentUI.setCurrentUserId(currentUser.id.toString());
-	}
+    if (currentUser) {
+        tournamentUI.setCurrentUser(currentUser);
+    }
 
-	tournamentUI.joinTournament(tournamentId)
-		.then((success) => {
-			if (success) {
-				showTournamentScreen();
-				setTimeout(() => {
-					loadActiveTournaments();
-				}, 500);
-			}
-		})
-		.catch((error) => {
-			console.error('Failed to join tournament:', error);
-			alert('Failed to join tournament: ' + error.message);
-		});
+    tournamentUI.joinTournament(tournamentId);
+    showSection('tournament');
 }
 
 // Expose joinExistingTournament to global scope for button onclick
 (window as any).joinExistingTournament = joinExistingTournament;
-
-/**
- * @description Display tournaments on the home screen
- * @param tournaments 
- * @returns 
- */
-function displayHomeTournaments(tournaments: any[]): void {
-	const listContainer = document.getElementById('homeTournamentsList');
-	if (!listContainer) return;
-
-	if (tournaments.length === 0) {
-		listContainer.innerHTML = `
-			<div class="text-center py-8">
-				<p class="text-gray-600 mb-4">No active tournaments at the moment</p>
-				<p class="text-black font-teko text-lg">Create your own tournament and invite friends!</p>
-			</div>
-		`;
-		return;
-	}
-
-	listContainer.innerHTML = tournaments.map(tournament => `
-        <div class="bg-gray-50 border-thick p-4 mb-4">
-            <div class="flex justify-between items-center">
-                <div class="text-left">
-                    <h4 class="font-bold text-xl text-black font-teko uppercase">${tournament.name}</h4>
-                    <p class="text-sm text-gray-600 font-teko">
-                        Players: ${tournament.players.length} | Status: ${tournament.status.toUpperCase()}
-                    </p>
-                </div>
-                <div class="flex gap-2">
-                    ${tournament.status === 'waiting' ? `
-                        <button onclick="joinHomeTournament('${tournament.id}')" 
-                                class="bg-blue-500 text-white px-4 py-2 border-thick hover-anarchy font-teko uppercase">
-                            JOIN
-                        </button>
-                    ` : `
-                        <button onclick="spectateHomeTournament('${tournament.id}')" 
-                                class="bg-purple-500 text-white px-4 py-2 border-thick hover-anarchy font-teko uppercase">
-                            SPECTATE
-                        </button>
-                    `}
-                </div>
-            </div>
-        </div>
-    `).join('');
-}
 
 /**
  * @description To join a tournament from home screen
@@ -2019,46 +2491,200 @@ function displayHomeTournaments(tournaments: any[]): void {
         console.log('Joining tournament from home:', tournamentId);
 
         if (!tournamentUI) {
-            tournamentUI = new TournamentUI('tournamentLobbySection', statusManager);
+            tournamentUI = new TournamentUI('tournamentSection');
         }
 
-        if (currentUser && tournamentUI) {
-            tournamentUI.setCurrentUserId(currentUser.id.toString());
+        if (currentUser) {
+            tournamentUI.setCurrentUser(currentUser);
         }
 
-        const success = await tournamentUI.joinTournament(tournamentId);
-
-        if (success) {
-            console.log('Successfully joined tournament, showing lobby.');
-            showSection('tournamentLobby');
-            loadHomeTournaments();
-        } else {
-            alert(`Failed to join tournament. It might be full or already started.`);
-        }
+        await tournamentUI.joinTournament(tournamentId);
+        showSection('tournament');
+        loadHomeTournaments();
     } catch (error) {
         console.error('Error joining tournament:', error);
         alert('An error occurred while trying to join the tournament.');
     }
 };
 
-/**
- * @description Start polling for home tournaments every 30 seconds to refresh the list
- */
-function startHomeTournamentPolling(): void {
-    setInterval(() => {
-        if (currentSection === 'hero') {
-            loadHomeTournaments();
+function connectActiveTournamentsSocket() {
+    if (activeTournamentsWs) {
+        activeTournamentsWs.onclose = null; 
+        activeTournamentsWs.close();
+    }
+
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/tournament/ws/active`;
+
+    activeTournamentsWs = new WebSocket(wsUrl);
+
+    activeTournamentsWs.onopen = () => {
+        console.log('✅ [Global] Connected to active tournaments feed.');
+    };
+
+    activeTournamentsWs.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.type === 'activeTournaments') {
+                console.log('[Global] Active tournaments list update received:', data.payload);
+
+                activeTournamentsData = data.payload || [];
+
+                if (currentSection === 'hero') {
+                    const heroContainer = document.getElementById('homeTournamentsList');
+                    if (heroContainer) {
+                        renderActiveTournamentsList('homeTournamentsList', false);
+                    }
+                } else if (currentSection === 'tournament') {
+                    const tournamentHomeContainer = document.getElementById('tournaments-container');
+                    if (tournamentHomeContainer) {
+                        renderActiveTournamentsList('tournaments-container', true);
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('[Global] Active tournaments list update error:', error);
         }
-    }, 30000);
+    };
+
+    activeTournamentsWs.onclose = () => {
+        console.log('[Global] Disconnected from active tournaments feed. Reconnecting in 5 seconds...');
+        setTimeout(() => {
+            if (currentUser) { 
+                connectActiveTournamentsSocket();
+            }
+        }, 5000);
+    };
+
+    activeTournamentsWs.onerror = (error) => {
+        console.error('[Global] Active tournaments WebSocket error:', error);
+    };
 }
+
+// Tournament polling system
+// function startTournamentPolling() {
+//     if (tournamentRefreshInterval) {
+//         clearInterval(tournamentRefreshInterval);
+//     }
+    
+//     tournamentRefreshInterval = setInterval(async () => {
+//         if (currentSection === 'hero' || currentSection === 'tournament') {
+//             console.log('Auto-refreshing tournaments...');
+//             await loadActiveTournaments();
+            
+//             // Update hero section display
+//             if (currentSection === 'hero') {
+//                 renderActiveTournamentsList('homeTournamentsList', false);
+//             }
+            
+//             // Update tournament section display
+//             if (currentSection === 'tournament') {
+//                 const homeContainer = document.getElementById('tournaments-container');
+//                 if (homeContainer) {
+//                     // Tournament home is showing
+//                     renderActiveTournamentsList('tournaments-container', true);
+//                 } else if (tournamentUI) {
+//                     // Force refresh tournament UI if it exists
+//                     const currentTournamentId = tournamentUI.getCurrentTournamentId();
+//                     if (currentTournamentId) {
+//                         // Refresh current tournament view
+//                         tournamentUI.refreshCurrentTournament();
+//                     }
+//                 }
+//             }
+//         }
+//     }, 10000);
+    
+//     console.log('Tournament polling started');
+// }
+
+// function stopTournamentPolling() {
+//     if (tournamentRefreshInterval) {
+//         clearInterval(tournamentRefreshInterval);
+//         tournamentRefreshInterval = null;
+//         console.log('Tournament polling stopped');
+//     }
+// }
 
 (window as any).joinExistingTournament = async function(tournamentId: string) {
     if (tournamentUI) {
-        const success = await tournamentUI.joinTournament(tournamentId);
-        if (success) {
-            loadActiveTournaments(); 
-        }
+        await tournamentUI.joinTournament(tournamentId);
+        loadActiveTournaments(); 
     }
 };
 
+/**
+ * @description Open tournament from home screen with different modes
+ * @param tournamentId - Tournament ID to open
+ * @param mode - How to open: 'join', 'participant', 'spectator'
+ */
+(window as any).openTournamentFromHome = async function(tournamentId: string, mode: 'join' | 'participant' | 'spectator' = 'participant') {
+    try {
+        console.log(`Opening tournament ${tournamentId} in ${mode} mode`);
+
+        // Always create fresh tournament UI to avoid state issues
+        if (tournamentUI) {
+            tournamentUI.cleanup();
+        }
+        tournamentUI = new TournamentUI('tournamentSection');
+        
+        if (currentUser) {
+            tournamentUI.setCurrentUser(currentUser);
+        }
+        
+        showSection('tournament');
+
+        switch (mode) {
+            case 'join':
+                await tournamentUI.joinTournament(tournamentId);
+                break;
+            
+            case 'participant':
+                await tournamentUI.openTournament(tournamentId);
+                break;
+            
+            case 'spectator':
+                await tournamentUI.viewTournamentAsSpectator(tournamentId);
+                break;
+            
+            default:
+                await tournamentUI.openTournament(tournamentId);
+        }
+
+    } catch (error) {
+        console.error('Error opening tournament:', error);
+        showNotification('Failed to open tournament. Please try again.', 'error');
+    }
+};
+
+/**
+ * @description Join game as spectator
+ * @param gameId - Game ID to spectate
+ */
+(window as any).spectateGame = function(gameId: string) {
+    console.log(`Spectating game: ${gameId}`);
+    
+    // Show notification that spectator mode is starting
+    showNotification('Joining game as spectator...', 'info');
+    
+    // Navigate to game with spectator mode
+    window.dispatchEvent(new CustomEvent('navigate', { 
+        detail: { 
+            sectionId: 'game',
+            gameId: gameId,
+            mode: 'spectator'
+        }
+    }));
+};
+
 (window as any).startGame = startGame;
+
+(window as any).showMyTournaments = showMyTournaments;
+(window as any).showTournamentHistory = showTournamentHistory;
+
+(window as any).loadActiveTournaments = loadActiveTournaments;
+(window as any).renderActiveTournamentsList = renderActiveTournamentsList;
+
+(window as any).startTournamentGame = startTournamentGame;
+
+export { showAuthTab, initializeAuthTabs, setupAuthEventListeners, clearAuthMessages };

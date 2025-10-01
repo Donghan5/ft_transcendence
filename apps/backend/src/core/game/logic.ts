@@ -1,4 +1,8 @@
 // apps/backend/src/core/game/logic.ts
+import { GameState, PlayerState, BallState, initialBallVelocity, GameStatus, Vector3D } from "@trans/common-types";
+import { gameEngine } from "./game-engine";
+import { strategy } from "./ai-strategy";
+import WebSocket from 'ws';
 import {
     WIN_SCORE,
     POINT_PER_GOAL,
@@ -22,10 +26,6 @@ import {
     WALL_COLLISION_Z_BOTTOM,
     PADDLE_Y_POSITION
 } from "@trans/common-types";
-import { GameState, PlayerState, BallState, initialBallVelocity, GameStatus, Vector3D } from "@trans/common-types"; 
-import { gameEngine } from "./game-engine"; // Import the games map from game-engine
-import { strategy } from "./ai-strategy";
-import WebSocket from 'ws'; // Import WebSocket for broadcasting game state
 
 function createInitialPlayerState(): PlayerState {
     return {
@@ -47,8 +47,8 @@ export function initState(gameId: string): GameState {
         gameId,
         player1: createInitialPlayerState(),
         player2: createInitialPlayerState(),
-		player1Id: '',
-		player2Id: '',
+        player1Id: '',
+        player2Id: '',
         ball: createInitialBallState(),
         status: 'waiting',
         lastUpdate: Date.now(),
@@ -61,25 +61,20 @@ export function addPoint(
     scorerId: string,
 ): GameState {
     if (state.status === 'finished') return state;
-
     const nextState: GameState = {
         ...state,
         player1: { ...state.player1 },
         player2: { ...state.player2 },
     };
-
     if (scorerId === state.player1Id) {
         nextState.player1.score += POINT_PER_GOAL;
     } else if (scorerId === state.player2Id) {
         nextState.player2.score += POINT_PER_GOAL;
     }
-
     if (nextState.player1.score >= WIN_SCORE || nextState.player2.score >= WIN_SCORE) {
         nextState.status = 'finished';
     }
-
     nextState.lastUpdate = Date.now();
-
     return nextState;
 }
 
@@ -232,8 +227,7 @@ function getPlayerKey(playerId: string, game: GameState): 'player1' | 'player2' 
     if (game.player2Id === playerId) {
         return 'player2';
     }
-
-    return null; // Player not found in the game
+    return null;
 }
 
 export function resetBall(game: GameState): void {
@@ -246,19 +240,18 @@ export function resetBall(game: GameState): void {
 }
 
 export function broadcastGameState(gameId: string): void {
-	const game = gameEngine.getGames().get(gameId);
-	const players = gameEngine.getConnectedPlayers().get(gameId);
-	if (!game || !players) return;   // Game and players not declared
-
-	const message = JSON.stringify({
-		type: 'gameState',
-		payload: game
-	});
-	players.forEach((ws, playerId) => {
-		if (ws.readyState === WebSocket.OPEN) {
-			ws.send(message);
-		} else {
-			console.warn(`WebSocket for player ${playerId} is not open`);
-		}
-	});
+    const game = gameEngine.getGames().get(gameId);
+    const players = gameEngine.getConnectedPlayers().get(gameId);
+    if (!game || !players) return;
+    const message = JSON.stringify({
+        type: 'gameState',
+        payload: game
+    });
+    players.forEach((ws, playerId) => {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(message);
+        } else {
+            console.warn(`WebSocket for player ${playerId} is not open`);
+        }
+    });
 }

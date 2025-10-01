@@ -1,3 +1,4 @@
+// render.ts
 import {
     Scene,
     Engine,
@@ -34,7 +35,7 @@ import {
     WALL_COLLISION_Z_BOTTOM,
     SERVER_UPDATE_INTERVAL,
     INTERPOLATION_DELAY
-} from '@trans/common-types';
+} from "@trans/common-types";
 
 export class PongGame3D {
     private engine: Engine;
@@ -62,6 +63,7 @@ export class PongGame3D {
     private inputStatePlayer1 = { up: false, down: false };
     private inputStatePlayer2 = { up: false, down: false };
     private paddleSpeed = 0.5;
+    private gameEndHandled: boolean = false;
     private resizeHandler: () => void;
 
     constructor(canvas: HTMLCanvasElement, gameId: string, playerId: string = 'player1', gameMode: string = 'PVP', playerNickname: string = 'Player') {
@@ -513,22 +515,30 @@ export class PongGame3D {
         }, 600);
     }
 
-    private onGameEnd(data: { winnerNickname: string }): void {
+    private onGameEnd(data: { winnerNickname: string, winnerId: string, finalScore: any }): void {
+        if (this.gameEndHandled) {
+            console.log('[DEBUG] Game end already handled, ignoring duplicate event');
+            return;
+        }
+        
+        this.gameEndHandled = true;
         console.log(`[DEBUG] onGameEnd called with winner: ${data.winnerNickname}`);
 
+        this.connection?.disconnect();
+        console.log('[DEBUG] Game WebSocket disconnected to prevent duplicate events');
+
         const modal = document.getElementById('gameOverModal');
-        const returnBtn = document.getElementById('gameOverReturnBtn');
         const winnerMessage = document.getElementById('winnerMessage');
+        const gameOverTitle = document.getElementById('gameOverTitle');
 
-        if (modal && winnerMessage) {
-            winnerMessage.textContent = `Game Over! ${data.winnerNickname} wins!`;
+        if (modal && winnerMessage && gameOverTitle) {
+            // Determine if current player won
+            const currentPlayerId = this.connection?.playerId?.toString();
+            const isWinner = data.winnerId?.toString() === currentPlayerId;
+            
+            gameOverTitle.textContent = isWinner ? 'VICTORY!' : 'DEFEAT!';
+            winnerMessage.textContent = `${data.winnerNickname} wins!`;
             modal.classList.remove('hidden');
-
-            const returnToMenuHandler = () => {
-                returnToMainMenu();
-                console.log('Returned to main menu from game over modal');
-            };
-            returnBtn?.addEventListener('click', returnToMenuHandler, { once: true });
         }
     }
 

@@ -42,20 +42,11 @@ export async function buildServer(): Promise<FastifyInstance> {
         throw new Error("BACKEND_URL is not set");
     }
     
-    // Changed
-    // const url = new URL(backendUrl);
-    // url.protocol = 'https';
-    // const callbackUri = `${url.toString()}api/users/login/google/callback`;
+    const url = new URL(backendUrl);
+    url.protocol = 'https';
+    const callbackUri = `${url.toString()}api/users/login/google/callback`;
 
-    // console.log('Forced HTTPS Google OAuth2 callback URI:', callbackUri);
-
-    const callbackUri = `${process.env.BACKEND_URL}/api/users/login/google/callback`;
-
-    console.log('Google OAuth2 callback URI:', callbackUri);
-
-    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-        throw new Error("GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set in the environment.");
-    }
+    console.log('Forced HTTPS Google OAuth2 callback URI:', callbackUri);
 
     // Google OAuth2
     server.register<any>(fastifyOAuth2, {
@@ -81,7 +72,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     server.register(statusRoute, { prefix: '/api/user' });
     server.register(statsRoute, { prefix: '/api/user/stats' });
 	server.register(localLoginRoute, { prefix: '/api/users/login/local' });
-    server.register(tournamentRoutes, { prefix: '/api/tournament' });
+    await server.register(tournamentRoutes, { prefix: '/api/tournament' });
 
     server.setErrorHandler((error, request, reply) => {
         request.log.error(error);
@@ -113,7 +104,7 @@ async function start() {
 
         console.log('Initializing tournament manager...');
         const { tournamentManager } = await import('./core/tournament/tournament-manager');
-        await tournamentManager.initializeTournaments();
+        // await tournamentManager.initializeTournaments();
         console.log('Tournament manager initialized successfully');
 
         // Temporary: Force check if users table exists

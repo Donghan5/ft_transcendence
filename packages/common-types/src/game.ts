@@ -28,6 +28,7 @@ export interface GameState {
   player1Id: string;
   player2Id: string;
   status: 'waiting' | 'countdown' | 'playing' | 'finished';
+  startTime?: number;
   lastUpdate: number;
   aiLevel?: 'EASY' | 'MIDDLE' | 'HARD';
   countdownValue?: number;

@@ -1,13 +1,18 @@
+// apps/backend/src/core/tournament/tournament-manager.ts
+
+import { Tournament, BracketMatch, TournamentPlayer, TournamentHistory } from '../../../../../packages/common-types/src/tournament';
+import { dbGet, dbRun, dbAll } from '../../database/helpers';
 import { WebSocket } from 'ws';
-import { dbGet, dbRun, dbAll, getDatabase } from '../../database/helpers';
-import { gameEngine } from '../game/game-engine';
-import { Tournament, TournamentPlayer, Match } from '@trans/common-types';
 
 export class TournamentManager {
-    private tournaments: Map<string, Tournament> = new Map();
-    private playerTournamentMap: Map<number, string> = new Map();
-    private tournamentSockets = new Map<string, Map<string, WebSocket>>();
+    private tournaments = new Map<string, Tournament>();
+    private sockets = new Map<string, Map<string, WebSocket>>(); // tournamentId -> userId -> socket
     private activeTournamentsSockets = new Set<WebSocket>();
+
+    constructor() {
+        this.loadActiveTournaments();
+    }
+
 
     public addActiveTournamentsSocket(ws: WebSocket) {
         this.activeTournamentsSockets.add(ws);
@@ -40,1038 +45,696 @@ export class TournamentManager {
         });
     }
 
-    async initializeTournaments(): Promise<void> {
-        const activeTournaments = await dbAll(
-            `SELECT * FROM tournaments WHERE status IN ('waiting', 'in_progress')`
-        );
-
-        for (const dbTournament of activeTournaments) {
-            const tournament = await this.getTournamentInfo(dbTournament.id);
-            if (tournament) {
-                this.tournaments.set(tournament.id, tournament);
-                tournament.players.forEach(player => {
-                    this.playerTournamentMap.set(player.id, tournament.id);
-                });
-            }
-        }
-    }
-
-    /**
-     * @description Mark a player as ready in a tournament
-     * @param tournamentId
-     * @param playerId
-     * @returns
-     */
-    public async setPlayerReady(tournamentId: string, playerId: number) {
-        const tournament = await this.getTournamentInfo(tournamentId);
-
-        if (!tournament) return;
-
-        const player = tournament.players.find(p => p.id === playerId);
-        if (player) {
-            player.isReady = true;
-        }
-
-        await dbRun(
-            `UPDATE tournament_participants SET is_ready = 1 WHERE tournament_id = ? AND user_id = ?`,
-            [tournamentId, playerId]
-        );
-
-        await this.broadcastTournamentUpdate(tournamentId, tournament);
-    }
-
-
-    /**
-     * @description Check all players in a match are ready
-     * @param match current match which is going to start
-     */
-    private allPlayersReady(match: Match): boolean {
-        if (!match.player1 || !match.player2) return false;
-
-        const player1Ready = !!match.player1?.isReady;
-        const player2Ready = !!match.player2?.isReady;
-        return player1Ready && player2Ready;
-    }
-
-    private async updateTournamentInDB(tournament: Tournament): Promise<void> {
+    // Load active tournaments from database on startup
+    private async loadActiveTournaments() {
         try {
-            await dbRun(
-                `UPDATE tournaments SET
-                status = ?,
-                current_round = ?
-                WHERE id = ?`,
-                [
-                    tournament.status,
-                    tournament.currentRound,
-                    tournament.id
-                ]
-            );
+            const tournaments = await dbAll(`
+                SELECT t.*, u.nickname as host_nickname
+                FROM tournaments t
+                LEFT JOIN users u ON t.created_by = u.id
+                WHERE t.status IN ('waiting', 'active')
+            `);
 
-            for (const player of tournament.players) {
-                await dbRun(
-                    `UPDATE tournament_participants
-                    SET seed = ?
-                    WHERE tournament_id = ? AND user_id = ?`,
-                    [player.seed, tournament.id, player.id]
-                );
+            for (const tournamentData of tournaments) {
+                const tournament = await this.buildTournamentFromDb(tournamentData);
+                if (tournament) {
+                    this.tournaments.set(tournament.id, tournament);
+                }
             }
 
-            console.log(`Tournament ${tournament.id} updated successfully in DB.`);
+            console.log(`Loaded ${this.tournaments.size} active tournaments`);
         } catch (error) {
-            console.error(`Error updating tournament ${tournament.id} in DB: ${error}`);
+            console.error('Error loading active tournaments:', error);
         }
     }
 
-    async createTournament(creatorId: number, name: string): Promise<string> {
+    private async buildTournamentFromDb(tournamentData: any): Promise<Tournament | undefined> {
+        try {
+            // Get players
+            const players = await dbAll(`
+                SELECT u.id, u.nickname, u.rating
+                FROM tournament_participants tp
+                JOIN users u ON tp.user_id = u.id
+                WHERE tp.tournament_id = ?
+            `, [tournamentData.id]);
+
+            // Get bracket matches
+            const matches = await dbAll(`
+                SELECT tm.*, 
+                       p1.nickname as player1_nickname, p1.rating as player1_rating,
+                       p2.nickname as player2_nickname, p2.rating as player2_rating,
+                       w.nickname as winner_nickname, w.rating as winner_rating
+                FROM tournament_matches tm
+                LEFT JOIN users p1 ON tm.player1_id = p1.id
+                LEFT JOIN users p2 ON tm.player2_id = p2.id
+                LEFT JOIN users w ON tm.winner_id = w.id
+                WHERE tm.tournament_id = ?
+                ORDER BY tm.round, tm.position
+            `, [tournamentData.id]);
+
+            const tournament: Tournament = {
+                id: tournamentData.id,
+                name: tournamentData.name,
+                hostId: tournamentData.created_by.toString(),
+                players: players.map(p => ({
+                    id: p.id.toString(),
+                    nickname: p.nickname,
+                    rating: p.rating
+                })),
+                bracket: matches.map(m => ({
+                    id: m.id,
+                    player1: m.player1_id ? {
+                        id: m.player1_id.toString(),
+                        nickname: m.player1_nickname,
+                        rating: m.player1_rating
+                    } : null,
+                    player2: m.player2_id ? {
+                        id: m.player2_id.toString(),
+                        nickname: m.player2_nickname,
+                        rating: m.player2_rating
+                    } : null,
+                    winner: m.winner_id ? {
+                        id: m.winner_id.toString(),
+                        nickname: m.winner_nickname,
+                        rating: m.winner_rating
+                    } : null,
+                    round: m.round,
+                    position: m.position,
+                    status: m.status,
+                    confirmations: m.confirmations ? JSON.parse(m.confirmations) : [],
+                    gameId: m.game_id
+                })),
+                status: tournamentData.status,
+                currentRound: tournamentData.current_round || 1,
+                maxPlayers: tournamentData.max_players || 8,
+                createdAt: tournamentData.created_at,
+                finishedAt: tournamentData.finished_at,
+                winner: tournamentData.winner_id ? players.find(p => p.id === tournamentData.winner_id) : undefined
+            };
+
+            return tournament;
+        } catch (error) {
+            console.error('Error building tournament from DB:', error);
+            return undefined;
+        }
+    }
+
+    async createTournament(hostId: string, name: string, maxPlayers: number = 8): Promise<string> {
         const tournamentId = `tournament_${Date.now()}`;
-
-        const creator = await dbGet(
-            `SELECT id, nickname, rating FROM users WHERE id = ?`,
-            [creatorId]
-        );
-
-        if (!creator) {
-            throw new Error(`Creator with ID ${creatorId} not found.`);
+        
+        // Check if user exists
+        const user = await dbGet(`SELECT id, nickname, rating FROM users WHERE id = ?`, [parseInt(hostId)]);
+        if (!user) {
+            throw new Error('User not found');
         }
 
         const tournament: Tournament = {
             id: tournamentId,
             name,
+            hostId,
             players: [],
             bracket: [],
             status: 'waiting',
-            currentRound: 0,
-            winner: null,
-            createdBy: creatorId
+            currentRound: 1,
+            maxPlayers,
+            createdAt: new Date().toISOString()
         };
 
-        // set in memory
+        // Save to database
+        await dbRun(`
+            INSERT INTO tournaments (id, name, created_by, status, current_round, max_players, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [tournamentId, name, parseInt(hostId), 'waiting', 1, maxPlayers, tournament.createdAt]);
+
+        // Store in memory
         this.tournaments.set(tournamentId, tournament);
 
-        // set in database
-        await dbRun(
-        `INSERT INTO tournaments (id, name, created_by, status, created_at)
-         VALUES (?, ?, ?, ?, datetime('now'))`,
-        [tournamentId, name, creatorId, 'waiting']
-        );
-
-        console.log(`Tournament created: ${name} by ${creatorId}. Get ready to fight!`);
+        console.log(`Tournament created: ${name} by ${hostId}`);
         return tournamentId;
     }
 
-    public async joinTournament(tournamentId: string, playerId: number): Promise<boolean> {
-        // let tournament = this.tournaments.get(tournamentId);
-        let tournament: Tournament | undefined | null = this.tournaments.get(tournamentId);
-
-        if (!tournament) { // if not in in-memory, load from DB
-            const dbTournament = await this.getTournamentInfo(tournamentId);
-            if (dbTournament) {
-                tournament = dbTournament;
-                this.tournaments.set(tournamentId, tournament);
-            }
-        }
-
-        if (!tournament || tournament.status !== 'waiting') {
-            console.error(`Tournament with ID ${tournamentId} not found.`);
+    async joinTournament(tournamentId: string, userId: string): Promise<boolean> {
+        const tournament = this.tournaments.get(tournamentId);
+        if (!tournament) {
             return false;
         }
 
-        if (tournament.players.some(p => p.id === playerId)) {
-            console.error(`Player ${playerId} is already in the tournament.`);
+        if (tournament.status !== 'waiting') {
             return false;
         }
 
-        const user = await dbGet(
-            `SELECT u.id, u.nickname, COALESCE(us.rank_points, 1000) as rating
-            FROM users u
-            LEFT JOIN user_stats us ON u.id = us.user_id
-            WHERE u.id = ?`,
-            [playerId]
-        );
+        if (tournament.players.length >= tournament.maxPlayers) {
+            return false;
+        }
 
+        // Check if already joined
+        if (tournament.players.some(p => p.id === userId)) {
+            return true; // Already joined
+        }
+
+        // Get user info
+        const user = await dbGet(`SELECT id, nickname, rating FROM users WHERE id = ?`, [parseInt(userId)]);
         if (!user) {
-            console.error(`User with ID ${playerId} not found.`);
             return false;
         }
 
-        await this.addPlayerToTournament(tournament, playerId, user);
+        const player: TournamentPlayer = {
+            id: userId,
+            nickname: user.nickname,
+            rating: user.rating
+        };
 
-        this.tournaments.set(tournamentId, tournament);
+        // Add to tournament
+        tournament.players.push(player);
 
-        await this.broadcastTournamentUpdate(tournamentId, tournament);
+        // Save to database
+        await dbRun(`
+            INSERT INTO tournament_participants (tournament_id, user_id)
+            VALUES (?, ?)
+        `, [tournamentId, parseInt(userId)]);
+
+        // Notify all connected clients
+        this.broadcastToTournament(tournamentId, {
+            type: 'player_joined',
+            players: tournament.players
+        });
+
+        console.log(`Player ${user.nickname} joined tournament ${tournament.name}`);
         return true;
     }
 
     async startTournament(tournamentId: string): Promise<boolean> {
-        // let tournament = this.tournaments.get(tournamentId);
-        let tournament: Tournament | undefined | null = this.tournaments.get(tournamentId);
-
-        if (!tournament) { // if not in in-memory, load from DB
-            const dbTournament = await this.getTournamentInfo(tournamentId);
-            if (dbTournament) {
-                tournament = dbTournament;
-                this.tournaments.set(tournamentId, tournament);
-            }
-        }
-
-        if (!tournament || tournament.status !== 'waiting') {
-            console.error(`Tournament with ID ${tournamentId} not found or already started.`);
+        const tournament = this.tournaments.get(tournamentId);
+        if (!tournament) {
             return false;
         }
 
-        if (tournament.players.length < 3) return false;
-
-        // Sort players by rating for seeding
-        tournament.players.sort((a, b) => b.rating - a.rating);
-
-        // Assign seeds
-        tournament.players.forEach((player, index) => {
-            player.seed = index + 1;
-        });
-
-        // Create initial bracket
-        await this.generateBracket(tournament);
-
-        // Bye match in 1st round temp fix
-        let tournamentWithBracket = await this.getTournamentInfo(tournamentId);
-        if (!tournamentWithBracket) return false;
-
-        const firstRound = tournamentWithBracket.bracket[0];
-        for (const match of firstRound) {
-            if (match.winner) {
-                const result = await this.placeWinnerInNextRound(tournamentWithBracket, match);
-                tournamentWithBracket = result.tournament;
-            }
+        if (tournament.status !== 'waiting') {
+            return false;
         }
 
-        tournament.status = 'in_progress';
+        if (tournament.players.length < 4) {
+            return false;
+        }
+
+        // Generate bracket
+        tournament.bracket = this.generateBracket(tournament.players, tournamentId);
+        tournament.status = 'active';
         tournament.currentRound = 1;
 
-        await this.updateTournamentInDB(tournament);
-        await this.broadcastTournamentUpdate(tournamentId);
-        await this.startNextMatch(tournament);
+        // Save bracket to database
+        await this.saveBracketToDb(tournament);
+
+        // Update tournament status
+        await dbRun(`
+            UPDATE tournaments 
+            SET status = ?, current_round = ?
+            WHERE id = ?
+        `, ['active', 1, tournamentId]);
+
+        // Start first round matches
+        await this.startRoundMatches(tournament, 1);
+
+        // Notify all clients
+        this.broadcastToTournament(tournamentId, {
+            type: 'tournament_updated',
+            tournament
+        });
+
+        console.log(`Tournament ${tournament.name} started with ${tournament.players.length} players`);
         return true;
     }
 
-    private async generateBracket(tournament: Tournament) {
-        const players = [ ...tournament.players ];
-        const totalPlayers = players.length;
-
-        const nextPowerOfTwo = Math.pow(2, Math.ceil(Math.log2(totalPlayers)));
-        const byesNeeded = nextPowerOfTwo - totalPlayers;
-
-        // Sort players by rating for seeding
-        players.sort((a, b) => b.rating - a.rating);
-        players.forEach((player, index) => {
-            player.seed = index + 1;
-        });
-
-        const firstRound: Match[] = [];
-        let matchNumber = 0;
-
-        const highSeeds = players.slice(0, byesNeeded);
-        const remainingPlayers = players.slice(byesNeeded);
-
-        // case walk-over
-        highSeeds.forEach(player => {
-            const match: Match = {
-                id: `${tournament.id}_r1_m${matchNumber}`,
-                player1: player,
-                player2: null,
-                winner: player,
-                round: 1,
-                matchNumber: matchNumber++
-            };
-            firstRound.push(match);
-        });
-
-        for (let i = 0; i < remainingPlayers.length / 2; i++) {
-            const match: Match = {
-                id: `${tournament.id}_r1_m${matchNumber}`,
-                player1: remainingPlayers[i],
-                player2: remainingPlayers[remainingPlayers.length - 1 - i],
+    private generateBracket(players: TournamentPlayer[], tournamentId: string): BracketMatch[] {
+        const bracket: BracketMatch[] = [];
+        const numPlayers = players.length;
+        
+        // Shuffle players for random seeding
+        const shuffledPlayers = [...players].sort(() => Math.random() - 0.5);
+        
+        // Calculate number of rounds needed
+        const numRounds = Math.ceil(Math.log2(numPlayers));
+        
+        // Generate first round matches
+        const firstRoundMatches = Math.ceil(numPlayers / 2);
+        let matchId = 0;
+        
+        for (let i = 0; i < firstRoundMatches; i++) {
+            const player1 = shuffledPlayers[i * 2] || null;
+            const player2 = shuffledPlayers[i * 2 + 1] || null;
+            
+            const match: BracketMatch = {
+                id: `${tournamentId}_r1_m${i}`,
+                player1,
+                player2,
                 winner: null,
                 round: 1,
-                matchNumber: matchNumber++
+                position: i,
+                status: player1 && player2 ? 'waiting' : 'finished',
+                confirmations: [],
+                gameId: undefined
             };
-            firstRound.push(match);
+            
+            // If only one player, they automatically advance
+            if (player1 && !player2) {
+                match.winner = player1;
+                match.status = 'finished';
+            }
+            
+            bracket.push(match);
         }
-
-        tournament.bracket.push(firstRound);
-
-        // Generate subsequent rounds (starting from round 2 up to final round)
-        let numMatchesInPreviousRound = firstRound.length;
-        let round = 2;
-
-        while (numMatchesInPreviousRound > 1) {
-            const currentRound: Match[] = [];
-            const numMatchesInCurrentRound = numMatchesInPreviousRound / 2;
-
-            for (let i = 0; i < numMatchesInCurrentRound; i++) {
-                const match: Match = {
-                    id: `${tournament.id}_r${round}_m${i}`,
+        
+        // Generate subsequent rounds (empty matches to be filled as tournament progresses)
+        for (let round = 2; round <= numRounds; round++) {
+            const matchesInRound = Math.ceil(firstRoundMatches / Math.pow(2, round - 1));
+            
+            for (let i = 0; i < matchesInRound; i++) {
+                const match: BracketMatch = {
+                    id: `${tournamentId}_r${round}_m${i}`,
                     player1: null,
                     player2: null,
                     winner: null,
-                    round: round,
-                    matchNumber: i
+                    round,
+                    position: i,
+                    status: 'waiting',
+                    confirmations: [],
+                    gameId: undefined
                 };
-                currentRound.push(match);
-            }
-
-            tournament.bracket.push(currentRound);
-            numMatchesInPreviousRound = numMatchesInCurrentRound;
-            round++;
-        }
-
-        for (const round of tournament.bracket) {
-            for (const match of round) {
-                await dbRun(
-                    `INSERT INTO tournament_matches (id, tournament_id, round, match_number, player1_id, player2_id, winner_id, status)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
-                        match.id,
-                        tournament.id,
-                        match.round,
-                        match.matchNumber,
-                        match.player1 ? match.player1.id : null,
-                        match.player2 ? match.player2.id : null,
-                        match.winner ? match.winner.id : null,
-                        match.winner ? 'walkover' : 'waiting'
-                    ]
-                );
+                
+                bracket.push(match);
             }
         }
+        
+        return bracket;
     }
 
-    private async startNextMatch(tournament: Tournament) {
-        if (!tournament) return;
-
-        const currentRoundMatches = tournament.bracket[tournament.currentRound - 1];
-        const nextMatch = currentRoundMatches.find(m => !m.winner && m.player1 && m.player2);
-
-        const isFirstMatchOfTournament = tournament.currentRound === 1 && nextMatch?.matchNumber === currentRoundMatches.findIndex(m => m.player1 && m.player2);
-
-        if (nextMatch) {
-            // if (tournament.status === 'waiting') {
-            //     tournament.status = 'in_progress';
-            //     await this.updateTournamentInDB(tournament);
-            // }
-            const gameId = await this.createTournamentGame(
-                nextMatch.player1!.id,
-                nextMatch.player2!.id,
-                nextMatch.player1!.nickname,
-                nextMatch.player2!.nickname,
-            );
-
-            nextMatch.gameId = gameId;
-
-            await dbRun(
-                `UPDATE tournament_matches SET game_id = ?, status = 'in_progress' WHERE id = ?`,
-                [gameId, nextMatch.id]
-            )
-
-            await this.broadcastTournamentUpdate(tournament.id, tournament);
-
-            // this.startGa<meEndPolling(gameId, tournament, nextMatch);
-
-        } else if (this.isRoundComplete(tournament)) {
-            this.advanceToNextRound(tournament);
+    private async saveBracketToDb(tournament: Tournament) {
+        // Clear existing matches
+        await dbRun(`DELETE FROM tournament_matches WHERE tournament_id = ?`, [tournament.id]);
+        
+        // Insert new matches
+        for (const match of tournament.bracket) {
+            await dbRun(`
+                INSERT INTO tournament_matches 
+                (id, tournament_id, round, position, player1_id, player2_id, winner_id, status, confirmations, game_id)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `, [
+                match.id,
+                tournament.id,
+                match.round,
+                match.position,
+                match.player1 ? parseInt(match.player1.id) : null,
+                match.player2 ? parseInt(match.player2.id) : null,
+                match.winner ? parseInt(match.winner.id) : null,
+                match.status,
+                JSON.stringify(match.confirmations),
+                match.gameId
+            ]);
         }
     }
 
-
-    private async createTournamentGame(
-        player1Id: number,
-        player2Id: number,
-        player1Nickname: string,
-        player2Nickname: string
-    ): Promise<string> {
-        const gameId = gameEngine.createGame(
-            player1Id.toString(),
-            player2Id.toString(),
-            'TOURNAMENT',
-            undefined, // AI level not used in tournaments
-            player1Nickname,
-            player2Nickname
-        );
-
-        console.log(`Tournament game created: ${gameId} between ${player1Nickname} and ${player2Nickname}`);
-        return gameId;
-    }
-
-    /**
-     * @description Starts polling for the end of a tournament game.
-     * @param gameId The ID of the game.
-     * @param tournamentId The ID of the tournament.
-     * @param match The match object.
-     * @fix --> It will be changed to WebSocket method
-     */
-    // private async startGameEndPolling(gameId: string, tournament: Tournament, match: Match) {
-    //     const checkInterval = setInterval(() => {
-    //         const gameState = gameEngine.getGameState(gameId);
-
-    //         if (!gameState) {
-    //             clearInterval(checkInterval);
-    //             return;
-    //         }
-
-    //         if (gameState.status === 'finished') {
-    //             clearInterval(checkInterval);
-    //             this.handleGameEnd(gameId, tournament, match.id, gameState);
-    //         }
-    //     }, 1000);
-
-    //     setTimeout(() => {
-    //         clearInterval(checkInterval);
-    //     }, 10 * 60 * 1000);
-    // }
-
-    /**
-     * @description Handles the end of a tournament game.
-     * @param gameId The ID of the game.
-     * @param tournamentId The ID of the tournament.
-     * @param matchId The ID of the match.
-     * @param gameState The state of the game.
-     * @returns
-     */
-     public async handleGameEnd(gameId: string, _staleTournament: Tournament, matchId: string, gameState: any): Promise<{ tournamentFinished: boolean, winner: TournamentPlayer | null }> {
-        const db = await getDatabase();
-        try {
-            await dbRun('BEGIN TRANSACTION');
-
-            const matchInDb = await dbGet('SELECT winner_id FROM tournament_matches WHERE id = ?', [matchId]);
-            if (matchInDb && matchInDb.winner_id !== null) {
-                await dbRun('COMMIT');
-                return { tournamentFinished: false, winner: null };
+    private async startRoundMatches(tournament: Tournament, round: number) {
+        const roundMatches = tournament.bracket.filter(m => m.round === round && m.status === 'waiting');
+        
+        for (const match of roundMatches) {
+            if (match.player1 && match.player2) {
+                match.status = 'confirming';
+                
+                // Update in database
+                await dbRun(`
+                    UPDATE tournament_matches 
+                    SET status = ?
+                    WHERE id = ?
+                `, ['confirming', match.id]);
+                
+                // Notify players
+                this.broadcastToTournament(tournament.id, {
+                    type: 'match_ready',
+                    match
+                });
             }
-
-            const tournamentId = matchId.split('_r')[0];
-            const initialTournament = await this.getTournamentInfo(tournamentId);
-            if (!initialTournament) throw new Error(`Tournament not found`);
-
-            const match = this.findMatch(initialTournament, matchId);
-            if (!match) throw new Error(`Match not found`);
-
-            if (!match.player1 || !match.player2) {
-                console.error(`handleGameEnd called for a match with missing players: ${matchId}`);
-                await dbRun('ROLLBACK');
-                return { tournamentFinished: false, winner: null };
-            }
-
-            let winnerPlayer: TournamentPlayer | null = null;
-            if (String(match.player1.id) === String(gameState.player1Id) && String(match.player2.id) === String(gameState.player2Id)) {
-                winnerPlayer = gameState.player1.score > gameState.player2.score ? match.player1 : match.player2;
-            } else if (String(match.player1.id) === String(gameState.player2Id) && String(match.player2.id) === String(gameState.player1Id)) {
-                winnerPlayer = gameState.player2.score > gameState.player1.score ? match.player1 : match.player2;
-            } else {
-                console.error(`Player ID mismatch between gameState and match ${matchId}`);
-                await dbRun('ROLLBACK');
-                return { tournamentFinished: false, winner: null };
-            }
-
-            match.winner = winnerPlayer;
-
-            const { tournament: updatedTournament, isFinalMatch } = await this.placeWinnerInNextRound(initialTournament, match);
-
-            await dbRun('COMMIT');
-
-            console.log(`Successfully processed game ${gameId} for match ${matchId}`);
-
-            this.tournaments.set(updatedTournament.id, updatedTournament);
-            
-            await this.broadcastTournamentUpdate(updatedTournament.id, updatedTournament);
-
-            if (isFinalMatch) {
-                console.log(`Tournament ${updatedTournament.name} has concluded! Winner: ${updatedTournament.winner?.nickname}`);
-            } else if (this.isRoundComplete(updatedTournament)) {
-                this.advanceToNextRound(updatedTournament);
-            } else {
-                this.startNextMatch(updatedTournament);
-            }
-
-            return { tournamentFinished: isFinalMatch, winner: updatedTournament.winner };
-
-        } catch (error) {
-            console.error(`Error processing game ${gameId} for match ${matchId}:`, error);
-            await dbRun('ROLLBACK');
-            throw error;
         }
     }
 
-    /**
-     * @description Places the winner of the current match into the next round of the tournament.
-     * @param tournament The tournament object.
-     * @param match The match object.
-     * @returns
-     */
-    private async placeWinnerInNextRound(tournament: Tournament, match: Match): Promise<{ tournament: Tournament, isFinalMatch: boolean }> {
-        const winner = match.winner;
-
-        await dbRun(
-            `UPDATE tournament_matches SET winner_id = ?, status = 'finished' WHERE id = ?`,
-            [winner ? winner.id : null, match.id]
-        );
-
-        const isFinalMatch = match.round === tournament.bracket.length;
-
-        console.log(`[DEBUG] Final match check: round=${match.round}, bracket_length=${tournament.bracket.length}, isFinal=${isFinalMatch}`);
-
-        if (isFinalMatch) {
-            tournament.winner = winner;
-            tournament.status = 'finished';
-            await this.broadcastTournamentUpdate(tournament.id, tournament);
-            await this.saveTournamentResults(tournament);
-            return { tournament, isFinalMatch: true };
-        }
-
-        const nextRoundIndex = match.round;
-        const nextMatchIndex = Math.floor(match.matchNumber / 2);
-        const nextMatch = tournament.bracket[nextRoundIndex][nextMatchIndex];
-        const playerField = match.matchNumber % 2 === 0 ? 'player1' : 'player2';
-
-        nextMatch[playerField] = winner;
-
-        const dbField = playerField === 'player1' ? 'player1_id' : 'player2_id';
-        await dbRun(
-            `UPDATE tournament_matches SET ${dbField} = ? WHERE id = ?`,
-            [winner ? winner.id : null, nextMatch.id]
-        );
-
-        return { tournament, isFinalMatch: false };
-    }
-
-
-    /**
-     * @description Check if all players in the current round have completed their matches
-     * @param tournament The tournament object.
-     * @returns True if all players have completed their matches, false otherwise.
-     */
-    private isRoundComplete(tournament: Tournament): boolean {
-        const currentRound = tournament.bracket[tournament.currentRound - 1];
-        return currentRound.every(match => match.winner !== null || (!match.player1 || !match.player2));
-    }
-
-    /**
-     * @description Advances the tournament to the next round if all matches in the current round are complete.
-     * @param tournament The tournament object.
-     */
-    private advanceToNextRound(tournament: Tournament) {
-        tournament.currentRound++;
-
-        if (tournament.currentRound <= tournament.bracket.length) {
-            console.log(`Advancing to round ${tournament.currentRound} of tournament ${tournament.name}`);
-            this.updateTournamentInDB(tournament);
-            this.startNextMatch(tournament);
-        } else {
-            tournament.status = 'finished';
-            this.saveTournamentResults(tournament);
-        }
-    }
-
-    private findMatch(tournament: Tournament, matchId: string): Match | null {
-        for (const round of tournament.bracket) {
-            const match = round.find(m => m.id === matchId);
-            if (match) return match;
-        }
-
-        return null;
-    }
-
-    private async saveTournamentResults(tournament: Tournament) {
-        try {
-            await dbRun(
-                `INSERT OR REPLACE INTO tournaments (id, name, winner_id, ended_at)
-                VALUES (?, ?, ?, datetime('now'))`,
-                [
-                    tournament.id,
-                    tournament.name,
-                    tournament.winner ? tournament.winner.id : null
-                ]
-            );
-
-            console.log(`Tournament ${tournament.name} results saved successfully.`);
-
-
-            for (let i = 0; i < tournament.players.length; i++) {
-                await dbRun(
-                    `INSERT OR REPLACE INTO tournament_participants (tournament_id, user_id, placement)
-                    VALUES (?, ?, ?)`,
-                    [
-                        tournament.id,
-                        tournament.players[i].id,
-                        i + 1, // Placement is 1-based index
-                    ]
-                )
-            }
-
-            await this.updateLeaderboard(tournament);
-
-            // clean-up memory resources
-            this.tournaments.delete(tournament.id);
-            tournament.players.forEach(player => {
-                if (this.playerTournamentMap.get(player.id) === tournament.id) {
-                    this.playerTournamentMap.delete(player.id);
-                }
-            });
-
-            const sockets = this.tournamentSockets.get(tournament.id);
-            if (sockets) {
-                sockets.forEach(ws => ws.close());
-                this.tournamentSockets.delete(tournament.id);
-            }
-        } catch (error) {
-            console.error(`Error saving tournament results: ${error}`);
-        }
-    }
-
-    private async updateLeaderboard(tournament: Tournament) {
-        try {
-            const points = {
-                winner: 100,
-                finalist: 50,
-                semiFinalist: 25, // Assuming semi-finalists get 25 points (not sure)
-                quarterFinalist: 10
-            };
-
-            if (tournament.winner) {
-                await dbRun(
-                    `UPDATE users SET tournament_points = tournament_points + ?, tournament_wins = tournament_wins + 1
-                    WHERE id = ?`,
-                    [points.winner, tournament.winner.id]
-                );
-            }
-
-            const finalMatch = tournament.bracket[tournament.bracket.length - 1][0];
-            const finalist = finalMatch.player1?.id === tournament.winner?.id ? finalMatch.player2 : finalMatch.player1;
-
-            if (finalist) {
-                await dbRun(
-                    `UPDATE users SET tournament_points = tournament_points + ?
-                    WHERE id = ?`,
-                    [points.finalist, finalist.id]
-                );
-            }
-        } catch (error) {
-            console.error(`Error updating leaderboard: ${error}`);
-        }
-    }
-
-    // I'm not sure of the return value
-    public async inviteToTournament(tournamentId: string, playerId: number): Promise<boolean> {
+    async confirmMatch(tournamentId: string, matchId: string, userId: string): Promise<boolean> {
         const tournament = this.tournaments.get(tournamentId);
-        if (!tournament || tournament.status !== 'waiting') {
-            console.error(`Tournament with ID ${tournamentId} not found or already started.`);
+        if (!tournament) {
             return false;
         }
 
-        if (tournament.players.some(p => p.id === playerId)) {
-            console.error(`Player ${playerId} is already in the tournament.`);
+        const match = tournament.bracket.find(m => m.id === matchId);
+        if (!match || match.status !== 'confirming') {
             return false;
         }
 
-        const user = await dbGet(
-            `SELECT id, nickname, rating FROM users WHERE id = ?`, [playerId]
-        );
-
-        if (!user) {
-            console.error(`User with ID ${playerId} not found.`);
+        // Check if user is in this match
+        if (match.player1?.id !== userId && match.player2?.id !== userId) {
             return false;
         }
 
-        if (this.playerTournamentMap.has(playerId)) {
-            console.error(`Player ${playerId} is already in another tournament.`);
-            return false;
+        // Add confirmation
+        if (!match.confirmations.includes(userId)) {
+            match.confirmations.push(userId);
         }
 
-        await this.addPlayerToTournament(tournament, playerId, user);
+        // Update database
+        await dbRun(`
+            UPDATE tournament_matches 
+            SET confirmations = ?
+            WHERE id = ?
+        `, [JSON.stringify(match.confirmations), matchId]);
+
+        // If both players confirmed, start the game
+        if (match.confirmations.length >= 2) {
+            await this.startMatch(tournament, match);
+        }
+
+        // Notify clients
+        this.broadcastToTournament(tournamentId, {
+            type: 'tournament_updated',
+            tournament
+        });
 
         return true;
     }
 
-    async getTournamentPlayers(tournamentId: string): Promise<TournamentPlayer[]> {
-        const players = await dbAll(
-            `SELECT u.id, u.nickname, COALESCE(us.rank_points, 1000) as rating, tp.seed
-            FROM tournament_participants tp
-            JOIN users u ON u.id = tp.user_id
-            LEFT JOIN user_stats us ON u.id = us.user_id
-            WHERE tp.tournament_id = ?`,
-            [tournamentId]
-        );
-
-        return players.map(p => ({
-            id: p.id,
-            nickname: p.nickname,
-            rating: p.rating || 1000,
-            seed: p.seed || 0
-        }));
-    }
-
-    /**
-     * Get information about a specific tournament.
-     * @param tournamentId The ID of the tournament to retrieve.
-     * @returns The tournament information or null if not found.
-     */
-    async getTournamentInfo(tournamentId: string): Promise<Tournament | null> {
-        const tournamentData = await dbGet(`SELECT * FROM tournaments WHERE id = ?`, [tournamentId]);
-
-        if (!tournamentData) return null;
-
-        const matchesData = await dbAll(`SELECT * FROM tournament_matches WHERE tournament_id = ? ORDER BY round, match_number`, [tournamentId]);
-        const players = await this.getTournamentPlayers(tournamentId); // 참가자 정보 가져오기
-
-        const bracket: Match[][] = [];
-        matchesData.forEach(match => {
-            while (bracket.length < match.round) {
-                bracket.push([]);
-            }
-            bracket[match.round - 1][match.match_number] = {
-                id: match.id,
-                player1: players.find(p => p.id === match.player1_id) || null,
-                player2: players.find(p => p.id === match.player2_id) || null,
-                winner: players.find(p => p.id === match.winner_id) || null,
-                round: match.round,
-                matchNumber: match.match_number,
-                gameId: match.game_id,
-            };
-        });
-
-        const tournament: Tournament = {
-            id: tournamentData.id,
-            name: tournamentData.name,
-            players: players,
-            bracket: bracket,
-            status: tournamentData.status,
-            currentRound: tournamentData.current_round,
-            winner: players.find(p => p.id === tournamentData.winner_id) || null,
-            createdBy: tournamentData.created_by,
-        };
-
-        return tournament;
-    }
-
-    private async loadTournamentFromDB(tournamentId: string): Promise<Tournament | null> {
-        const dbTournament = await dbGet(
-            `SELECT * FROM tournaments WHERE id = ? AND status IN ('waiting', 'in_progress')`,
-            [tournamentId]
-        );
-
-        if (!dbTournament) return null;
-
-        const participants = await dbAll(
-            `SELECT u.id, u.nickname, u.rating, tp.seed
-            FROM tournament_participants tp
-            JOIN users u ON u.id = tp.user_id
-            WHERE tp.tournament_id = ?`,
-            [tournamentId]
-        );
-
-        const tournament: Tournament = {
-            id: dbTournament.id,
-            name: dbTournament.name,
-            players: participants.map(p => ({
-                id: p.id,
-                nickname: p.nickname,
-                rating: p.rating || 1000,
-                seed: p.seed || 0
-            })),
-            bracket: dbTournament.bracket ? JSON.parse(dbTournament.bracket) : [],
-            status: dbTournament.status,
-            currentRound: dbTournament.current_round || 0,
-            winner: null,
-            createdBy: dbTournament.created_by
-        };
-
-        if (tournament.id) {
-            tournament.players.forEach(player => {
-                this.playerTournamentMap.set(player.id, tournament.id);
-            });
+    private async startMatch(tournament: Tournament, match: BracketMatch) {
+        if (!match.player1 || !match.player2) {
+            console.error('Cannot start match: missing players');
+            return;
         }
 
-        return tournament;
+        try {
+            // Create real game session using your existing game API
+            const gameResponse = await fetch('http://localhost:3000/api/games', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    player1Id: match.player1.id,
+                    player1Nickname: match.player1.nickname,
+                    player2Id: match.player2.id,
+                    player2Nickname: match.player2.nickname,
+                    gameMode: 'TOURNAMENT',
+                    tournamentId: tournament.id,
+                    matchId: match.id
+                })
+            });
+
+            if (!gameResponse.ok) {
+                const errorText = await gameResponse.text();
+                throw new Error(`Failed to create game session: ${errorText}`);
+            }
+
+            const gameData = await gameResponse.json();
+            const realGameId = gameData.gameId;
+
+            match.status = 'playing';
+            match.gameId = realGameId;
+
+            // Update database with real game ID
+            await dbRun(`
+                UPDATE tournament_matches 
+                SET status = ?, game_id = ?
+                WHERE id = ?
+            `, ['playing', realGameId, match.id]);
+
+            console.log(`Started match ${match.id}: ${match.player1.nickname} vs ${match.player2.nickname} - Game ID: ${realGameId}`);
+
+            // Notify players that game is ready
+            this.broadcastToTournament(tournament.id, {
+                type: 'game_ready',
+                match,
+                gameId: realGameId
+            });
+
+        } catch (error) {
+            console.error('Error starting match:', error);
+            match.status = 'confirming'; // Reset to confirming on error
+            match.confirmations = []; // Clear confirmations to retry
+            
+            // Update database to reset status
+            await dbRun(`
+                UPDATE tournament_matches 
+                SET status = ?, confirmations = ?
+                WHERE id = ?
+            `, ['confirming', '[]', match.id]);
+        }
+    }
+
+    async finishMatch(tournamentId: string, matchId: string, winnerId: string): Promise<boolean> {
+        const tournament = this.tournaments.get(tournamentId);
+        if (!tournament) {
+            return false;
+        }
+
+        const match = tournament.bracket.find(m => m.id === matchId);
+        if (!match || match.status !== 'playing') {
+            return false;
+        }
+
+        // Set winner
+        match.winner = match.player1?.id === winnerId ? match.player1 : match.player2;
+        match.status = 'finished';
+
+        // Update database
+        await dbRun(`
+            UPDATE tournament_matches 
+            SET winner_id = ?, status = ?
+            WHERE id = ?
+        `, [parseInt(winnerId), 'finished', matchId]);
+
+        // Advance winner to next round
+        await this.advanceWinner(tournament, match);
+
+        // Check if tournament is complete
+        await this.checkTournamentComplete(tournament);
+
+        // Notify clients
+        this.broadcastToTournament(tournamentId, {
+            type: 'tournament_updated',
+            tournament
+        });
+
+        return true;
+    }
+
+    private async advanceWinner(tournament: Tournament, finishedMatch: BracketMatch) {
+        if (!finishedMatch.winner) return;
+
+        const nextRound = finishedMatch.round + 1;
+        const nextPosition = Math.floor(finishedMatch.position / 2);
+        
+        const nextMatch = tournament.bracket.find(m => 
+            m.round === nextRound && m.position === nextPosition
+        );
+
+        if (nextMatch) {
+            // Determine if winner goes to player1 or player2 slot
+            if (finishedMatch.position % 2 === 0) {
+                nextMatch.player1 = finishedMatch.winner;
+            } else {
+                nextMatch.player2 = finishedMatch.winner;
+            }
+
+            // Update database
+            await dbRun(`
+                UPDATE tournament_matches 
+                SET player1_id = ?, player2_id = ?
+                WHERE id = ?
+            `, [
+                nextMatch.player1 ? parseInt(nextMatch.player1.id) : null,
+                nextMatch.player2 ? parseInt(nextMatch.player2.id) : null,
+                nextMatch.id
+            ]);
+
+            // If both players are set, start confirmation
+            if (nextMatch.player1 && nextMatch.player2 && nextMatch.status === 'waiting') {
+                nextMatch.status = 'confirming';
+                await dbRun(`
+                    UPDATE tournament_matches 
+                    SET status = ?
+                    WHERE id = ?
+                `, ['confirming', nextMatch.id]);
+            }
+        }
+    }
+
+    private async checkTournamentComplete(tournament: Tournament) {
+        const finalMatch = tournament.bracket.find(m => 
+            m.round === Math.max(...tournament.bracket.map(m => m.round)) && 
+            m.status === 'finished' && 
+            m.winner
+        );
+
+        if (finalMatch?.winner) {
+            tournament.status = 'finished';
+            tournament.winner = finalMatch.winner;
+            tournament.finishedAt = new Date().toISOString();
+
+            // Update database
+            await dbRun(`
+                UPDATE tournaments 
+                SET status = ?, winner_id = ?, finished_at = ?
+                WHERE id = ?
+            `, ['finished', parseInt(finalMatch.winner.id), tournament.finishedAt, tournament.id]);
+
+            console.log(`Tournament ${tournament.name} completed! Winner: ${finalMatch.winner.nickname}`);
+        }
+    }
+
+    async deleteTournament(tournamentId: string, userId: string): Promise<boolean> {
+        try {
+            const tournament = this.tournaments.get(tournamentId);
+            if (!tournament) {
+                return false;
+            }
+
+            // Only host can delete, and only if not started
+            if (tournament.hostId !== userId || tournament.status !== 'waiting') {
+                return false;
+            }
+
+            // Notify all connected clients before deletion
+            this.broadcastToTournament(tournamentId, {
+                type: 'tournament_deleted',
+                tournamentId: tournamentId,
+                tournamentName: tournament.name,
+                message: `Tournament "${tournament.name}" has been deleted by the host`
+            });
+
+            // Small delay to ensure message is sent
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Remove from memory
+            this.tournaments.delete(tournamentId);
+
+            // Remove from database (cascade will handle related tables)
+            await dbRun(`DELETE FROM tournaments WHERE id = ?`, [tournamentId]);
+
+            console.log(`Tournament ${tournament.name} deleted by host`);
+            return true;
+        } catch (error) {
+            console.error('Error deleting tournament:', error);
+            return false;
+        }
     }
 
     async getActiveTournaments(): Promise<Tournament[]> {
-        const activeTournaments = await dbAll(
-            `SELECT * FROM tournaments WHERE status IN ('waiting', 'in_progress')`
-        );
-
-        const tournaments: Tournament[] = [];
-
-        for (const dbTournament of activeTournaments) {
-            let tournament: Tournament | undefined | null = this.tournaments.get(dbTournament.id);
-
-            if (!tournament) {
-                tournament = await this.loadTournamentFromDB(dbTournament.id);
-                if (tournament) {
-                    this.tournaments.set(dbTournament.id, tournament);
-                }
-            }
-
-            if (tournament) {
-                tournaments.push(tournament);
-            }
-        }
-
-        return tournaments;
+        return Array.from(this.tournaments.values())
+            .filter(t => t.status === 'waiting' || t.status === 'active');
     }
 
-    async getCurrentMatches(tournamentId: string): Promise<Match[]> {
-        const tournament = await this.getTournamentInfo(tournamentId);
-        if (!tournament || tournament.currentRound === 0) {
-            return [];
-        }
-
-        const currentRound = tournament.bracket[tournament.currentRound - 1];
-        return currentRound.filter(m => m.gameId && !m.winner);
-    }
-
-    async cancelTournament(tournamentId: string, userId: number): Promise<boolean> {
-        const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
-
-        console.log('Cancelling tournament:', tournamentId);
-        console.log('Tournament found:', tournament);
-        console.log('Tournament createdBy:', tournament?.createdBy);
-        console.log('User ID:', userId);
-
-        if (!tournament) {
-            console.error('Tournament not found');
-            return false;
-        }
-
-        if (tournament.createdBy !== userId) {
-            console.error('User is not the creator');
-            return false;
-        }
-
-        if (tournament.status !== 'waiting') {
-            console.error('Tournament already started');
-            return false;
-        }
-
-        try {
-            await dbRun(`DELETE FROM tournaments WHERE id = ?`, [tournamentId]);
-            await dbRun(`DELETE FROM tournament_participants WHERE tournament_id = ?`, [tournamentId]);
-
-            this.tournaments.delete(tournamentId);
-
-            tournament.players.forEach(player => {
-                if (this.playerTournamentMap.get(player.id) === tournamentId) {
-                    this.playerTournamentMap.delete(player.id);
-                }
-            });
-
-            console.log('Tournament cancelled successfully');
-            return true;
-        } catch (error) {
-            console.error('Error cancelling tournament:', error);
-            return false;
-        }
-    }
-
-    /**
-     * @description tool to add a player to a tournament (both in memory and database)
-     * @param tournament
-     * @param playerId
-     * @param user
-     */
-    private async addPlayerToTournament(
-        tournament: Tournament,
-        playerId: number,
-        user: any
-    ): Promise<void> {
-        tournament.players.push({
-            id: playerId,
-            nickname: user.nickname,
-            rating: user.rating || 1000,
-            seed: 0
-        });
-
-        this.playerTournamentMap.set(playerId, tournament.id);
-
-        await dbRun(
-            `INSERT INTO tournament_participants (tournament_id, user_id, seed)
-            VALUES (?, ?, ?)`,
-            [tournament.id, playerId, 0]
-        );
-    }
-
-    /**
-     * @description Get the tournament ID that a user is currently participating in
-     * @param playerId
-     * @returns string | null - tournament ID or null if not participating
-     */
-    async getUserCurrentTournament(playerId: number): Promise<string | null> {
-        let tournamentId = this.playerTournamentMap.get(playerId) || null;
-
-        if (!tournamentId) {
-            const result = await dbGet(
-                `SELECT tournament_id FROM tournament_participants tp
-                JOIN tournaments t ON tp.tournament_id = t.id
-                WHERE tp.user_id = ? AND t.status IN ('waiting', 'in_progress')`,
-                [playerId]
-            );
-
-            if (result) {
-                tournamentId = result.tournament_id;
-                if (tournamentId) {
-                    this.playerTournamentMap.set(playerId, tournamentId);
-                }
-            }
-        }
-
-        return tournamentId;
-    }
-
-
-    /**
-     * @description check if a user is the creator of a tournament
-     * @param tournamentId
-     * @param userId
-     * @returns boolean
-     */
-    async isUserTournamentCreator(tournamentId: string, userId: number): Promise<boolean> {
-        const tournament = await this.getTournamentInfo(tournamentId);
-        return tournament ? tournament.createdBy === userId : false;
-    }
-
-    /**
-     * @description Check if a suer is participating in a tournament
-     * @param tournamentId
-     * @param userId
-     * @returns boolean
-     */
-    async isUserInTournament(tournamentId: string, userId: number): Promise<boolean> {
-        const tournament = await this.getTournamentInfo(tournamentId);
-        return tournament ? tournament.players.some(p => p.id === userId) : false;
-    }
-
-    async leaveTournament(tournamentId: string, userId: number): Promise<boolean> {
-        const tournament = await this.getTournamentInfo(tournamentId); // DB에서 조회
-        console.log('Tournament info:', tournament);
+    async getTournament(tournamentId: string): Promise<Tournament | null> {
+        // First check memory
+        let tournament = this.tournaments.get(tournamentId);
         
         if (!tournament) {
-            console.error('Tournament not found');
-            return false;
-        }
-
-        console.log('Tournament status:', tournament.status);
-
-        if (tournament.status !== 'waiting') {
-            console.error('Tournament already started');
-            return false;
-        }
-
-        const playerIndex = tournament.players.findIndex(p => p.id === userId);
-        if (playerIndex === -1) {
-            console.error('User is not in the tournament');
-            return false;
-        }
-
-        try {
-            console.log('Leaving tournament:', tournamentId, 'for user:', userId);
-
-            const result = await dbRun(
-                `DELETE FROM tournament_participants WHERE tournament_id = ? AND user_id = ?`,
-                [tournamentId, userId]
-            );
-
-            if (result.changes > 0) {
-                tournament.players.splice(playerIndex, 1);
-                this.playerTournamentMap.delete(userId);
-                this.broadcastTournamentUpdate(tournamentId);
-                console.log(`User ${userId} removed from tournament ${tournamentId} in DB`);
-                return true;
-            } else {
-                console.error(`User ${userId} not found in tournament ${tournamentId} in DB`);
-                return false;
+            // If not in memory, try to load from database
+            const tournamentData = await dbGet(`
+                SELECT * FROM tournaments WHERE id = ?
+            `, [tournamentId]);
+            
+            if (tournamentData) {
+                tournament = await this.buildTournamentFromDb(tournamentData);
+                if (tournament && (tournament.status === 'waiting' || tournament.status === 'active')) {
+                    this.tournaments.set(tournamentId, tournament);
+                }
             }
-        } catch (error) {
-            console.error(`Error removing user ${userId} from tournament ${tournamentId} in DB: ${error}`);
-            return false;
         }
+        
+        return tournament || null;
     }
 
-    private async broadcastTournamentUpdate(tournamentId: string, tournamentData?: Tournament): Promise<void> {
-        console.log(`[DEBUG] Attempting to broadcast update for tournament: ${tournamentId}`);
-        const sockets = this.tournamentSockets.get(tournamentId);
-        if (!sockets || sockets.size === 0) return;
+    async getUserTournamentHistory(userId: string): Promise<TournamentHistory[]> {
+        const tournaments = await dbAll(`
+            SELECT DISTINCT t.*
+            FROM tournaments t
+            JOIN tournament_participants tp ON t.id = tp.tournament_id
+            WHERE tp.user_id = ? AND t.status = 'finished'
+            ORDER BY t.finished_at DESC
+        `, [parseInt(userId)]);
 
-        console.log(`[DEBUG] Found ${sockets.size} sockets for tournament ${tournamentId}.`);
+        const history: TournamentHistory[] = [];
 
-        try {
-            const tournament = tournamentData || this.tournaments.get(tournamentId) || await this.getTournamentInfo(tournamentId);
-            if (!tournament) return;
+        for (const tournamentData of tournaments) {
+            const tournament = await this.buildTournamentFromDb(tournamentData);
+            if (tournament) {
+                const myMatches = tournament.bracket.filter(m => 
+                    m.player1?.id === userId || m.player2?.id === userId
+                );
+                
+                history.push({
+                    tournament,
+                    myMatches,
+                    finalBracket: tournament.bracket
+                });
+            }
+        }
 
-            console.log('[DEBUG] Broadcasting payload:', JSON.stringify(tournament, null, 2));
+        return history;
+    }
 
-            this.tournaments.set(tournamentId, tournament);
+    // WebSocket management
+    addSocket(tournamentId: string, userId: string, socket: WebSocket) {
+        if (!this.sockets.has(tournamentId)) {
+            this.sockets.set(tournamentId, new Map());
+        }
+        this.sockets.get(tournamentId)!.set(userId, socket);
+        console.log(`Socket added for user ${userId} in tournament ${tournamentId}`);
+    }
 
-            const message = JSON.stringify({
-                type: 'tournamentUpdate',
-                payload: tournament
-            });
+    removeSocket(tournamentId: string, userId: string) {
+        const tournamentSockets = this.sockets.get(tournamentId);
+        if (tournamentSockets) {
+            tournamentSockets.delete(userId);
+            if (tournamentSockets.size === 0) {
+                this.sockets.delete(tournamentId);
+            }
+        }
+        console.log(`Socket removed for user ${userId} in tournament ${tournamentId}`);
+    }
 
-            sockets.forEach((ws, userId) => {
-                if (ws.readyState === WebSocket.OPEN) {
-                    console.log(`[DEBUG] Sending update to user ${userId}`);
-                    ws.send(message);
-                } else {
-                    console.log(`[DEBUG] WebSocket is not open for user ${userId}`);
+    private broadcastToTournament(tournamentId: string, message: any) {
+        const tournamentSockets = this.sockets.get(tournamentId);
+        if (tournamentSockets) {
+            const messageStr = JSON.stringify(message);
+            tournamentSockets.forEach((socket, userId) => {
+                if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(messageStr);
                 }
             });
+        }
+    }
+
+    async getUserHostedTournaments(userId: string): Promise<Tournament[]> {
+        try {
+            const tournaments = await dbAll(`
+                SELECT t.*, u.nickname as host_nickname
+                FROM tournaments t
+                LEFT JOIN users u ON t.created_by = u.id
+                WHERE t.created_by = ?
+                ORDER BY t.created_at DESC
+            `, [parseInt(userId)]);
+
+            const hostedTournaments: Tournament[] = [];
+
+            for (const tournamentData of tournaments) {
+                const tournament = await this.buildTournamentFromDb(tournamentData);
+                if (tournament) {
+                    hostedTournaments.push(tournament);
+                }
+            }
+
+            console.log(`Found ${hostedTournaments.length} hosted tournaments for user ${userId}`);
+            return hostedTournaments;
         } catch (error) {
-            console.error(`[DEBUG] Error broadcasting tournament update for ${tournamentId}: ${error}`);
+            console.error('Error getting user hosted tournaments:', error);
+            return [];
         }
-    }
-
-    public addSocket(tournamentId: string, userId: string, ws: WebSocket): void {
-        if (!this.tournamentSockets.has(tournamentId)) {
-            this.tournamentSockets.set(tournamentId, new Map());
-        }
-
-        this.tournamentSockets.get(tournamentId)?.set(userId, ws);
-        console.log(`[WS] User ${userId} connected to tournament ${tournamentId}`);
-
-        const tournament = this.tournaments.get(tournamentId);
-        if (tournament) {
-            this.broadcastTournamentUpdate(tournamentId, tournament);
-        } else {
-            this.getTournamentInfo(tournamentId).then(dbTournament => {
-                if (dbTournament) {
-                    this.tournaments.set(tournamentId, dbTournament);
-                    this.broadcastTournamentUpdate(tournamentId, dbTournament);
-                }
-            })
-        }
-    }
-
-    public removeSocket(tournamentId: string, userId: string): void {
-        const sockets = this.tournamentSockets.get(tournamentId);
-
-        if (sockets) {
-            sockets.delete(userId);
-            console.log(`[WS] User ${userId} disconnected from tournament ${tournamentId}`);
-
-            if (sockets.size === 0) {
-                this.tournamentSockets.delete(tournamentId);
-            }
-        }
-    }
-
-    public findMatchByGameId(gameId: string): { tournamentId: string; match: Match } | null {
-        for (const [tournamentId, tournament] of this.tournaments.entries()) {
-            if (tournament.bracket) {
-                for (const round of tournament.bracket) {
-                    const match = round.find(m => m.gameId === gameId);
-                    if (match) {
-                        return { tournamentId, match };
-                    }
-                }
-            }
-        }
-        return null;
     }
 }
 
+// Export singleton instance
 export const tournamentManager = new TournamentManager();

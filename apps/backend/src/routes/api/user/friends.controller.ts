@@ -58,8 +58,22 @@ export default async function friendsRoute(fastify: FastifyInstance) {
             const friend = await dbGet('SELECT id FROM users WHERE nickname = ? AND id != ?', [friendNickname, userId]);
             if (!friend) return reply.code(404).send({ error: 'User not found or you tried to add yourself.' });
 
-            const existing = await dbGet('SELECT * FROM friend_requests WHERE (requester_id = ? AND receiver_id = ?) OR (requester_id = ? AND receiver_id = ?)', [userId, friend.id, friend.id, userId]);
-            if (existing) return reply.code(409).send({ error: 'Friend request already exists or you are already friends.' });
+            const existingFriend = await dbGet(
+                'SELECT * FROM users_friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)',
+                [userId, friend.id, friend.id, userId]
+            );
+            if (existingFriend) return reply.code(409).send({ error: 'You are already friends.' });
+
+            const existingRequest = await dbGet(
+                "SELECT * FROM friend_requests WHERE ((requester_id = ? AND receiver_id = ?) OR (requester_id = ? AND receiver_id = ?)) AND status = 'pending'",
+                [userId, friend.id, friend.id, userId]
+            );
+            if (existingRequest) return reply.code(409).send({ error: 'Friend request already pending.' });
+
+            await dbRun(
+                "DELETE FROM friend_requests WHERE ((requester_id = ? AND receiver_id = ?) OR (requester_id = ? AND receiver_id = ?)) AND status = 'rejected'",
+                [userId, friend.id, friend.id, userId]
+            );
 
             await dbRun("INSERT INTO friend_requests (requester_id, receiver_id) VALUES (?, ?)", [userId, friend.id]);
             return reply.code(201).send({ message: 'Friend request sent' });

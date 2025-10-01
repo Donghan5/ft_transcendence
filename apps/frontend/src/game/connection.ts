@@ -3,7 +3,7 @@ export interface ConnectionEvenets {
 	'playerJoined': (playerId: string) => void;
 	'playerLeft': (playerId: string) => void;
 	'updateScore': (scores: { player1: number, player2: number }) => void;
-	'gameEnd': (data: { winnerId: string, winnerNickname: string, finalScore: { player1: number, player2: number }, isTournamentFinal: boolean }) => void;
+	'gameEnd': (data: { winnerId: string, winnerNickname: string, finalScore: { player1: number, player2: number }}) => void;
 	'connectionLost': () => void;
 	'connectionRestored': () => void;
 	'error': (error: string) => void;

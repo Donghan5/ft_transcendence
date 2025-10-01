@@ -9,90 +9,108 @@ const createGameBodySchema = {
   properties: {
     player1Id: { type: 'string', minLength: 1 },
     player2Id: { type: 'string' },
+    player1Nickname: { type: 'string' },
+    player2Nickname: { type: 'string' },
     gameMode: { type: 'string', enum: ['PVP', 'AI', 'LOCAL_PVP', 'TOURNAMENT'] },
-	aiLevel: { type: 'string', enum: ['EASY', 'MIDDLE', 'HARD'] },
+    aiLevel: { type: 'string', enum: ['EASY', 'MIDDLE', 'HARD'] },
+    tournamentId: { type: 'string' },
+    matchId: { type: 'string' }
   },
 };
 
-/**
- * Registers the route for creating a new game.
- * @param fastify The Fastify instance.
- */
 export default async function createGameRoute(fastify: FastifyInstance) {
-  // The final path will be POST /api/games
   fastify.post(
     '/',
     { schema: { body: createGameBodySchema } },
     async (request, reply) => {
       try {
-        const { player1Id, player2Id, gameMode, aiLevel } = request.body as any;
+        const { 
+          player1Id, 
+          player2Id, 
+          player1Nickname,  // GET FROM REQUEST
+          player2Nickname,  // GET FROM REQUEST
+          gameMode, 
+          aiLevel,
+          tournamentId,     // GET FROM REQUEST
+          matchId           // GET FROM REQUEST
+        } = request.body as any;
       
-        const player1Data = await dbGet(`SELECT nickname FROM users WHERE id = ?`, [player1Id]);
-        let player1Nickname = player1Data?.nickname || `Player ${player1Id}`;
+        // Only lookup nicknames if not provided (for backwards compatibility)
+        let resolvedPlayer1Nickname = player1Nickname;
+        let resolvedPlayer2Nickname = player2Nickname;
+
+        if (!resolvedPlayer1Nickname) {
+          const player1Data = await dbGet(`SELECT nickname FROM users WHERE id = ?`, [player1Id]);
+          resolvedPlayer1Nickname = player1Data?.nickname || `Player ${player1Id}`;
+        }
         
-        let player2Nickname: string;
-
-        if (gameMode === 'AI' || player2Id === 'AI') {
-            player2Nickname = 'AI';
-        } else if (gameMode === 'LOCAL_PVP' || player2Id === 'local player') {
-            player2Nickname = 'Local Player';
-        } else if (player2Id) {
+        if (!resolvedPlayer2Nickname) {
+          if (gameMode === 'AI' || player2Id === 'AI') {
+            resolvedPlayer2Nickname = 'AI';
+          } else if (gameMode === 'LOCAL_PVP' || player2Id === 'local player') {
+            resolvedPlayer2Nickname = 'Local Player';
+          } else if (player2Id) {
             const player2Data = await dbGet('SELECT nickname FROM users WHERE id = ?', [player2Id]);
-            player2Nickname = player2Data?.nickname || `Player ${player2Id}`;
-        } else {
-            player2Nickname = 'Opponent'; 
+            resolvedPlayer2Nickname = player2Data?.nickname || `Player ${player2Id}`;
+          } else {
+            resolvedPlayer2Nickname = 'Opponent'; 
+          }
         }
 
-		let gameId: string;
+        let gameId: string;
 
-		switch (gameMode) {
-			case 'LOCAL_PVP':
-				gameId = gameEngine.createGame(player1Id, 'local player', 'LOCAL_PVP', undefined, player1Nickname, player2Nickname);
-				break;
-			case 'AI':
-				gameId = gameEngine.createGame(player1Id, 'AI', 'AI', aiLevel, player1Nickname, player2Nickname);
-				break;
-      case 'TOURNAMENT':
-        if (!player2Id) {
-          return reply.code(400).send({
-            error: 'Player 2 ID is required for tournament games',
-          });
+        switch (gameMode) {
+          case 'LOCAL_PVP':
+            gameId = gameEngine.createGame(player1Id, 'local player', 'LOCAL_PVP', undefined, resolvedPlayer1Nickname, resolvedPlayer2Nickname);
+            break;
+          case 'AI':
+            gameId = gameEngine.createGame(player1Id, 'AI', 'AI', aiLevel, resolvedPlayer1Nickname, resolvedPlayer2Nickname);
+            break;
+          case 'TOURNAMENT':
+            if (!player2Id) {
+              return reply.code(400).send({
+                error: 'Player 2 ID is required for tournament games',
+              });
+            }
+
+            gameId = gameEngine.createGame(player1Id, player2Id, 'TOURNAMENT', undefined, resolvedPlayer1Nickname, resolvedPlayer2Nickname);
+            
+            // ADD TOURNAMENT INFO TO THE GAME
+            if (tournamentId && matchId) {
+              gameEngine.setTournamentInfo(gameId, tournamentId, matchId);
+            }
+            break;
+          case 'PVP':
+            if (gameEngine.waitingPlayer) {
+              const waitingPlayerId = gameEngine.waitingPlayer.playerId;
+              const player2Data = await dbGet('SELECT nickname FROM users WHERE id = ?', [waitingPlayerId]);
+              resolvedPlayer2Nickname = player2Data?.nickname || `Player ${waitingPlayerId}`;
+
+              gameId = gameEngine.createGame(player1Id, waitingPlayerId, 'PVP', undefined, resolvedPlayer1Nickname, resolvedPlayer2Nickname);
+
+              gameEngine.notifyMatchFound(waitingPlayerId, gameId);
+              gameEngine.waitingPlayer = null;
+
+              return reply.code(201).send({
+                success: true,
+                message: 'Match found!',
+                gameId,
+                gameState: gameEngine.getGameState(gameId)
+              });
+            } else {
+              gameEngine.waitingPlayer = { playerId: player1Id };
+              return reply.code(200).send({
+                success: true,
+                message: 'Waiting for another player to join...',
+              });
+            }
+            break;
+          default:
+            return reply.code(400).send({
+              error: 'Invalid game mode',
+              message: 'Please select a valid game mode (PVP, AI, LOCAL_PVP, TOURNAMENT)',
+            });
         }
-
-        gameId = gameEngine.createGame(player1Id, player2Id, 'TOURNAMENT', undefined, player1Nickname, player2Nickname);
-        break;
-			case 'PVP':
-				if (gameEngine.waitingPlayer) {
-					const player2Id = gameEngine.waitingPlayer.playerId;
-          const player2Data = await dbGet('SELECT nickname FROM users WHERE id = ?', [player2Id]);
-          player2Nickname = player2Data?.nickname || `Player ${player2Id}`;
-
-					gameId = gameEngine.createGame(player1Id, player2Id, 'PVP', undefined, player1Nickname, player2Nickname);
-
-					gameEngine.notifyMatchFound(player2Id, gameId);
-
-					gameEngine.waitingPlayer = null;
-
-					return reply.code(201).send({
-					success: true,
-					message: 'Match found!',
-					gameId,
-					gameState: gameEngine.getGameState(gameId)
-					});
-				} else {
-					gameEngine.waitingPlayer = { playerId: player1Id };
-					return reply.code(200).send({
-					success: true,
-					message: 'Waiting for another player to join...',
-					});
-				}
-				break;
-			default:
-				return reply.code(400).send({
-					error: 'Invalid game mode',
-					message: 'Please select a valid game mode (PVP, AI, LOCAL_PVP)',
-				});
-		}
 
         fastify.log.info(`🕹️ Creating game: ${player1Id} vs ${player2Id || 'AI'} (Mode: ${gameMode})`);
 

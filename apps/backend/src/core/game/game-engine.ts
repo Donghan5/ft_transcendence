@@ -5,7 +5,7 @@ import { dbRun } from '../../database/helpers';
 import { OnlineStatusManager } from '../../core/status/online-status-manager';
 import { UserStatsManager } from '../../core/stats/user-stats-manager';
 import { gameLogger, logGameEvent, logUserActivity } from '../../utils/logger';
-import { tournamentManager } from '../tournament/tournament-manager';
+
 
 class Enhanced3DPongGame {
 	private games = new Map<string, GameState>();
@@ -20,6 +20,9 @@ class Enhanced3DPongGame {
 	private currentInputStates = new Map<string, Map<string, 'up' | 'down' | 'stop'>>();
 	
 	private gameLoopRunning = new Map<string, boolean>();
+
+	private tournamentGames = new Map<string, { tournamentId: string; matchId: string }>();
+
 	/***
 	 * Constructor for the Enhanced 3D Pong Game Engine
 	 */
@@ -28,6 +31,20 @@ class Enhanced3DPongGame {
 
 		this.statusManager = OnlineStatusManager.getInstance();
 		this.statsManager = UserStatsManager.getInstance();
+	}
+
+	public setTournamentInfo(gameId: string, tournamentId: string, matchId: string): void {
+		this.tournamentGames.set(gameId, { tournamentId, matchId });
+		
+		const game = this.games.get(gameId);
+		if (game) {
+			game.isTournamentGame = true;
+			console.log(`Game ${gameId} set as tournament game for tournament ${tournamentId}, match ${matchId}`);
+		}
+	}
+
+	public getTournamentInfo(gameId: string): { tournamentId: string; matchId: string } | undefined {
+		return this.tournamentGames.get(gameId);
 	}
 
 	/***
@@ -181,6 +198,7 @@ class Enhanced3DPongGame {
             if (count < 0) {
                 clearInterval(countdownInterval);
                 game.status = 'playing';
+				game.startTime = Date.now();
                 delete game.countdownValue;
                 gameLogics.broadcastGameState(gameId);
                 this.startGameLoop(gameId);
@@ -322,9 +340,10 @@ class Enhanced3DPongGame {
 	 * @returns duration in ms
 	 */
 	private calculateGameDuration(game: any): number {
-		// You can add a startTime property to your game state to track this
-		// For now, return a placeholder value
-		return Date.now() - (game.startTime || Date.now());
+		if (typeof game.startTime === 'number') {
+			return Date.now() - game.startTime;
+		}
+		return 0;
 	}
 
 	/**
@@ -393,6 +412,7 @@ class Enhanced3DPongGame {
 
 			const currentGame = this.games.get(gameId);
 			if (!currentGame || currentGame.status === 'finished') {
+				console.log(`Game ${gameId} not found or finished, stopping loop`);
 				this.stopGameLoop(gameId);
 				return;
 			}
@@ -403,7 +423,16 @@ class Enhanced3DPongGame {
 				logGameEvent(gameId, 'performance_metric', {
 					update_count: updateCounter,
 					active_players: this.connectedPlayers.get(gameId)?.size || 0,
-					game_status: game.status,  // if not working, try currentGame.status
+					game_status: currentGame.status,  // ← Use currentGame, not game
+					timestamp: new Date().toISOString()
+				});
+			}
+
+			if (currentGame.status === 'playing') {
+				// Send active player count for debugging
+				this.broadcastToGame(gameId, 'debug', {
+					active_players: this.connectedPlayers.get(gameId)?.size || 0,
+					game_status: currentGame.status,
 					timestamp: new Date().toISOString()
 				});
 			}
@@ -470,50 +499,71 @@ class Enhanced3DPongGame {
 		});
 	}
 
-
-	public async endGame(gameId: string): Promise<void> {
-		console.log(`Ending game ${gameId}`);
-
+	public async endGame(gameId: string, predeterminedWinner?: string): Promise<void> {
+		console.log(`Ending game ${gameId}`, predeterminedWinner ? `with predetermined winner: ${predeterminedWinner}` : 'determining winner by score');
+		
+		// IMPORTANT: Stop the game loop FIRST to prevent any further broadcasts
 		this.stopGameLoop(gameId);
-
+		
+		// IMPORTANT: Wait a brief moment to ensure the game loop has fully stopped
+		// This prevents a race condition where a final gameState might be broadcast
+		await new Promise(resolve => setTimeout(resolve, 100));
+		
 		const game = this.games.get(gameId);
 		const players = this.connectedPlayers.get(gameId);
-
+		
 		if (game) {
 			game.status = 'finished';
-			const winnerId = game.player1.score > game.player2.score ? game.player1Id : game.player2Id;
+			
+			// Use predetermined winner if provided (forfeit case), otherwise use score
+			const winnerId = predeterminedWinner || 
+							(game.player1.score > game.player2.score ? game.player1Id : game.player2Id);
+			
 			const winner = winnerId === game.player1Id ? game.player1 : game.player2;
-
+			
+			console.log(`Game ${gameId} winner determined: ${winner.nickname} (${winnerId})`);
+			
+			// Update player stats and set them back online
 			await this.updatePlayersStats(game, winnerId);
 			await this.setPlayersBackOnline(game);
-
-			const isTournamentGame = game.gameMode === 'TOURNAMENT';
-			let isTournamentFinal = false;
-
-			if (players) {
-				const message = JSON.stringify({
-					type: 'gameEnd',
-					payload: {
-						winnerId: winnerId,
-						winnerNickname: winner.nickname,
-						finalScore: {
-							player1: game.player1.score,
-							player2: game.player2.score
+			
+			// HANDLE TOURNAMENT GAMES
+			const tournamentInfo = this.getTournamentInfo(gameId);
+			if (tournamentInfo) {
+				console.log(`Tournament game ${gameId} ended, notifying tournament system. Winner: ${winnerId}`);
+				try {
+					const response = await fetch('http://localhost:3000/api/tournament/finish-match', {
+						method: 'POST',
+						headers: {
+							'Content-Type': 'application/json',
 						},
-						isTournamentFinal: false
+						body: JSON.stringify({
+							tournamentId: tournamentInfo.tournamentId,
+							matchId: tournamentInfo.matchId,
+							winnerId: winnerId
+						})
+					});
+					
+					if (response.ok) {
+						console.log('Tournament match finished successfully');
+						const result = await response.json();
+						console.log('Tournament API response:', result);
+					} else {
+						const errorText = await response.text();
+						console.error('Failed to finish tournament match:', response.status, errorText);
 					}
-				});
-				players.forEach((ws) => {
-					if (ws.readyState === WebSocket.OPEN) {
-						ws.send(message);
-					}
-				});
+				} catch (error) {
+					console.error('Error finishing tournament match:', error);
+				}
+				
+				this.tournamentGames.delete(gameId);
 			}
-
+			
+			// Save to database...
 			try {
 				const isP1User = game.player1Id !== 'AI' && game.player1Id !== 'Player2';
 				const isP2User = game.player2Id !== 'AI' && game.player2Id !== 'Player2';
-
+				
 				if (isP1User || isP2User || game.gameMode === 'LOCAL_PVP') {
 					await dbRun(
 						`INSERT INTO games (game_id, player1_id, player2_id, player1_score, player2_score, winner_id, game_type, finished_at)
@@ -535,36 +585,40 @@ class Enhanced3DPongGame {
 				console.error(`Error saving game result for ${gameId}:`, error);
 			}
 			
-			if (isTournamentGame) {
-				console.log(`Updating tournament status for game ${gameId}`);
-				const tournamentInfo = tournamentManager.findMatchByGameId(gameId);
-				if (tournamentInfo) {
-					const { tournamentId, match } = tournamentInfo;
-					const tournament = await tournamentManager.getTournamentInfo(tournamentId);
-					if (tournament) {
-						const result = await tournamentManager.handleGameEnd(gameId, tournament, match.id, game);
-						isTournamentFinal = result.tournamentFinished;
-						if (isTournamentFinal) {
-							tournamentManager.broadcastActiveTournamentsUpdate();
+			// IMPORTANT: Only broadcast gameEnd ONCE, after everything else is done
+			if (players) {
+				const message = JSON.stringify({
+					type: 'gameEnd',
+					payload: {
+						winnerId: winnerId,
+						winnerNickname: winner.nickname,
+						finalScore: {
+							player1: game.player1.score,
+							player2: game.player2.score
 						}
-					} else {
-						console.error(`Tournament ${tournamentId} not found for game ${gameId}`);
 					}
-				} else {
-					console.error(`No tournament match found for game ${gameId}`);
-				}
+				});
+				
+				console.log(`Broadcasting gameEnd message to ${players.size} players`);
+				players.forEach((ws, playerId) => {
+					if (ws.readyState === WebSocket.OPEN) {
+						console.log(`Sending gameEnd to player ${playerId}`);
+						ws.send(message);
+					}
+				});
 			}
-
-			console.log(`Game ${gameId} ended successfully`);
-
-			setTimeout(() => {
-				this.games.delete(gameId);
-				this.connectedPlayers.delete(gameId);
-				this.gameLoopRunning.delete(gameId);
-				this.currentInputStates.delete(gameId);
-				console.log(`Game ${gameId} data cleaned up`);
-			}, 30000);
 		}
+		
+		console.log(`Game ${gameId} ended successfully`);
+		
+		// Clean up game data after 30 seconds
+		setTimeout(() => {
+			this.games.delete(gameId);
+			this.connectedPlayers.delete(gameId);
+			this.gameLoopRunning.delete(gameId);
+			this.currentInputStates.delete(gameId);
+			console.log(`Game ${gameId} data cleaned up`);
+		}, 30000);
 	}
 
 	 private async updatePlayersStats(game: GameState, winnerId: string): Promise<void> {

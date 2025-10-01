@@ -1,8 +1,9 @@
+// scene-builder.ts
 import {
     Scene,
     Vector3,
     Color3,
-	Color4,
+    Color4,
     Mesh,
     MeshBuilder,
     StandardMaterial,
@@ -11,7 +12,6 @@ import {
     ArcRotateCamera,
     HemisphericLight,
     DirectionalLight,
-    CubeTexture,
     TrailMesh,
     DynamicTexture
 } from '@babylonjs/core';
@@ -28,7 +28,7 @@ import {
     BORDER_HEIGHT,
     BORDER_THICKNESS,
     ARENA_WIDTH
-} from '@trans/common-types';
+} from "@trans/common-types";
 
 export interface SceneObjects {
     player1Paddle: Mesh;

@@ -34,6 +34,7 @@ export class StatusManager {
     private statusUpdateCallbacks: Set<(friends: FriendStatus[]) => void> = new Set();
     private tournamentInviteCallbacks: Set<(invite: any) => void> = new Set();
     private currentUser: any = null;
+    private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 
     private constructor() {}
 
@@ -45,19 +46,36 @@ export class StatusManager {
     }
 
     public initializeStatusConnection(token: string, user: any): Promise<void> {
+        this.currentUser = user;
+        
         return new Promise((resolve, reject) => {
+            // Set a timeout for the connection
+            const connectionTimeout = setTimeout(() => {
+                console.error('StatusManager: WebSocket connection timeout');
+                if (this.statusWs) {
+                    this.statusWs.close();
+                }
+                reject(new Error('WebSocket connection timeout'));
+            }, 10000); // 10 second timeout
+
             try {
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${protocol}//${window.location.host}/api/user/status/ws?token=${token}`;
+                // Don't include token in URL since backend reads from cookies
+                const wsUrl = `${protocol}//${window.location.host}/api/user/status/ws`;
                 
+                console.log('StatusManager: Connecting to WebSocket:', wsUrl);
                 this.statusWs = new WebSocket(wsUrl);
                 
                 this.statusWs.onopen = async () => {
-                    console.log('Status WebSocket connected');
+                    console.log('StatusManager: WebSocket connected successfully');
+                    clearTimeout(connectionTimeout);
+                    
                     try {
                         await this.loadFriendsStatus();
+                        this.startHeartbeat();
                         resolve(); 
                     } catch (error) {
+                        console.error('StatusManager: Error loading friends status:', error);
                         reject(error); 
                     }
                 };
@@ -67,25 +85,45 @@ export class StatusManager {
                         const data = JSON.parse(event.data);
                         this.handleStatusMessage(data);
                     } catch (error) {
-                        console.error('Error parsing status message:', error);
+                        console.error('StatusManager: Error parsing message:', error);
                     }
                 };
                 
-                this.statusWs.onclose = () => {
-                    console.log('Status WebSocket disconnected');
-                    setTimeout(() => this.reconnectStatus(), 5000);
+                this.statusWs.onclose = (event) => {
+                    console.log('StatusManager: WebSocket disconnected', event.code, event.reason);
+                    this.stopHeartbeat();
+                    // Only try to reconnect if this was an unexpected close
+                    if (event.code !== 1000 && this.currentUser) {
+                        setTimeout(() => this.reconnectStatus(), 5000);
+                    }
                 };
                 
                 this.statusWs.onerror = (error) => {
-                    console.error('Status WebSocket error:', error);
-                    reject(error);
+                    console.error('StatusManager: WebSocket error:', error);
+                    clearTimeout(connectionTimeout);
+                    reject(new Error('WebSocket connection failed'));
                 };
                 
             } catch (error) {
-                console.error('Failed to initialize status connection:', error);
+                clearTimeout(connectionTimeout);
+                console.error('StatusManager: Failed to create WebSocket:', error);
                 reject(error);
             }
         });
+    }
+
+    private startHeartbeat(): void {
+        // Send heartbeat every 30 seconds
+        this.heartbeatInterval = setInterval(() => {
+            this.sendHeartbeat();
+        }, 30000);
+    }
+
+    private stopHeartbeat(): void {
+        if (this.heartbeatInterval) {
+            clearInterval(this.heartbeatInterval);
+            this.heartbeatInterval = null;
+        }
     }
 
     private handleStatusMessage(data: any): void {
@@ -97,10 +135,10 @@ export class StatusManager {
                 this.handleTournamentInvite(data.payload);
                 break;
             case 'pong':
-                // response heartbeat
+                // Heartbeat response
                 break;
             default:
-                console.log('Unknown status message type:', data.type);
+                console.log('StatusManager: Unknown message type:', data.type);
         }
     }
 
@@ -109,114 +147,8 @@ export class StatusManager {
         this.notifyStatusUpdate();
     }
 
-    private handleTournamentInvite(invite: {
-        tournamentId: string;
-        tournamentName: string;
-        invitedBy: string;
-        invitedById: number;
-    }): void {
-        console.log('Received tournament invite:', invite);
-
-        this.showTournamentInviteNotification(invite);
-
+    private handleTournamentInvite(invite: any): void {
         this.tournamentInviteCallbacks.forEach(callback => callback(invite));
-    }
-
-    private showTournamentInviteNotification(invite: any): void {
-        const notificationDiv = document.createElement('div');
-        notificationDiv.id = `tournament-invite-${invite.tournamentId}`;
-        notificationDiv.className = 'fixed top-20 right-4 bg-white border-thick shadow-sharp p-6 max-w-md z-50';
-        
-        notificationDiv.innerHTML = `
-            <h4 class="text-xl font-bold mb-2">Tournament Invitation!</h4>
-            <p class="mb-4">
-                <strong>${invite.invitedBy}</strong> invited you to join 
-                <strong>"${invite.tournamentName}"</strong> tournament
-            </p>
-            <div class="flex gap-2">
-                <button id="accept-btn-${invite.tournamentId}" 
-                        class="flex-1 bg-green-500 text-white py-2 px-4 border-thick hover-anarchy">
-                    Accept
-                </button>
-                <button id="decline-btn-${invite.tournamentId}" 
-                        class="flex-1 bg-red-500 text-white py-2 px-4 border-thick hover-anarchy">
-                    Decline
-                </button>
-            </div>
-        `;
-        
-        document.body.appendChild(notificationDiv);
-        
-        const acceptBtn = document.getElementById(`accept-btn-${invite.tournamentId}`);
-        const declineBtn = document.getElementById(`decline-btn-${invite.tournamentId}`);
-        
-        if (acceptBtn) {
-            acceptBtn.addEventListener('click', () => {
-                this.acceptTournamentInvite(invite.tournamentId);
-            });
-        }
-        
-        if (declineBtn) {
-            declineBtn.addEventListener('click', () => {
-                this.declineTournamentInvite(invite.tournamentId);
-            });
-        }
-        
-        setTimeout(() => {
-            const notification = document.getElementById(`tournament-invite-${invite.tournamentId}`);
-            if (notification) {
-                notification.remove();
-            }
-        }, 30000);
-    }
-
-     private async acceptTournamentInvite(tournamentId: string): Promise<void> {
-        try {
-            const notification = document.getElementById(`tournament-invite-${tournamentId}`);
-            if (notification) {
-                notification.innerHTML = '<p class="text-center">Joining tournament...</p>';
-            }
-
-            const response = await fetch('/api/tournament/join', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ tournamentId }),
-                credentials: 'include'
-            });
-
-            if (response.ok) {
-                if (notification) {
-                    notification.innerHTML = '<p class="text-green-600 font-bold">Successfully joined!</p>';
-                    setTimeout(() => notification.remove(), 2000);
-                }
-                
-                // 토너먼트 화면으로 이동
-                const tournamentUI = (window as any).tournamentUI;
-                if (tournamentUI) {
-                    await tournamentUI.joinTournament(tournamentId);
-                }
-            } else {
-                const error = await response.json();
-                if (notification) {
-                    notification.innerHTML = `<p class="text-red-600">${error.error || 'Failed to join'}</p>`;
-                    setTimeout(() => notification.remove(), 3000);
-                }
-            }
-        } catch (error) {
-            console.error('Error accepting tournament invite:', error);
-            const notification = document.getElementById(`tournament-invite-${tournamentId}`);
-            if (notification) {
-                notification.innerHTML = '<p class="text-red-600">Network error</p>';
-                setTimeout(() => notification.remove(), 3000);
-            }
-        }
-    }
-
-    private declineTournamentInvite(tournamentId: string): void {
-        const notification = document.getElementById(`tournament-invite-${tournamentId}`);
-        if (notification) {
-            notification.remove();
-        }
     }
 
     public onTournamentInvite(callback: (invite: any) => void): void {
@@ -229,37 +161,55 @@ export class StatusManager {
 
     private async loadFriendsStatus(): Promise<void> {
         try {
+            console.log('StatusManager: Loading friends status...');
             const response = await fetch('/api/user/status/friends', {
                 credentials: 'include'
             });
             
-            if (response.ok) {
-                const data = await response.json();
-                this.friends.clear();
-                
-                for (const friend of data.friends) {
-                    this.friends.set(friend.userId, friend);
-                }
-                
-                this.notifyStatusUpdate();
+            if (!response.ok) {
+                throw new Error(`Failed to load friends status: ${response.status}`);
             }
+            
+            const data = await response.json();
+            console.log('StatusManager: Friends status loaded:', data);
+            this.friends.clear();
+            
+            for (const friend of data.friends) {
+                this.friends.set(friend.userId, friend);
+            }
+            
+            this.notifyStatusUpdate();
         } catch (error) {
-            console.error('Error loading friends status:', error);
+            console.error('StatusManager: Error loading friends status:', error);
+            throw error;
         }
     }
 
-  
     private notifyStatusUpdate(): void {
         const friendsList = Array.from(this.friends.values());
-        this.statusUpdateCallbacks.forEach(callback => callback(friendsList));
+        console.log('StatusManager: Notifying status update, friends count:', friendsList.length);
+        this.statusUpdateCallbacks.forEach(callback => {
+            try {
+                callback(friendsList);
+            } catch (error) {
+                console.error('StatusManager: Error in status update callback:', error);
+            }
+        });
     }
 
- 
     public onStatusUpdate(callback: (friends: FriendStatus[]) => void): void {
         this.statusUpdateCallbacks.add(callback);
+        // Immediately call with current friends list
+        const friendsList = Array.from(this.friends.values());
+        if (friendsList.length > 0) {
+            try {
+                callback(friendsList);
+            } catch (error) {
+                console.error('StatusManager: Error in immediate status update callback:', error);
+            }
+        }
     }
 
- 
     private sendHeartbeat(): void {
         if (this.statusWs && this.statusWs.readyState === WebSocket.OPEN) {
             this.statusWs.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
@@ -268,14 +218,15 @@ export class StatusManager {
 
     private async reconnectStatus(): Promise<void> {
         if (this.currentUser) {
+            console.log('StatusManager: Attempting to reconnect...');
             try {
                 const response = await fetch('/api/auth/me', { credentials: 'include' });
                 if (response.ok) {
                     const userData = await response.json();
-                    this.initializeStatusConnection('', userData);
+                    await this.initializeStatusConnection('', userData);
                 }
             } catch (error) {
-                console.error('Failed to reconnect status:', error);
+                console.error('StatusManager: Failed to reconnect:', error);
             }
         }
     }
@@ -284,7 +235,13 @@ export class StatusManager {
         return Array.from(this.friends.values());
     }
 
+    public isConnected(): boolean {
+        return this.statusWs !== null && this.statusWs.readyState === WebSocket.OPEN;
+    }
+
     public disconnect(): void {
+        console.log('StatusManager: Disconnecting...');
+        this.stopHeartbeat();
         if (this.statusWs) {
             this.statusWs.close();
             this.statusWs = null;

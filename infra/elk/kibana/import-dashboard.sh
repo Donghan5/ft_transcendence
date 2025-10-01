@@ -19,12 +19,9 @@ if [ $attempt -gt $max_attempts ]; then
     exit 1
 fi
 
-echo "Waiting additional 10 seconds for Kibana to fully initialize..."
-sleep 10
-
 echo "Importing dashboards..."
 attempt=0
-max_attempts=30
+max_attempts=12
 until [ "$attempt" -ge "$max_attempts" ]
 do
     response=$(curl -s -u ${ELASTIC_USER}:${ELASTIC_PASSWORD} -w "\nHTTP_STATUS:%{http_code}" -X POST "http://kibana:5601/api/saved_objects/_import?overwrite=true" \

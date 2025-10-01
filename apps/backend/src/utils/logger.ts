@@ -1,26 +1,4 @@
 import winston from 'winston';
-import TransportStream from 'winston-transport';
-
-// Custom transport to send logs to Logstash
-class LogstashTransport extends TransportStream {
-  constructor(opts: any) {
-    super(opts);
-  }
-
-  log(info: any, callback: () => void) {
-    setImmediate(() => {
-      this.emit('logged', info);
-    });
-
-    // In production, you would send this to Logstash TCP port
-    if (process.env.NODE_ENV === 'production' && process.env.LOGSTASH_HOST) {
-      // TCP connection to Logstash would go here
-      // For simplicity, we'll use file logging that Logstash will pick up
-    }
-
-    callback();
-  }
-}
 
 // Create the main logger
 const logger = winston.createLogger({
@@ -51,9 +29,6 @@ const logger = winston.createLogger({
       filename: '/var/log/pong/error.log',
       level: 'error'
     }),
-
-    // Custom Logstash transport
-    new LogstashTransport({})
   ]
 });
 
@@ -61,6 +36,25 @@ const logger = winston.createLogger({
 export const gameLogger = logger.child({ component: 'game' });
 export const apiLogger = logger.child({ component: 'api' });
 export const userLogger = logger.child({ component: 'user' });
+
+// Dedicated loggers for game events and user activity (created once for efficiency)
+const gameEventLogger = winston.createLogger({
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({
+      filename: '/var/log/pong/game-events.log'
+    })
+  ]
+});
+
+const userActivityLogger = winston.createLogger({
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({
+      filename: '/var/log/pong/user-activity.log'
+    })
+  ]
+});
 
 // Game-specific logging functions
 export const logGameEvent = (gameId: string, eventType: string, data: any) => {
@@ -71,15 +65,8 @@ export const logGameEvent = (gameId: string, eventType: string, data: any) => {
     ...data
   };
 
-  // Log to file (for Logstash pickup)
-  winston.createLogger({
-    format: winston.format.json(),
-    transports: [
-      new winston.transports.File({
-        filename: '/var/log/pong/game-events.log'
-      })
-    ]
-  }).info(logEntry);
+  // Log to dedicated game events file
+  gameEventLogger.info(logEntry);
 
   // Also log to main logger
   gameLogger.info(`Game event: ${eventType}`, logEntry);
@@ -94,15 +81,10 @@ export const logUserActivity = (userId: string, activity: string, metadata: any)
     ...metadata
   };
 
-  winston.createLogger({
-    format: winston.format.json(),
-    transports: [
-      new winston.transports.File({
-        filename: '/var/log/pong/user-activity.log'
-      })
-    ]
-  }).info(logEntry);
+  // Log to dedicated user activity file
+  userActivityLogger.info(logEntry);
 
+  // Also log to main logger
   userLogger.info(`User activity: ${activity}`, logEntry);
 };
 

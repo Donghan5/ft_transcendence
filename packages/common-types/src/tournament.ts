@@ -1,29 +1,39 @@
+// packages/common-types/src/tournament.ts
+
 export interface TournamentPlayer {
-    id: number;
+    id: string;
     nickname: string;
     rating: number;
-    seed: number;
-    isReady?: boolean;
 }
 
-export interface Match {
+export interface BracketMatch {
     id: string;
     player1: TournamentPlayer | null;
     player2: TournamentPlayer | null;
     winner: TournamentPlayer | null;
     round: number;
-    matchNumber: number;
+    position: number;
+    status: 'waiting' | 'confirming' | 'playing' | 'finished';
+    confirmations: string[]; // player IDs who confirmed
     gameId?: string;
-    isReady?: boolean;
 }
 
 export interface Tournament {
     id: string;
     name: string;
+    hostId: string;
     players: TournamentPlayer[];
-    bracket: Match[][];
-    status: 'waiting' | 'in_progress' | 'finished';
+    bracket: BracketMatch[];
+    status: 'waiting' | 'active' | 'finished';
     currentRound: number;
-    winner: TournamentPlayer | null;
-    createdBy: number;
+    maxPlayers: number;
+    createdAt: string;
+    finishedAt?: string;
+    winner?: TournamentPlayer;
+}
+
+export interface TournamentHistory {
+    tournament: Tournament;
+    myMatches: BracketMatch[];
+    finalBracket: BracketMatch[];
 }
