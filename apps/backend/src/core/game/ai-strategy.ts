@@ -1,93 +1,143 @@
 import { AI_LEVEL, selectLevelAI, predictBallPosition } from "./ai-logic";
-import { GameState } from "@trans/common-types";
+import { GameState, PADDLE_DEPTH } from "@trans/common-types";
 import { initState } from "./logic";
 
+/**
+ * @description Enum representing different AI strategies.
+ */
+enum AIState {
+	DEFENSIVE,
+	AGGRESSIVE,
+	CENTERING,
+	TRICK_SHOT
+}
+
 class AiStrategy {
-	private gameState: GameState;
-	private level: string;
+	private currentState: AIState = AIState.CENTERING;
+	private lastStateChange: number = 0;
+	private reactionThresholdX: number = 0;
+	private hasTarget: boolean = false;
+	private targetZ: number = 0;
 
 	/**
-	 * I don't have any idea how to use it...
+	 * @description Make the decision of next AI state based on the current game state
+	 * @param game: current game state
+	 * @returns: void
 	 */
-	private AI_STRATEGIES = {
-		DEFENSIVE: {
-			targetOffset: 0,
-			description: "Defensive: Stays near the center to block shots.",
-		},
-		BALANCED: {
-			targetOffset: 5,
-			description: "Balanced: Mixes offense and defense.",
-		},
-		AGGRESSIVE: {
-			targetOffset: 10,
-			description: "Aggressive: Moves forward to attack more.",
+	private decideNextState(game: GameState): void {
+		const ball = game.ball;
+		const aiPlayer = game.player2;
+		const now = Date.now();
+
+		if (ball.velocity.x < 0) {
+			this.currentState = AIState.CENTERING;
+			this.hasTarget = false;
+			return;
+		}
+
+		if (now - this.lastStateChange > 300) {
+			const speed = Math.sqrt(ball.velocity.x ** 2 + ball.velocity.z ** 2);
+			const scoreDiff = aiPlayer.score - game.player1.score;
+
+			if (scoreDiff > 2 && Math.random() < 0.15) {
+				this.currentState = AIState.TRICK_SHOT;
+			} else if (speed < 20 || (scoreDiff < 0 && Math.random() < 0.3)) {
+				this.currentState = AIState.AGGRESSIVE;
+			} else {
+				this.currentState = AIState.DEFENSIVE;
+			}
+			const levelKey = (game.aiLevel?.toUpperCase() || 'MIDDLE') as keyof typeof AI_LEVEL;
+			const level = AI_LEVEL[levelKey];
+			this.targetZ = predictBallPosition(ball, game.player2.position.x, level);
+			this.hasTarget = true;
 		}
 	}
 
 	/**
-	 * @param gameState
-	 * @param level : input by user choices
+	 * @description Execute the current AI defensive action
 	 */
-	constructor(gameState: GameState, level: string) {
-		this.gameState = gameState;
-		this.level = level;
+	private executeDefensive(game: GameState, level: any): void {
+		const targetZ = predictBallPosition(game.ball, game.player2.position.x, level);
+		const diff = targetZ - game.player2.paddleZ;
+		game.player2.paddleZ += diff * level.speed;
 	}
 
-	public getLevel(): string {
-		return this.level;
+	/**
+	 * @description Execute the current AI aggressive action
+	 */
+	private executeAggressive(game: GameState, level: any): void {
+		let targetZ = predictBallPosition(game.ball, game.player2.position.x, level);
+
+		const paddleEdgeOffset = (PADDLE_DEPTH / 2) * 0.7;
+		if (game.ball.velocity.z > 0) {
+			targetZ -= paddleEdgeOffset;
+		} else {
+			targetZ += paddleEdgeOffset;
+		}
+
+		const diff = targetZ - game.player2.paddleZ;
+		game.player2.paddleZ += diff * level.speed * 1.2;
+	}
+
+	/**
+	 * @description Execute the current AI centering action
+	 */
+	private executeCentering(game: GameState, level: any): void {
+		const diff = 0 - game.player2.paddleZ;
+		game.player2.paddleZ += diff * 0.08;
+	}
+
+	/**
+	 * @description Execute a trick shot to confuse the opponent
+	 */
+	private executeTrickShot(game: GameState, level: any): void {
+		const timeToPaddle = Math.abs((game.player2.position.x - game.ball.position.x) / game.ball.velocity.x);
+
+		if (timeToPaddle > 0.15) {
+			const fakeTargetZ = game.player2.paddleZ + (Math.random() > 0.5 ? 2 : -2);
+			const diff = fakeTargetZ - game.player2.paddleZ;
+			game.player2.paddleZ += diff * level.speed * 0.5;
+		} else {
+			const targetZ = predictBallPosition(game.ball, game.player2.position.x, level);
+			const diff = targetZ - game.player2.paddleZ;
+			game.player2.paddleZ += diff * level.speed * 2.5; 
+		}
 	}
 
 	/**
 	 * @description to update the game state with AI decisions
-	 * @param game : current game state
+	 * @param game: current game state
 	 */
 	public updateAIPaddle(game: GameState): void {
+		this.decideNextState(game);
+
 		const levelKey = (game.aiLevel?.toUpperCase() || 'MIDDLE') as keyof typeof AI_LEVEL;
-		const level = AI_LEVEL[levelKey] || AI_LEVEL.MIDDLE;   // if logic implemented, this level will be set by user input
-		const humanPlayer = game.player1;
-		const aiPlayer = game.player2;
-		const ball = game.ball;
+		const level = AI_LEVEL[levelKey];
 
-		// Drop out intended
-		if (Math.random() < level.mistakeChance) {
-			return;
-		}
-
-		const scoreDiff = aiPlayer.score - humanPlayer.score;
-		let strategy;
-
-		// Simple strategy selection based on score difference (I'm not sure that it works well)
-		if (scoreDiff >= -2) {
-			strategy = this.AI_STRATEGIES.DEFENSIVE;
-		} else if (scoreDiff >= 2) {
-			strategy = this.AI_STRATEGIES.AGGRESSIVE;
+		if (game.ball.velocity.x > 0 && game.ball.position.x < this.reactionThresholdX) {
+			this.executeCentering(game, level);
 		} else {
-			strategy = this.AI_STRATEGIES.BALANCED;
-		}
-
-		if (ball.velocity.x > 0) {
-			let targetZ = predictBallPosition(ball, aiPlayer.position.x, level);
-
-			const diff = targetZ - aiPlayer.paddleZ;
-			const move = diff * level.speed;
-
-			aiPlayer.paddleZ += move;
-		} else {
-			const diff = 0 - aiPlayer.paddleZ;
-
-			aiPlayer.paddleZ += diff * 0.08;
-
-			if (aiPlayer.justHitBall) {
-				aiPlayer.justHitBall = false; // Reset the flag after moving back to center
+			switch (this.currentState) {
+				case AIState.AGGRESSIVE:
+					this.executeAggressive(game, level);
+					break;
+				case AIState.CENTERING:
+					this.executeCentering(game, level);
+					break;
+				case AIState.TRICK_SHOT:
+					this.executeTrickShot(game, level);
+					break;
+				case AIState.DEFENSIVE:
+				default:
+					this.executeDefensive(game, level);
+					break;
 			}
 		}
 
-		const paddleLimit = 13;  // Paddle movement boundaries (maybe 13...? / if not, change it to 12)
-		if (aiPlayer.paddleZ > paddleLimit)
-			aiPlayer.paddleZ = paddleLimit;
-		if (aiPlayer.paddleZ < -paddleLimit)
-			aiPlayer.paddleZ = -paddleLimit;
+		const paddleLimit = 13;
+		if (game.player2.paddleZ > paddleLimit) game.player2.paddleZ = paddleLimit;
+		if (game.player2.paddleZ < -paddleLimit) game.player2.paddleZ = -paddleLimit;
 	}
 }
 
-export const strategy = new AiStrategy(initState('dummy-game-id'), 'middle');
+export const strategy = new AiStrategy();
