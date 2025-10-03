@@ -7,9 +7,9 @@ import { POINT_PER_GOAL, WIN_SCORE } from "@trans/common-types";
  * @elements mistakeChance: the chance that the AI will make a mistake (Drop out intended)
  */
 export const AI_LEVEL = {
-	EASY: { accuracy: 0.3, speed: 0.4, mistakeChance: 0.7 },
-	MIDDLE: { accuracy: 0.5, speed: 0.5, mistakeChance: 0.5 },
-	HARD: { accuracy: 0.85, speed: 0.6, mistakeChance: 0.3 },
+	EASY: { accuracy: 0.3, speed: 0.1, mistakeChance: 0.7 },
+	MIDDLE: { accuracy: 0.5, speed: 0.15, mistakeChance: 0.5 },
+	HARD: { accuracy: 0.85, speed: 0.2, mistakeChance: 0.3 },
 };
 
 /**
@@ -63,8 +63,8 @@ export function predictBallPosition(
         }
     }
 
-    const distanceFactor = Math.abs(ball.position.x - targetX) / 24;
-    const maxError = (1 - aiParams.accuracy) * 10;
+    // const distanceFactor = Math.abs(ball.position.x - targetX) / 24;
+    // const maxError = (1 - aiParams.accuracy) * 10;
     // const error = (Math.random() - 0.5) * maxError * distanceFactor;
 
     let finalZ = predictedPosition.z // + error;

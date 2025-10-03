@@ -35,7 +35,23 @@ class AiStrategy {
 			return;
 		}
 
-		if (now - this.lastStateChange > 300) {
+		if (ball.velocity.x > 0 && !this.hasTarget) {
+			this.lastStateChange = now;
+			const levelKey = (game.aiLevel?.toUpperCase() || 'MIDDLE') as keyof typeof AI_LEVEL;
+			const level = AI_LEVEL[levelKey];
+
+			const perfectTargetZ = predictBallPosition(ball, game.player2.position.x, level);
+			let finalTargetZ = perfectTargetZ;
+
+			if (Math.random() < level.mistakeChance) {
+				const maxError = (1 - level.accuracy) * 15;
+				const error = (Math.random() - 0.5) * maxError;
+				finalTargetZ += error;
+			}
+
+			this.targetZ = finalTargetZ;
+			this.hasTarget = true;
+			
 			const speed = Math.sqrt(ball.velocity.x ** 2 + ball.velocity.z ** 2);
 			const scoreDiff = aiPlayer.score - game.player1.score;
 
@@ -46,10 +62,7 @@ class AiStrategy {
 			} else {
 				this.currentState = AIState.DEFENSIVE;
 			}
-			const levelKey = (game.aiLevel?.toUpperCase() || 'MIDDLE') as keyof typeof AI_LEVEL;
-			const level = AI_LEVEL[levelKey];
-			this.targetZ = predictBallPosition(ball, game.player2.position.x, level);
-			this.hasTarget = true;
+
 		}
 	}
 
