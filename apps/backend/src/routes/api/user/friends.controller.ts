@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply, RouteShorthandOptions } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { dbAll, dbGet, dbRun } from '../../../database/helpers';
+import { OnlineStatusManager } from '../../../core/status/online-status-manager';
 
 async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
     try {
@@ -23,6 +24,7 @@ export default async function friendsRoute(fastify: FastifyInstance) {
     const opts: RouteShorthandOptions = {
         preHandler: [verifyJwt]
     };
+    const statusManager = OnlineStatusManager.getInstance();
 
     fastify.get('/friends/all', opts, async (request: FastifyRequest, reply: FastifyReply) => {
         const userId = request.user?.userId;
@@ -75,7 +77,15 @@ export default async function friendsRoute(fastify: FastifyInstance) {
                 [userId, friend.id, friend.id, userId]
             );
 
-            await dbRun("INSERT INTO friend_requests (requester_id, receiver_id) VALUES (?, ?)", [userId, friend.id]);
+            const result = await dbRun("INSERT INTO friend_requests (requester_id, receiver_id) VALUES (?, ?)", [userId, friend.id]);
+            const requester = await dbGet('SELECT nickname, avatar_url FROM users WHERE id = ?', [userId]);
+            statusManager.sendFriendUpdate(friend.id, 'friend_request_received', {
+                id: result.lastID,
+                user_id: userId,
+                nickname: requester.nickname,
+                avatar_url: requester.avatar_url
+            });
+            
             return reply.code(201).send({ message: 'Friend request sent' });
         } catch (error) {
             fastify.log.error(error);
@@ -97,6 +107,11 @@ export default async function friendsRoute(fastify: FastifyInstance) {
             await dbRun("INSERT INTO users_friends (user_id, friend_id) VALUES (?, ?)", [req.receiver_id, req.requester_id]);
             await dbRun("INSERT INTO users_friends (user_id, friend_id) VALUES (?, ?)", [req.requester_id, req.receiver_id]);
             await dbRun('COMMIT');
+            statusManager.sendFriendUpdate(req.requester_id, 'friend_request_accepted', {
+                friendId: userId,
+            });
+
+            statusManager.sendFriendUpdate(userId, 'friends_list_updated', {});
 
             return reply.send({ message: 'Friend request accepted' });
         } catch (error) {
@@ -133,6 +148,10 @@ export default async function friendsRoute(fastify: FastifyInstance) {
             await dbRun('DELETE FROM users_friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)', [userId, friendId, friendId, userId]);
             await dbRun('DELETE FROM friend_requests WHERE (requester_id = ? AND receiver_id = ?) OR (requester_id = ? AND receiver_id = ?)', [userId, friendId, friendId, userId]);
             await dbRun('COMMIT');
+
+            statusManager.sendFriendUpdate(friendId, 'friend_removed', { friendId: userId });
+
+            statusManager.sendFriendUpdate(userId, 'friends_list_updated', {});
 
             return reply.send({ message: 'Friend removed' });
         } catch (error) {

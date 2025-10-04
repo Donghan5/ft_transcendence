@@ -23,6 +23,8 @@ let currentTournament: any = null;
 let activeTournamentsData: any[] = [];
 let tournamentRefreshInterval: ReturnType<typeof setInterval> | null = null;
 let activeTournamentsWs: WebSocket | null = null;
+let friendsRefreshInterval: ReturnType<typeof setInterval> | null = null;
+let renderFriendLists: () => Promise<void> = async () => {};
 
 document.addEventListener('DOMContentLoaded', () => {
 	const path = window.location.pathname;
@@ -453,6 +455,7 @@ function getTitleForSection(sectionId: string): string {
 	}
 }
 
+
 /**
  * @param sectionId - The ID of the section to show
  * @description Show a specific section by ID and hide others
@@ -533,8 +536,14 @@ function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknam
         document.title = title;
     }
 
+    if (currentSection === 'friends' && sectionId !== 'friends' && statusManager) {
+        statusManager.offFriendUpdate(renderFriendLists); // renderFriendLists를 참조할 수 있도록 해야 함
+    }
+
     currentSection = sectionId;
 }
+
+
 
 /**
  * @description popstate event listener for browser navigation
@@ -1761,7 +1770,7 @@ async function showFriendsScreen() {
     }
 
     // Function to render all lists
-    const renderFriendLists = async () => {
+    renderFriendLists = async () => {
         try {
             const response = await fetch('/api/user/friends/all', { credentials: 'include' });
             if (!response.ok) throw new Error('Failed to fetch friends data');
@@ -1903,15 +1912,15 @@ async function showFriendsScreen() {
         }
     };
 
-    // Auto-refresh every 10 seconds
-    const refreshInterval = setInterval(() => {
-        if (currentSection === 'friends') {
-            renderFriendLists();
-        } else {
-            clearInterval(refreshInterval);
-        }
-    }, 10000);
+    if (statusManager) {
+        statusManager.onFriendUpdate(renderFriendLists);
+    }
 
+    if (friendsRefreshInterval) {
+        clearInterval(friendsRefreshInterval);
+        friendsRefreshInterval = null;
+    }
+    
     // Initial render
     await renderFriendLists();
 }

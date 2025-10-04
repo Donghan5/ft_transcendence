@@ -28,6 +28,22 @@ export class OnlineStatusManager {
 
 
     /**
+     * @description Sends a friend update message to a specific user if they are online.
+     * @param targetUserId 
+     * @param message 
+     */
+    public sendFriendUpdate(targetUserId: number, eventType: string, payload: any): void {
+        const socket = this.userSockets.get(targetUserId);
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({
+                type: eventType,
+                payload: payload
+            }));
+            console.log(`Sent ${eventType} to user ${targetUserId}`);
+        }
+    }
+
+    /**
      * @description Sets a user as online and sends their online status to their friends.
      * @param userId 
      * @param ws 

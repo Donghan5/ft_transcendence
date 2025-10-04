@@ -1,4 +1,3 @@
-
 export interface FriendStatus {
     userId: number;
     nickname: string;
@@ -35,6 +34,7 @@ export class StatusManager {
     private tournamentInviteCallbacks: Set<(invite: any) => void> = new Set();
     private currentUser: any = null;
     private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+    private friendUpdateCallbacks: Set<() => void> = new Set();
 
     private constructor() {}
 
@@ -137,9 +137,27 @@ export class StatusManager {
             case 'pong':
                 // Heartbeat response
                 break;
+            case 'friend_request_received':
+            case 'friend_request_accepted':
+            case 'friend_removed':
+            case 'friends_list_updated':
+                this.notifyFriendUpdate();
+                break;
             default:
                 console.log('StatusManager: Unknown message type:', data.type);
         }
+    }
+
+    private notifyFriendUpdate(): void {
+        this.friendUpdateCallbacks.forEach(callback => callback());
+    }
+
+    public onFriendUpdate(callback: () => void): void {
+        this.friendUpdateCallbacks.add(callback);
+    }
+
+    public offFriendUpdate(callback: () => void): void {
+        this.friendUpdateCallbacks.delete(callback);
     }
 
     private updateFriendStatus(friendData: FriendStatus): void {
