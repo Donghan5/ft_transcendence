@@ -3,6 +3,8 @@ import { TournamentUI } from '../tournament/tournament-ui';
 import { StatusManager } from '../status/status-manager';
 import { StatsManager } from '../stats/stats-manager';
 
+type UserResolver = (user: any) => void;
+
 export interface AppState {
   currentUser: any | null;
   currentGame: PongGame3D | null;
@@ -17,20 +19,31 @@ export interface AppState {
   currentSection: string | null;
   currentGameMode: string | null;
   activeTournamentsData: any[];
+  userReady: Promise<any>;
+  _resolveUserReady: UserResolver;
 }
 
-export const appState: AppState = {
-  currentUser: null,
-  currentGame: null,
-  currentGameId: null,
-  currentTournament: null,
-  tournamentUI: null,
-  isSpectatorMode: false,
-  matchmakingWs: null,
-  activeTournamentsWs: null,
-  statusManager: null,
-  statsManager: null,
-  currentSection: 'hero',
-  currentGameMode: null,
-  activeTournamentsData: [],
-};
+export const appState: AppState = (() => {
+  let resolveUserFn: UserResolver = () => {};
+  const userReadyPromise = new Promise<any>(resolve => {
+    resolveUserFn = resolve;
+  });
+
+  return {
+    currentUser: null,
+    currentGame: null,
+    currentGameId: null,
+    currentTournament: null,
+    tournamentUI: null,
+    isSpectatorMode: false,
+    matchmakingWs: null,
+    activeTournamentsWs: null,
+    statusManager: null,
+    statsManager: null,
+    currentSection: 'hero',
+    currentGameMode: null,
+    activeTournamentsData: [],
+    userReady: userReadyPromise,
+    _resolveUserReady: resolveUserFn,
+  };
+})();

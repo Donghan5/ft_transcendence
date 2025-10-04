@@ -185,6 +185,10 @@ export async function handleLocalLogin(e: Event) {
                 console.log('User data after login:', userData);
                 appState.currentUser = userData;
 
+                if (appState._resolveUserReady) {
+                    appState._resolveUserReady(userData);
+                }
+
                 appState.statusManager = StatusManager.getInstance();
                 await appState.statusManager!.initializeStatusConnection('', userData);
                 console.log('StatusManager successfully initialized for new session.');
@@ -289,6 +293,10 @@ export async function updateLoginStatus() {
         const user = await response.json();
         appState.currentUser = user;
         
+        if (appState._resolveUserReady) {
+            appState._resolveUserReady(user);
+        }
+
         // Initialize StatusManager once (non-blocking, fire-and-forget)
         appState.statusManager = StatusManager.getInstance();
         await appState.statusManager.initializeStatusConnection('', user);

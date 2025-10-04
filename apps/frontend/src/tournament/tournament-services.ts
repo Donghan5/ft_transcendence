@@ -1,9 +1,11 @@
+// apps/frontend/src/tournament/tournament-services.ts
+
 import { appState } from "../state/state";
 import { showSection, showNotification } from '../services/ui';
 import { TournamentUI } from "../tournament/tournament-ui";
-import { returnToMainMenu } from "../utils/tools";
 import { startGame } from '../game/game-manager';
 import { renderActiveTournamentsList } from "./tournament-render";
+
 
 export function cleanupTournamentUI() {
     if (appState.tournamentUI) {
@@ -12,50 +14,20 @@ export function cleanupTournamentUI() {
     }
 }
     
-/**
- * @description Update tournament UI calls to pass tournament ID when starting games
- * Add this to your tournament UI when starting tournament games
- */
+
 export function startTournamentGame(gameId: string, playerId: string, tournamentId: string) {
     console.log(`Starting tournament game: ${gameId} for tournament: ${tournamentId}`);
-    
-    // Call startGame with tournament ID
     startGame(gameId, playerId, 'tournament', tournamentId);
 }
+
 
 export function setCurrentTournament(tournament: any) {
     appState.currentTournament = tournament;
 }
 
 /**
- * @description Find user's current match from tournament data
- * @param tournament - Tournament object from API
- * @param userId - User ID to find match for
- * @returns Match object if found, null otherwise
+ * @description Loading active tournaments.
  */
-export function findMyCurrentMatchFromTournament(tournament: any, userId: string): any {
-    try {
-        if (!tournament.matches || !userId) {
-            return null;
-        }
-        
-        const userIdStr = userId.toString();
-        
-        // Find current round matches where user is a participant
-        const currentRoundMatches = tournament.matches.filter((match: any) => 
-            match.round === (tournament.current_round || 1) &&
-            (match.player1?.id === userIdStr || match.player2?.id === userIdStr) &&
-            match.status === 'active'
-        );
-        
-        return currentRoundMatches.length > 0 ? currentRoundMatches[0] : null;
-        
-    } catch (error) {
-        console.error('Error finding current match:', error);
-        return null;
-    }
-}
-
 export async function loadActiveTournaments(): Promise<any[]> {
     try {
         console.log('Loading active tournaments...');
@@ -80,71 +52,23 @@ export async function loadActiveTournaments(): Promise<any[]> {
     }
 }
 
-
+/**
+ * @description Render the home tournaments list.
+ */
 export async function loadHomeTournaments(): Promise<void> {
     await loadActiveTournaments();
     renderActiveTournamentsList('homeTournamentsList', false);
 }
 
-export function joinExistingTournament(tournamentId: string): void {
-    if (!appState.tournamentUI) {
-        appState.tournamentUI = new TournamentUI('tournamentSection');
-    }
-
-    if (appState.currentUser) {
-        appState.tournamentUI.setCurrentUser(appState.currentUser);
-    }
-
-    appState.tournamentUI.joinTournament(tournamentId);
-    showSection('tournament');
-}
-
-// Expose joinExistingTournament to global scope for button onclick
-(window as any).joinExistingTournament = joinExistingTournament;
-
 /**
- * @description To join a tournament from home screen
+ * @description Open a tournament from the home screen.
+ * @param tournamentId - ID of the tournament to open
+ * @param mode - 'join'(join), 'participant'(view as participant), 'spectator'(view as spectator)
  */
-(window as any).joinHomeTournament = async function(tournamentId: string) {
-    try {
-        console.log('Joining tournament from home:', tournamentId);
-
-        if (!appState.tournamentUI) {
-            appState.tournamentUI = new TournamentUI('tournamentSection');
-        }
-
-        if (appState.currentUser) {
-            appState.tournamentUI.setCurrentUser(appState.currentUser);
-        }
-
-        await appState.tournamentUI.joinTournament(tournamentId);
-        showSection('tournament');
-        loadHomeTournaments();
-    } catch (error) {
-        console.error('Error joining tournament:', error);
-        alert('An error occurred while trying to join the tournament.');
-    }
-};
-
-
-
-(window as any).joinExistingTournament = async function(tournamentId: string) {
-    if (appState.tournamentUI) {
-        await appState.tournamentUI.joinTournament(tournamentId);
-        loadActiveTournaments(); 
-    }
-};
-
-/**
- * @description Open tournament from home screen with different modes
- * @param tournamentId - Tournament ID to open
- * @param mode - How to open: 'join', 'participant', 'spectator'
- */
-(window as any).openTournamentFromHome = async function(tournamentId: string, mode: 'join' | 'participant' | 'spectator' = 'participant') {
+export async function openTournamentFromHome(tournamentId: string, mode: 'join' | 'participant' | 'spectator' = 'participant') {
     try {
         console.log(`Opening tournament ${tournamentId} in ${mode} mode`);
 
-        // Always create fresh tournament UI to avoid state issues
         if (appState.tournamentUI) {
             appState.tournamentUI.cleanup();
         }
@@ -180,16 +104,13 @@ export function joinExistingTournament(tournamentId: string): void {
 };
 
 /**
- * @description Join game as spectator
- * @param gameId - Game ID to spectate
+ * @description Join as spectator
+ * @param gameId - ID of the game to spectate
  */
-(window as any).spectateGame = function(gameId: string) {
+export function spectateGame(gameId: string) {
     console.log(`Spectating game: ${gameId}`);
-    
-    // Show notification that spectator mode is starting
     showNotification('Joining game as spectator...', 'info');
     
-    // Navigate to game with spectator mode
     window.dispatchEvent(new CustomEvent('navigate', { 
         detail: { 
             sectionId: 'game',
@@ -198,5 +119,3 @@ export function joinExistingTournament(tournamentId: string): void {
         }
     }));
 };
-
-(window as any).loadActiveTournaments = loadActiveTournaments;

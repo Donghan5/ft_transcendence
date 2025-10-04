@@ -1,11 +1,20 @@
 import { appState } from '../state/state';
 import { renderActiveTournamentsList } from './tournament-render';
 
+let isConnectingOrConnected = false;
+
 export function connectActiveTournamentsSocket() {
+    if (isConnectingOrConnected) {
+        console.log('✅ [Global] Active tournaments socket connection already in progress or established.');
+        return;
+    }
+
     if (appState.activeTournamentsWs) {
         appState.activeTournamentsWs.onclose = null; 
         appState.activeTournamentsWs.close();
     }
+
+    isConnectingOrConnected = true;
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/api/tournament/ws/active`;
@@ -43,6 +52,8 @@ export function connectActiveTournamentsSocket() {
 
     appState.activeTournamentsWs.onclose = () => {
         console.log('[Global] Disconnected from active tournaments feed. Reconnecting in 5 seconds...');
+        
+        isConnectingOrConnected = false;
         setTimeout(() => {
             if (appState.currentUser) {
                 connectActiveTournamentsSocket();
@@ -52,5 +63,6 @@ export function connectActiveTournamentsSocket() {
 
     appState.activeTournamentsWs.onerror = (error) => {
         console.error('[Global] Active tournaments WebSocket error:', error);
+        isConnectingOrConnected = false;
     };
 }

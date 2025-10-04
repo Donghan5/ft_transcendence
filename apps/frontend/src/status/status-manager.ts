@@ -35,6 +35,7 @@ export class StatusManager {
     private currentUser: any = null;
     private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
     private friendUpdateCallbacks: Set<() => void> = new Set();
+    private connectionState: 'disconnected' | 'connecting' | 'connected' = 'disconnected';
 
     private constructor() {}
 
@@ -46,6 +47,12 @@ export class StatusManager {
     }
 
     public initializeStatusConnection(token: string, user: any): Promise<void> {
+        if (this.connectionState === 'connecting' || this.connectionState === 'connected') {
+            console.log('StatusManager: Connection already in progress or established. Ignoring call.');
+            return Promise.resolve();
+        }
+        this.connectionState = 'connecting';
+
         this.disconnect(); // Disconnect existing connection if any
         
         this.currentUser = user;
@@ -57,6 +64,7 @@ export class StatusManager {
                 if (this.statusWs) {
                     this.statusWs.close();
                 }
+                this.connectionState = 'disconnected';
                 reject(new Error('WebSocket connection timeout'));
             }, 10000); // 10 second timeout
 
@@ -69,6 +77,7 @@ export class StatusManager {
                 this.statusWs = new WebSocket(wsUrl);
                 
                 this.statusWs.onopen = async () => {
+                    this.connectionState = 'connected';
                     console.log('StatusManager: WebSocket connected successfully');
                     clearTimeout(connectionTimeout);
                     
@@ -93,6 +102,7 @@ export class StatusManager {
                 
                 this.statusWs.onclose = (event) => {
                     console.log('StatusManager: WebSocket disconnected', event.code, event.reason);
+                    this.connectionState = 'disconnected';
                     this.stopHeartbeat();
                     // Only try to reconnect if this was an unexpected close
                     if (event.code !== 1000 && this.currentUser) {
@@ -102,11 +112,13 @@ export class StatusManager {
                 
                 this.statusWs.onerror = (error) => {
                     console.error('StatusManager: WebSocket error:', error);
+                    this.connectionState = 'disconnected';
                     clearTimeout(connectionTimeout);
                     reject(new Error('WebSocket connection failed'));
                 };
                 
             } catch (error) {
+                this.connectionState = 'disconnected';
                 clearTimeout(connectionTimeout);
                 console.error('StatusManager: Failed to create WebSocket:', error);
                 reject(error);
@@ -261,6 +273,7 @@ export class StatusManager {
 
     public disconnect(): void {
         console.log('StatusManager: Disconnecting...');
+        this.connectionState = 'disconnected';
         this.stopHeartbeat();
         if (this.statusWs) {
             this.statusWs.onclose = null;

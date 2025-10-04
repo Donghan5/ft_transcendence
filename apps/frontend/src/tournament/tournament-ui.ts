@@ -1,6 +1,9 @@
 // apps/frontend/src/tournament/tournament-ui.ts
 
 import { Tournament, BracketMatch, TournamentPlayer } from '../../../../packages/common-types/src/tournament';
+import { appState } from '../state/state';
+import { renderActiveTournamentsList, showMyTournaments, showTournamentHistory } from './tournament-render';
+import { setCurrentTournament, startTournamentGame } from './tournament-services';
 
 export class TournamentUI {
     private container: HTMLElement;
@@ -49,43 +52,34 @@ export class TournamentUI {
         this.container.innerHTML = `
             <div class="tournament-home animate-pop">
                 <button id="tournament-return-btn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
-                
                 <div class="bg-white border-thick shadow-sharp p-8">
                     <h1 class="text-6xl text-center mb-8 text-outline-black">TOURNAMENTS</h1>
-                    
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <button id="create-tournament-btn" class="bg-green-500 text-white py-4 px-6 text-2xl border-thick shadow-sharp hover-anarchy">
-                            CREATE TOURNAMENT
-                        </button>
-                        <button id="my-tournaments-btn" class="bg-blue-500 text-white py-4 px-6 text-2xl border-thick shadow-sharp hover-anarchy">
-                            MY TOURNAMENTS
-                        </button>
-                        <button id="tournament-history-btn" class="bg-purple-500 text-white py-4 px-6 text-2xl border-thick shadow-sharp hover-anarchy">
-                            HISTORY
-                        </button>
+                        <button id="create-tournament-btn" class="bg-green-500 text-white py-4 px-6 text-2xl border-thick shadow-sharp hover-anarchy">CREATE TOURNAMENT</button>
+                        <button id="my-tournaments-btn" class="bg-blue-500 text-white py-4 px-6 text-2xl border-thick shadow-sharp hover-anarchy">MY TOURNAMENTS</button>
+                        <button id="tournament-history-btn" class="bg-purple-500 text-white py-4 px-6 text-2xl border-thick shadow-sharp hover-anarchy">HISTORY</button>
                     </div>
-
                     <div id="active-tournaments-list">
                         <h2 class="text-3xl mb-4 text-outline-white">ACTIVE TOURNAMENTS</h2>
-                        <div id="tournaments-container">
-                            <div class="text-center p-4">Loading tournaments...</div>
-                        </div>
+                        <div id="tournaments-container"><div class="text-center p-4">Loading tournaments...</div></div>
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
 
         this.setupTournamentHomeListeners();
         this.loadActiveTournamentsForUI();
     }
 
+
     private async loadActiveTournamentsForUI() {
         try {
-            // Use the shared loading function to ensure consistency
-            await (window as any).loadActiveTournaments();
+            if (!this.currentUser) {
+                this.currentUser = await appState.userReady;
+            }
             
-            // Use the shared rendering function
-            (window as any).renderActiveTournamentsList('tournaments-container', true);
+            await this.loadActiveTournaments();
+            
+            renderActiveTournamentsList('tournaments-container', true);
         } catch (error) {
             console.error('Error loading tournaments for UI:', error);
             const container = document.getElementById('tournaments-container');
@@ -141,8 +135,8 @@ export class TournamentUI {
         this.currentTournament = tournament;
         
         // Set global tournament reference for return navigation
-        if ((window as any).setCurrentTournament) {
-            (window as any).setCurrentTournament(tournament);
+        if (setCurrentTournament) {
+            setCurrentTournament(tournament);
         }
 
         const isHost = tournament.hostId === this.currentUser?.id?.toString();
@@ -433,7 +427,7 @@ export class TournamentUI {
                 
                 if (response.ok) {
                     const data = await response.json();
-                    (window as any).showMyTournaments(data.tournaments);
+                    showMyTournaments(data.tournaments);
                 } else {
                     this.showNotification('Failed to load your tournaments', 'error');
                 }
@@ -452,7 +446,7 @@ export class TournamentUI {
                 
                 if (response.ok) {
                     const data = await response.json();
-                    (window as any).showTournamentHistory(data.history);
+                    showTournamentHistory(data.history);
                 } else {
                     this.showNotification('Failed to load tournament history', 'error');
                 }
@@ -578,7 +572,7 @@ export class TournamentUI {
             btn.addEventListener('click', (e) => {
                 const gameId = (e.target as HTMLElement).dataset.gameId;
                 if (gameId && this.currentTournament) {
-                    (window as any).startTournamentGame(gameId, this.currentUser?.id?.toString(), this.currentTournament.id);
+                    startTournamentGame(gameId, this.currentUser?.id?.toString(), this.currentTournament.id);
                 }
             });
         });
@@ -856,7 +850,7 @@ export class TournamentUI {
                     this.showNotification('Game starting! Redirecting...', 'success');
                     setTimeout(() => {
                         if (this.currentTournament) {
-                            (window as any).startTournamentGame(data.gameId, this.currentUser?.id?.toString(), this.currentTournament.id);
+                            startTournamentGame(data.gameId, this.currentUser?.id?.toString(), this.currentTournament.id);
                         }
                     }, 1500);
                 }

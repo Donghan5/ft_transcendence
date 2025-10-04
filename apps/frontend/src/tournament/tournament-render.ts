@@ -2,6 +2,7 @@ import { appState } from '../state/state';
 import { showSection, showNotification } from '../services/ui'
 import { TournamentUI } from './tournament-ui';
 import { returnToMainMenu } from '../utils/tools';
+import { openTournamentFromHome } from './tournament-services';
 
 function showTournamentView(tournament: any) {
     showSection('tournament');
@@ -20,7 +21,7 @@ function showTournamentView(tournament: any) {
 
 
 
-function returnToTournamentLobby() {
+export function returnToTournamentLobby() {
     try {
         console.log('Returning to tournament lobby...');
         
@@ -43,7 +44,7 @@ function returnToTournamentLobby() {
 
 
 
-function showMyTournaments(tournaments: any[]) {
+export function showMyTournaments(tournaments: any[]) {
     if (!appState.tournamentUI) return;
     
     const container = document.getElementById('tournamentSection');
@@ -111,7 +112,7 @@ function showMyTournaments(tournaments: any[]) {
     }
 }
 
-function showTournamentHistory(history: any[]) {
+export function showTournamentHistory(history: any[]) {
     if (!appState.tournamentUI) return;
     
     const container = document.getElementById('tournamentSection');
@@ -198,7 +199,7 @@ export function renderActiveTournamentsList(containerId: string, showCreateButto
             <div class="text-center py-8">
                 <p class="text-gray-600 mb-4">No active tournaments at the moment</p>
                 ${showCreateButton ? `
-                    <button id="create-tournament-from-empty-${containerId}" 
+                    <button id="create-tournament-from-empty-${containerId}"
                             class="bg-green-500 text-white py-3 px-8 text-xl border-thick shadow-sharp hover-anarchy">
                         CREATE TOURNAMENT
                     </button>
@@ -207,7 +208,7 @@ export function renderActiveTournamentsList(containerId: string, showCreateButto
                 `}
             </div>
         `;
-        
+
         if (showCreateButton) {
             document.getElementById(`create-tournament-from-empty-${containerId}`)?.addEventListener('click', () => {
                 if (appState.tournamentUI) {
@@ -218,38 +219,38 @@ export function renderActiveTournamentsList(containerId: string, showCreateButto
         return;
     }
 
-    // Rest of the rendering logic remains the same...
     container.innerHTML = appState.activeTournamentsData.map(tournament => {
-        const isParticipant = appState.currentUser && tournament.players && 
+        const isParticipant = appState.currentUser && tournament.players &&
                               tournament.players.some((p: any) => p.id === appState.currentUser.id?.toString());
 
         let buttonText = '';
         let buttonClass = '';
-        let buttonAction = '';
+        let action: 'join' | 'participant' | 'spectator' | '' = '';
+        let isDisabled = false;
 
         if (tournament.status === 'waiting') {
             if (isParticipant) {
                 buttonText = 'OPEN';
                 buttonClass = 'bg-blue-500';
-                buttonAction = `openTournamentFromHome('${tournament.id}', 'participant')`;
+                action = 'participant';
             } else if ((tournament.players?.length || 0) >= (tournament.maxPlayers || 8)) {
                 buttonText = 'FULL';
                 buttonClass = 'bg-gray-500';
-                buttonAction = '';
+                isDisabled = true;
             } else {
                 buttonText = 'JOIN';
                 buttonClass = 'bg-green-500';
-                buttonAction = `openTournamentFromHome('${tournament.id}', 'join')`;
+                action = 'join';
             }
         } else if (tournament.status === 'active' || tournament.status === 'finished') {
             if (isParticipant) {
                 buttonText = 'OPEN';
                 buttonClass = 'bg-blue-500';
-                buttonAction = `openTournamentFromHome('${tournament.id}', 'participant')`;
+                action = 'participant';
             } else {
                 buttonText = 'VIEW';
                 buttonClass = 'bg-purple-500';
-                buttonAction = `openTournamentFromHome('${tournament.id}', 'spectator')`;
+                action = 'spectator';
             }
         }
 
@@ -261,24 +262,34 @@ export function renderActiveTournamentsList(containerId: string, showCreateButto
                         <p class="text-sm text-gray-600 font-teko">
                             Players: ${tournament.players?.length || 0}/${tournament.maxPlayers || 8} | Status: ${tournament.status.toUpperCase()}
                         </p>
-                        ${tournament.status === 'active' && !isParticipant ? 
+                        ${tournament.status === 'active' && !isParticipant ?
                             '<p class="text-xs text-purple-600 font-teko">You can spectate this tournament</p>' : ''}
                     </div>
                     <div class="flex gap-2">
-                        ${buttonAction ? `
-                            <button onclick="${buttonAction}" 
-                                    class="${buttonClass} text-white px-4 py-2 border-thick hover-anarchy font-teko uppercase"
-                                    ${buttonText === 'FULL' ? 'disabled' : ''}>
-                                ${buttonText}
-                            </button>
-                        ` : `
-                            <button class="${buttonClass} text-white px-4 py-2 border-thick font-teko uppercase" disabled>
-                                ${buttonText}
-                            </button>
-                        `}
+                         <button
+                            class="tournament-action-btn ${buttonClass} text-white px-4 py-2 border-thick hover-anarchy font-teko uppercase"
+                            data-tournament-id="${tournament.id}"
+                            data-action="${action}"
+                            ${isDisabled ? 'disabled' : ''}>
+                            ${buttonText}
+                        </button>
                     </div>
                 </div>
             </div>
         `;
     }).join('');
+
+    container.querySelectorAll('.tournament-action-btn').forEach(button => {
+        button.addEventListener('click', (e) => {
+            const target = e.currentTarget as HTMLButtonElement;
+            if (target.disabled) return;
+
+            const tournamentId = target.dataset.tournamentId;
+            const action = target.dataset.action as 'join' | 'participant' | 'spectator';
+
+            if (tournamentId && action) {
+                openTournamentFromHome(tournamentId, action);
+            }
+        });
+    });
 }
