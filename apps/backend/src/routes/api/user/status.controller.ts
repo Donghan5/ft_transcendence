@@ -50,6 +50,7 @@ export default async function statusRoute(fastify: FastifyInstance) {
                 try {
                     const data = JSON.parse(message.toString());
                     if (data.type === 'ping') {
+                        statusManager.updateUserLastSeen(userId);
                         connection.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
                     }
                 } catch (error) {

@@ -26,6 +26,16 @@ export class OnlineStatusManager {
         return OnlineStatusManager.instance;
     }
 
+    /**
+     * @description Updates the last seen time for a user to keep them active.
+     * @param userId
+     */
+    public updateUserLastSeen(userId: number): void {
+        const user = this.onlineUsers.get(userId);
+        if (user) {
+            user.lastSeen = new Date();
+        }
+    }
 
     /**
      * @description Sends a friend update message to a specific user if they are online.
