@@ -1,0 +1,36 @@
+import { PongGame3D } from '../game/render';
+import { TournamentUI } from '../tournament/tournament-ui';
+import { StatusManager } from '../status/status-manager';
+import { StatsManager } from '../stats/stats-manager';
+
+export interface AppState {
+  currentUser: any | null;
+  currentGame: PongGame3D | null;
+  currentGameId: string | null;
+  currentTournament: any | null;
+  tournamentUI: TournamentUI | null;
+  isSpectatorMode: boolean;
+  matchmakingWs: WebSocket | null;
+  activeTournamentsWs: WebSocket | null;
+  statusManager: StatusManager | null;
+  statsManager: StatsManager | null;
+  currentSection: string | null;
+  currentGameMode: string | null;
+  activeTournamentsData: any[];
+}
+
+export const appState: AppState = {
+  currentUser: null,
+  currentGame: null,
+  currentGameId: null,
+  currentTournament: null,
+  tournamentUI: null,
+  isSpectatorMode: false,
+  matchmakingWs: null,
+  activeTournamentsWs: null,
+  statusManager: null,
+  statsManager: null,
+  currentSection: 'hero',
+  currentGameMode: null,
+  activeTournamentsData: [],
+};

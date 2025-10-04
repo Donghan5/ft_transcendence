@@ -191,3 +191,26 @@ export class Connection {
 		}));
 	}
 }
+
+export function updateConnectionStatus(status: 'connecting' | 'connected' | 'disconnected') {
+	const indicator = document.getElementById('statusIndicator')
+	const statusText = document.getElementById('statusText')
+
+	if (indicator && statusText) {
+		indicator.className = 'w-3 h-3 rounded-full animate-pulse'
+
+		switch(status) {
+			case 'connecting':
+				indicator.classList.add('bg-yellow-500')
+				break
+			case 'connected':
+				indicator.classList.add('bg-green-500')
+				break
+			case 'disconnected':
+				indicator.classList.add('bg-red-500')
+				break
+		}
+
+		statusText.textContent = status
+	}
+}

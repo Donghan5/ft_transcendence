@@ -1,0 +1,424 @@
+import { initializeGame } from '../game/init'
+import { appState } from '../state/state';
+import { returnToMainMenu } from '../utils/tools';
+import { showSection, showNotification } from '../services/ui';
+import { addEscKeyReminder } from '../utils/tools';
+import { updateConnectionStatus } from '../game/connection';
+
+/**
+ *
+ * @param gameMode: string - The game mode to create (e.g., 'quick', 'ai', 'tournament')
+ * @param playerName: string - The name of the player starting the game
+ * @description Creates a new game by sending a request to the server and initializes the game
+ */
+export async function createNewGame(gameMode: string) {
+    try {
+        console.log('Requesting new game from server...')
+
+        // startGame(dummyResponse.gameId)
+        const player2Id = gameMode === 'ai' ? 'AI' : 'Player2_tmp';
+        let requestBody: any;
+
+        // switching based on game mode
+        switch (gameMode) {
+            case 'quick':
+                requestBody = {
+                    player1Id: appState.currentUser.id,
+                    player1Nickname: appState.currentUser.nickname,
+                    player2Id: 'Player2',
+                    player2Nickname: 'Player2',
+                    gameMode: 'LOCAL_PVP'
+                };
+                break;
+            case 'ai':
+                const selectedAiLevel = await selectingAiLevel(); // temp set
+
+                if (!selectedAiLevel) {
+                    console.log('AI level selection cancelled');
+                    return;
+                }
+
+                requestBody = {
+                    player1Id: appState.currentUser.id,
+                    player1Nickname: appState.currentUser.nickname,
+                    player2Id: 'AI',
+                    gameMode: 'AI',
+                    aiLevel: selectedAiLevel
+                };
+                break;
+            case 'pvp':
+                requestBody = {
+                    player1Id: appState.currentUser.id,
+                    gameMode: 'PVP',
+                };
+
+                connectingMatchmaking();
+                break;
+            case 'tournament':
+                showSection('tournament');
+                return;
+            default:
+                throw new Error('Invalid game mode selected');
+        }
+
+        const response = await fetch('/api/games', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+        })
+
+        if (!response.ok) {
+            throw new Error('Failed to create game')
+        }
+
+        const data = await response.json()
+
+        if (data.message && data.message.includes('Waiting')) {
+            showSection('waiting');
+            // add cancel waiting
+        } else if (data.gameId) {
+            appState.currentGameId = data.gameId
+            console.log('Game created successfully:', data)
+            showGameScreen()
+            startGame(data.gameId, String(appState.currentUser.id), gameMode)
+        } else {
+            throw new Error('Unexpected response format')
+        }
+    } catch (error) {
+        console.error('Failed to create game:', error)
+        throw error
+    }
+}
+
+export function showGameScreen() {
+    showSection('game');
+    console.log('Game screen is shown');
+    
+    addEscKeyReminder();
+}
+
+/**
+ * @description Enhanced startGame function to properly set tournament context
+ */
+export function startGame(gameId: string, playerId: string, gameMode: string, tournamentId?: string) {
+    showGameScreen();
+    console.log(`Starting initialize game... GameID: ${gameId}, PlayerID: ${playerId}, Mode: ${gameMode}`);
+
+    // Track current game mode and spectator status
+    appState.currentGameMode = gameMode;
+    appState.isSpectatorMode = gameMode === 'spectator';
+
+    // For tournament games, ensure we have tournament context
+    if (gameMode === 'tournament' && tournamentId) {
+        // Store tournament ID for later retrieval
+        localStorage.setItem('currentTournamentId', tournamentId);
+        console.log(`Tournament game started, stored tournament ID: ${tournamentId}`);
+    }
+
+    if (appState.currentGame) {
+        appState.currentGame.dispose();
+    }
+
+    // Call initializeGame with correct parameter order: containerId, gameId, playerId, gameMode, nickname
+    appState.currentGame = initializeGame('gameContainer', gameId, playerId, gameMode, appState.currentUser.nickname);
+
+    if (appState.currentGame) {
+        console.log('Game initialized successfully');
+        const canvas = document.getElementById('game-canvas');
+        if (canvas) canvas.focus();
+        updateConnectionStatus('connected');
+
+        // For tournament games, make sure the game starts automatically
+        if (gameMode === 'tournament') {
+            console.log('Tournament game - starting automatically');
+        }
+    } else {
+        console.error('Failed to initialize game');
+        updateConnectionStatus('disconnected');
+    }
+    console.log(`Start game with game mode: ${gameMode}`);
+}
+
+/**
+ * @param gameMode - The game mode to start
+ * @description Handles the game start logic based on the selected game mode
+ * @throws Error if the user is not logged in or game mode is invalid
+ * @returns
+ */
+export async function handleGameStart(gameMode: string) {
+    if (!appState.currentUser || !appState.currentUser.name) {
+        alert('Please login to play.');
+        return;
+    }
+
+    console.log(`Player ${appState.currentUser.name} is starting a ${gameMode} game.`);
+
+    try {
+        if (gameMode === 'tournament') {
+            showSection('tournament');
+            return;
+        }
+        await createNewGame(gameMode);
+    } catch (error) {
+        console.error('Failed to create game:', error);
+        alert('Failed to create game. Please try again later.');
+    }
+}
+
+/**
+ * @description selecting AI level for the game, came from UI
+ * @returns {Promise<string | null>} - The selected AI level or null if cancelled
+ * @throws Error if the AI level selection fails
+ */
+export async function selectingAiLevel(): Promise<string | null> {
+	const aiLevel = await showAiLevelSelectionUI();
+	if (!aiLevel) {
+		throw new Error('AI level selection failed');
+	}
+
+	return aiLevel;
+}
+
+/**
+ * @description Showing a select UI
+ * @returns {Promise<string | null>} - The selected AI level or null if cancelled
+ */
+export function showAiLevelSelectionUI(): Promise<string | null> {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('aiLevelModal');
+        const cancelBtn = document.getElementById('cancelAiSelect');
+
+        if (!modal || !cancelBtn) {
+            console.error('AI Level Modal not found');
+            resolve(null);
+            return;
+        }
+        modal.classList.remove('hidden');
+
+        const handleClick = (event: MouseEvent) => {
+            const target = event.target as HTMLElement;
+
+            if (target.matches('.ai-level-btn')) {
+                cleanup();
+                resolve(target.getAttribute('data-level'));
+            } else if (target === cancelBtn) {
+                cleanup();
+            }
+        }
+
+        const cleanup = () => {
+            modal.classList.add('hidden');
+            modal.removeEventListener('click', handleClick);
+        };
+
+        modal.addEventListener('click', handleClick);
+    });
+}
+
+export function triggerGameEnd(gameResult?: any) {
+    document.dispatchEvent(new CustomEvent('gameEnded', { 
+        detail: { 
+            gameResult,
+            gameMode: appState.currentGameMode,
+            timestamp: Date.now()
+        } 
+    }));
+}
+
+export function handleGameStateUpdate(gameState: any) {
+    // IMPORTANT: Don't process game state updates if game has ended
+    // The gameEnd WebSocket event handles the end game flow
+    if (gameState.status === 'finished') {
+        console.log('Game finished - ignoring state update (gameEnd event will handle this)');
+        return;
+    }
+    
+    // Show game over modal if needed (this should not be reached for 'finished' status)
+    const gameOverModal = document.getElementById('gameOverModal');
+    if (gameOverModal) {
+        const winnerMessage = document.getElementById('winnerMessage');
+        const gameOverTitle = document.getElementById('gameOverTitle');
+        
+        if (winnerMessage && gameOverTitle) {
+            const winnerId = gameState.winnerId;
+            const winnerNickname = gameState.winnerNickname || 'Unknown';
+
+            if (winnerId === appState.currentUser?.id?.toString()) {
+                gameOverTitle.textContent = 'VICTORY!';
+                winnerMessage.textContent = 'You won the match!';
+            } else {
+                gameOverTitle.textContent = 'DEFEAT!';
+                winnerMessage.textContent = `${winnerNickname} won the match!`;
+            }
+            
+            gameOverModal.classList.remove('hidden');
+        }
+    }
+}
+
+export async function forfeitCurrentGame() {
+    if (!appState.currentGame || !appState.currentUser) {
+        console.log('No active game or user to forfeit');
+        return;
+    }
+
+    console.log('Player forfeiting game...');
+
+    try {
+        const response = await fetch(`/api/games/forfeit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                gameId: appState.currentGame.state?.gameId || appState.currentGameId,
+                playerId: appState.currentUser.id
+            }),
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            console.log('Game forfeited successfully');
+            showNotification('You forfeited the game', 'info');
+            
+            // The backend will send gameEnd WebSocket message to all players
+            // The render.ts onGameEnd() will show the modal
+            // User can then click "Return" button to leave
+            
+        } else {
+            console.error('Failed to forfeit game:', response.status);
+            showNotification('Failed to forfeit game', 'error');
+            
+            // If forfeit API failed, still clean up and return
+            cleanupCurrentGame();
+            returnToMainMenu();
+        }
+    } catch (error) {
+        console.error('Error forfeiting game:', error);
+        showNotification('Error forfeiting game', 'error');
+        
+        // If forfeit API failed, still clean up and return
+        cleanupCurrentGame();
+        returnToMainMenu();
+    }
+    
+    // Let the gameEnd WebSocket event flow handle it naturally:
+    // 1. Backend sends gameEnd event
+    // 2. render.ts onGameEnd() shows modal
+    // 3. User clicks "Return" button
+    // 4. Button handler calls returnToMainMenu()
+    // This ensures forfeiter sees the game end screen just like the winner
+}
+
+export function connectingMatchmaking() {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/api/games/matchmaking/ws?playerId=${appState.currentUser.id}`;
+
+    appState.matchmakingWs = new WebSocket(wsUrl);
+
+    appState.matchmakingWs.onopen = () => {
+        console.log('Connected to matchmaking server');
+    }
+
+    appState.matchmakingWs.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.type === 'matchFound') {
+            console.log('Match found! Game ID: ', data.gameId);
+            appState.currentGameId = data.gameId;
+
+            if (appState.matchmakingWs) {
+                appState.matchmakingWs.close();
+                appState.matchmakingWs = null;
+            }
+
+            showGameScreen();
+            startGame(data.gameId, String(appState.currentUser.id), 'pvp');
+        }
+    };
+
+    appState.matchmakingWs.onerror = (error) => {
+        console.error('Matchmaking WebSocket error:', error);
+        alert('Matchmaking connection failed');
+        returnToMainMenu();
+    }
+
+    appState.matchmakingWs.onclose = () => {
+        console.log('Matchmaking WebSocket connection closed');
+    }
+}
+
+export async function cancelMatchmaking() {
+	console.log('Cancelling matchmaking...');
+
+	if (!appState.currentUser || !appState.currentUser.id) {
+		console.error('Current user is not logged in. Cannot cancel matchmaking.');
+		returnToMainMenu();
+		return;
+	}
+
+	try {
+		const response = await fetch('/api/games/cancel', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+			},
+			body: JSON.stringify({ playerId: appState.currentUser.id }),
+			credentials: 'include'
+		});
+
+		if (!response.ok) {
+			throw new Error('Failed to cancel matchmaking');
+		}
+
+		const data = await response.json();
+		console.log('Matchmaking cancelled:', data);
+	} catch (error) {
+		console.error('Error cancelling matchmaking:', error);
+		alert('Failed to cancel matchmaking. Please try again later.');
+	} finally {
+		if (appState.matchmakingWs) {
+			try {
+				appState.matchmakingWs.close();
+				console.log('Matchmaking WebSocket closed');
+			} catch (error) {
+				console.error('Error closing matchmaking WebSocket:', error);
+			} finally {
+				appState.matchmakingWs = null;
+			}
+		}
+		returnToMainMenu();
+	}
+}
+
+export function cleanupCurrentGame() {
+    if (appState.currentGame) {
+        console.log('Disposing current game...');
+        try {
+            appState.currentGame.dispose();
+            console.log('Current game disposed successfully');
+        } catch (error) {
+            console.error('Error disposing current game:', error);
+        } finally {
+            appState.currentGame = null;
+            console.log('Current game reference cleared');
+        }
+    }
+    
+    // Remove ESC reminder
+    const reminder = document.getElementById('esc-key-reminder');
+    if (reminder) {
+        reminder.remove();
+    }
+}
+
+/**
+ * @description Check if a game is currently active/running
+ * @param gameId - Game ID to check
+ * @returns boolean - true if game is active, false otherwise
+ */
+export function isGameCurrentlyActive(gameId: string): boolean {
+    // Check if we have an active game with this ID
+    return appState.currentGame !== null && 
+           appState.currentGameId === gameId && 
+           appState.currentSection === 'game';
+}

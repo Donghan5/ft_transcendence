@@ -20,7 +20,7 @@ import {
 import { GameState } from '@trans/common-types';
 import { Connection } from './connection';
 import { SceneObjects, createSceneAndGameObjects } from './scene-builder';
-import { returnToMainMenu } from '../../main.ts';
+import { returnToMainMenu } from '../utils/tools';
 import {
     PADDLE_START_X,
     PADDLE_WIDTH,
