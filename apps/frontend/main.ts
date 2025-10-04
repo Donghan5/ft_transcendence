@@ -249,6 +249,10 @@ async function handleLocalLogin(e: Event) {
 				const userData = await userResponse.json();
 				console.log('User data after login:', userData);
 				currentUser = userData;
+
+                statusManager = StatusManager.getInstance();
+                await statusManager.initializeStatusConnection('', userData);
+                console.log('StatusManager successfully initialized for new session.');
 				
 				if (!userData.profileComplete) {
 					showNicknameSetupScreen();
@@ -588,7 +592,13 @@ function cleanupTournamentUI() {
  */
 function showLoginScreen(){
 	console.log('Showing login screen');
-	
+
+	if (statusManager) {
+        statusManager.disconnect();
+        statusManager = null; 
+        console.log('Disconnected existing StatusManager for logout.');
+    }
+
 	if (window.location.pathname !== '/login') {
         history.replaceState({ sectionId: 'login' }, 'PONG - Login', '/login');
     }
@@ -1713,16 +1723,9 @@ async function updateLoginStatus() {
         currentUser = user;
         
         // Initialize StatusManager once (non-blocking, fire-and-forget)
-        if (!statusManager) {
-            statusManager = StatusManager.getInstance();
-            statusManager.initializeStatusConnection('', user)
-                .then(() => {
-                    console.log('StatusManager initialized successfully');
-                })
-                .catch(error => {
-                    console.error('StatusManager initialization failed (non-critical):', error);
-                });
-        }
+        statusManager = StatusManager.getInstance();
+        await statusManager.initializeStatusConnection('', user);
+        console.log('StatusManager successfully re-initialized for new session.');
         
         const currentPath = window.location.pathname;
         
@@ -1920,6 +1923,13 @@ async function showFriendsScreen() {
         clearInterval(friendsRefreshInterval);
         friendsRefreshInterval = null;
     }
+
+    if (statusManager && typeof statusManager.onStatusUpdate === 'function' && typeof statusManager.onFriendUpdate === 'function') {
+        statusManager.onStatusUpdate(updateFriendsDisplay);
+
+        statusManager.onFriendUpdate(renderFriendLists);
+    }
+
     
     // Initial render
     await renderFriendLists();

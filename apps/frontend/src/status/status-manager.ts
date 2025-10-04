@@ -46,6 +46,8 @@ export class StatusManager {
     }
 
     public initializeStatusConnection(token: string, user: any): Promise<void> {
+        this.disconnect(); // Disconnect existing connection if any
+        
         this.currentUser = user;
         
         return new Promise((resolve, reject) => {
@@ -261,10 +263,12 @@ export class StatusManager {
         console.log('StatusManager: Disconnecting...');
         this.stopHeartbeat();
         if (this.statusWs) {
+            this.statusWs.onclose = null;
             this.statusWs.close();
             this.statusWs = null;
         }
         this.friends.clear();
         this.statusUpdateCallbacks.clear();
+        this.friendUpdateCallbacks.clear();
     }
 }
