@@ -147,7 +147,7 @@ class AiStrategy {
 			}
 		}
 
-		const paddleLimit = 13;
+		const paddleLimit = 16;  // default value was 13
 		if (game.player2.paddleZ > paddleLimit) game.player2.paddleZ = paddleLimit;
 		if (game.player2.paddleZ < -paddleLimit) game.player2.paddleZ = -paddleLimit;
 	}

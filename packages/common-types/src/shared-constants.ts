@@ -15,7 +15,7 @@ export const PADDLE_WIDTH = 1.5;
 export const PADDLE_HEIGHT = 1.4;
 export const PADDLE_DEPTH = 6.0;
 export const PADDLE_Y_POSITION = 0.7;
-export const PADDLE_Z_LIMIT = 18.0; // Adjusted for larger depth
+export const PADDLE_Z_LIMIT = 16.0; // Adjusted for larger depth, default value was 18.0
 export const PADDLE_SPEED = 0.6;
 // Ball constants
 export const BALL_DIAMETER = 1.3;

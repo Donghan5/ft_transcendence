@@ -74,7 +74,7 @@ export function predictBallPosition(
         finalZ += predictedVelocity.z * timeToTarget * speedMisjudgeFactor;
     }
 
-    const arenaLimit = 13;
+    const arenaLimit = 16;  // default value was 13
     if (finalZ > arenaLimit) finalZ = arenaLimit;
     if (finalZ < -arenaLimit) finalZ = -arenaLimit;
 
