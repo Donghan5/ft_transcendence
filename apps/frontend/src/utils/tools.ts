@@ -104,7 +104,7 @@ export function removeEscKeyReminder() {
     }
 }
 
-function exitSpectatorMode() {
+export function exitSpectatorMode() {
     console.log('Exiting spectator mode...');
     cleanupCurrentGame();
     removeEscKeyReminder();

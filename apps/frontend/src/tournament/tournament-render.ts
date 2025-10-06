@@ -4,7 +4,7 @@ import { TournamentUI } from './tournament-ui';
 import { returnToMainMenu } from '../utils/tools';
 import { openTournamentFromHome } from './tournament-services';
 
-function showTournamentView(tournament: any) {
+export function showTournamentView(tournament: any) {
     showSection('tournament');
     
     if (!appState.tournamentUI) {
