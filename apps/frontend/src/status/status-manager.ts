@@ -155,7 +155,12 @@ export class StatusManager {
             case 'friend_request_accepted':
             case 'friend_removed':
             case 'friends_list_updated':
+                this.loadFriendsStatus().then(() => {
                 this.notifyFriendUpdate();
+                }).catch(err => {
+                    console.error('Failed to reload friend statuses:', err);
+                    this.notifyFriendUpdate();
+                });
                 break;
             default:
                 console.log('StatusManager: Unknown message type:', data.type);
