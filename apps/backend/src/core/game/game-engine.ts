@@ -206,6 +206,19 @@ class Enhanced3DPongGame {
         }, 1000);
     }
 
+	// /**
+	//  * Remove a player from the game
+	//  * @param gameId - The ID of the game
+	//  * @param playerId - The ID of the player
+	//  */
+	// public removePlayer(gameId: string, playerId: string): void {
+	// 	const players = this.connectedPlayers.get(gameId);
+	// 	if (players?.has(playerId)) {
+	// 		players.delete(playerId);
+	// 		console.log(`Player ${playerId} left game ${gameId}`);
+	// 	}
+	// }
+
 	/**
 	 * Update the paddle position of a player
 	 * @param gameId - The ID of the game

@@ -85,7 +85,6 @@ export default async function friendsRoute(fastify: FastifyInstance) {
                 nickname: requester.nickname,
                 avatar_url: requester.avatar_url
             });
-
             
             return reply.code(201).send({ message: 'Friend request sent' });
         } catch (error) {
