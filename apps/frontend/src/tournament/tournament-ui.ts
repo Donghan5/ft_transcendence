@@ -2,16 +2,14 @@
 
 import { Tournament, BracketMatch, TournamentPlayer } from '../../../../packages/common-types/src/tournament';
 import { appState } from '../state/state';
-import { renderActiveTournamentsList, showMyTournaments, showTournamentHistory } from './tournament-render';
-import { setCurrentTournament, startTournamentGame } from './tournament-services';
+import { renderActiveTournamentsList, showMyTournaments, showTournamentHistory, renderBracketView, renderMatch, renderPlayersView } from './tournament-render';
+import { setCurrentTournament, startTournamentGame, showNotification, openTournament, joinTournament, startTournament, deleteTournament, confirmMatch } from './tournament-services';
+import { connectWebSocketTournament, disconnectWebSocketTournament } from './tournament-ws';
 
 export class TournamentUI {
     private container: HTMLElement;
     private currentTournament: Tournament | null = null;
     private currentUser: any | null = null;
-    private ws: WebSocket | null = null;
-    private isSpectatorMode: boolean = false;
-    private activeListWs: WebSocket | null = null;
 
     constructor(containerId: string) {
         const container = document.getElementById(containerId);
@@ -39,11 +37,11 @@ export class TournamentUI {
             }
 
             const tournament = await response.json();
-            this.isSpectatorMode = true;
+            appState.isSpectatorMode = true;
             this.showTournamentView(tournament);
         } catch (error) {
             console.error('Error viewing tournament as spectator:', error);
-            this.showNotification('Failed to load tournament', 'error');
+            showNotification('Failed to load tournament', 'error');
         }
     }
 
@@ -70,14 +68,13 @@ export class TournamentUI {
         this.loadActiveTournamentsForUI();
     }
 
-
     private async loadActiveTournamentsForUI() {
         try {
             if (!this.currentUser) {
                 this.currentUser = await appState.userReady;
             }
             
-            await this.loadActiveTournaments();
+            await this.loadActiveTournamentsPage();
             
             renderActiveTournamentsList('tournaments-container', true);
         } catch (error) {
@@ -131,7 +128,7 @@ export class TournamentUI {
 
     // Show tournament view with brackets
     showTournamentView(tournament: Tournament) {
-        this.disconnectWebSocket();
+        disconnectWebSocketTournament();
         this.currentTournament = tournament;
         
         // Set global tournament reference for return navigation
@@ -150,7 +147,7 @@ export class TournamentUI {
                     <div class="flex justify-between items-center mb-8">
                         <div>
                             <h1 class="text-4xl text-outline-black">${tournament.name}</h1>
-                            ${this.isSpectatorMode ? `
+                            ${appState.isSpectatorMode ? `
                                 <p class="text-lg text-purple-600 font-teko uppercase mt-2">Spectator Mode</p>
                             ` : ''}
                             ${tournament.status === 'finished' && tournament.winner ? `
@@ -179,7 +176,7 @@ export class TournamentUI {
                             </div>
                         </div>
 
-                        ${!this.isSpectatorMode && isHost && tournament.status === 'waiting' ? `
+                        ${!appState.isSpectatorMode && isHost && tournament.status === 'waiting' ? `
                             <div class="text-center mb-4">
                                 <button id="start-tournament-btn" 
                                         class="bg-green-500 text-white py-3 px-8 text-xl border-thick shadow-sharp hover-anarchy"
@@ -193,7 +190,7 @@ export class TournamentUI {
                             </div>
                         ` : ''}
 
-                        ${this.isSpectatorMode && tournament.status === 'waiting' ? `
+                        ${appState.isSpectatorMode && tournament.status === 'waiting' ? `
                             <div class="text-center mb-4 bg-purple-100 p-4 border-thick">
                                 <p class="text-lg font-teko uppercase">Tournament hasn't started yet</p>
                                 <p class="text-sm text-gray-600">You can join as a participant if there's still space</p>
@@ -208,7 +205,7 @@ export class TournamentUI {
                     </div>
 
                     <div id="tournament-content">
-                        ${tournament.status === 'waiting' ? this.renderPlayersView(tournament) : this.renderBracketView(tournament)}
+                        ${tournament.status === 'waiting' ? renderPlayersView(tournament) : renderBracketView(tournament)}
                     </div>
                 </div>
             </div>
@@ -217,8 +214,10 @@ export class TournamentUI {
         this.setupTournamentViewListeners(tournament);
         
         // Only connect WebSocket if not in spectator mode or if spectating an active tournament
-        if (!this.isSpectatorMode || tournament.status === 'active') {
-            this.connectWebSocket(tournament.id);
+        if (!appState.isSpectatorMode || tournament.status === 'active') {
+            connectWebSocketTournament(tournament.id, (data) => {
+                this.handleWebSocketMessage(data)
+            });
         }
     }
 
@@ -226,133 +225,13 @@ export class TournamentUI {
         return this.currentTournament?.id || null;
     }
 
-    async refreshCurrentTournament(): Promise<void> {
-        if (!this.currentTournament) return;
-        
+    
+    /**
+     * This function is aim to show active tournament lists in tournament page, not in main page
+     */
+    private async loadActiveTournamentsPage() {
         try {
-            const response = await fetch(`/api/tournament/${this.currentTournament.id}`, {
-                credentials: 'include'
-            });
-            
-            if (response.ok) {
-                const updatedTournament = await response.json();
-                this.currentTournament = updatedTournament;
-                this.showTournamentView(updatedTournament);
-            }
-        } catch (error) {
-            console.error('Error refreshing current tournament:', error);
-        }
-    }
-
-    private renderPlayersView(tournament: Tournament): string {
-        return `
-            <div class="players-view">
-                <h2 class="text-3xl mb-4 text-outline-white">PLAYERS</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    ${tournament.players.map(player => `
-                        <div class="player-card bg-gray-100 p-4 border-thick">
-                            <h3 class="text-xl font-bold">${player.nickname}</h3>
-                            <p class="text-lg">Rating: ${player.rating}</p>
-                        </div>
-                    `).join('')}
-                    ${Array.from({length: tournament.maxPlayers - tournament.players.length}, (_, i) => `
-                        <div class="player-card bg-gray-300 p-4 border-thick border-dashed">
-                            <h3 class="text-xl text-gray-500">Waiting for player...</h3>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        `;
-    }
-
-    private renderBracketView(tournament: Tournament): string {
-        if (!tournament.bracket.length) {
-            return '<div class="text-center p-8">No bracket available</div>';
-        }
-
-        // Group matches by round
-        const rounds: { [round: number]: BracketMatch[] } = {};
-        tournament.bracket.forEach(match => {
-            if (!rounds[match.round]) rounds[match.round] = [];
-            rounds[match.round].push(match);
-        });
-
-        const roundNumbers = Object.keys(rounds).map(r => parseInt(r)).sort((a, b) => a - b);
-
-        return `
-            <div class="bracket-view">
-                <h2 class="text-3xl mb-4 text-outline-white">TOURNAMENT BRACKET</h2>
-                <div class="bracket-container overflow-x-auto">
-                    <div class="flex gap-8 min-w-max">
-                        ${roundNumbers.map(roundNum => `
-                            <div class="round-column min-w-64">
-                                <h3 class="text-xl font-bold text-center mb-4">
-                                    ${this.getRoundName(roundNum, roundNumbers.length)}
-                                </h3>
-                                <div class="space-y-4">
-                                    ${rounds[roundNum].map(match => this.renderMatch(match)).join('')}
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    private renderMatch(match: BracketMatch): string {
-        const isCurrentUserMatch = !this.isSpectatorMode && 
-                                  (match.player1?.id === this.currentUser?.id?.toString() || 
-                                   match.player2?.id === this.currentUser?.id?.toString());
-        const needsConfirmation = match.status === 'confirming' && isCurrentUserMatch && 
-                                !match.confirmations.includes(this.currentUser?.id?.toString());
-
-        return `
-            <div class="match-card bg-white border-thick p-4 ${match.status === 'playing' ? 'bg-yellow-100' : ''}">
-                <div class="match-players">
-                    <div class="player ${match.winner?.id === match.player1?.id ? 'winner' : ''}">
-                        <span class="font-bold">${match.player1?.nickname || 'TBD'}</span>
-                    </div>
-                    <div class="text-center text-sm">VS</div>
-                    <div class="player ${match.winner?.id === match.player2?.id ? 'winner' : ''}">
-                        <span class="font-bold">${match.player2?.nickname || 'TBD'}</span>
-                    </div>
-                </div>
-                
-                <div class="match-status mt-2 text-center">
-                    <span class="text-sm ${this.getStatusColor(match.status)}">${this.getStatusText(match.status)}</span>
-                </div>
-
-                ${needsConfirmation ? `
-                    <div class="text-center mt-2">
-                        <button class="confirm-match-btn bg-green-500 text-white py-1 px-3 text-sm border-thick hover-anarchy" 
-                                data-match-id="${match.id}">
-                            CONFIRM
-                        </button>
-                    </div>
-                ` : ''}
-
-                ${match.status === 'playing' && match.gameId ? `
-                    <div class="text-center mt-2">
-                        ${isCurrentUserMatch ? `
-                            <button class="join-game-btn bg-blue-500 text-white py-1 px-3 text-sm border-thick hover-anarchy" 
-                                    data-game-id="${match.gameId}">
-                                JOIN GAME
-                            </button>
-                        ` : this.isSpectatorMode ? `
-                            <button class="spectate-game-btn bg-purple-500 text-white py-1 px-3 text-sm border-thick hover-anarchy" 
-                                    data-game-id="${match.gameId}">
-                                SPECTATE
-                            </button>
-                        ` : ''}
-                    </div>
-                ` : ''}
-            </div>
-        `;
-    }
-
-    private async loadActiveTournaments() {
-        try {
+            console.log('Calling loadActiveTournaments in tournament-ui class with private features');
             const response = await fetch('/api/tournament/active', {
                 credentials: 'include'
             });
@@ -429,11 +308,11 @@ export class TournamentUI {
                     const data = await response.json();
                     showMyTournaments(data.tournaments);
                 } else {
-                    this.showNotification('Failed to load your tournaments', 'error');
+                    showNotification('Failed to load your tournaments', 'error');
                 }
             } catch (error) {
                 console.error('Error loading my tournaments:', error);
-                this.showNotification('Failed to load your tournaments', 'error');
+                showNotification('Failed to load your tournaments', 'error');
             }
         });
 
@@ -448,11 +327,11 @@ export class TournamentUI {
                     const data = await response.json();
                     showTournamentHistory(data.history);
                 } else {
-                    this.showNotification('Failed to load tournament history', 'error');
+                    showNotification('Failed to load tournament history', 'error');
                 }
             } catch (error) {
                 console.error('Error loading tournament history:', error);
-                this.showNotification('Failed to load tournament history', 'error');
+                showNotification('Failed to load tournament history', 'error');
             }
         });
     }
@@ -510,33 +389,33 @@ export class TournamentUI {
         document.querySelectorAll('.join-tournament-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const tournamentId = (e.target as HTMLElement).dataset.tournamentId;
-                await this.joinTournament(tournamentId!);
+                await joinTournament(tournamentId!);
             });
         });
 
         document.querySelectorAll('.open-tournament-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const tournamentId = (e.target as HTMLElement).dataset.tournamentId;
-                await this.openTournament(tournamentId!);
+                await openTournament(tournamentId!);
             });
         });
     }
 
     private setupTournamentViewListeners(tournament: Tournament) {
         document.getElementById('tournament-view-return-btn')?.addEventListener('click', () => {
-            this.disconnectWebSocket();
-            this.isSpectatorMode = false;
+            disconnectWebSocketTournament();
+            appState.isSpectatorMode = false;
             this.showTournamentHome();
         });
 
         // Rest of existing listeners remain the same...
-        if (!this.isSpectatorMode) {
+        if (!appState.isSpectatorMode) {
             document.getElementById('start-tournament-btn')?.addEventListener('click', () => {
-                this.startTournament(tournament.id);
+                startTournament(tournament.id);
             });
 
             document.getElementById('delete-tournament-btn')?.addEventListener('click', () => {
-                this.deleteTournament(tournament.id);
+                deleteTournament(tournament.id);
             });
 
             document.querySelectorAll('.confirm-match-btn').forEach(btn => {
@@ -550,7 +429,7 @@ export class TournamentUI {
                     const matchId = (e.target as HTMLElement).dataset.matchId;
                     if (matchId) {
                         console.log('Confirm button clicked for match:', matchId);
-                        await this.confirmMatch(tournament.id, matchId);
+                        await confirmMatch(tournament.id, matchId);
                     } else {
                         console.error('No match ID found on confirm button');
                     }
@@ -559,11 +438,11 @@ export class TournamentUI {
         } else {
             document.getElementById('join-as-participant-btn')?.addEventListener('click', async () => {
                 try {
-                    await this.joinTournament(tournament.id);
-                    this.isSpectatorMode = false;
+                    await joinTournament(tournament.id);
+                    appState.isSpectatorMode = false;
                     this.showTournamentView(tournament);
                 } catch (error) {
-                    this.showNotification('Failed to join tournament', 'error');
+                    showNotification('Failed to join tournament', 'error');
                 }
             });
         }
@@ -590,221 +469,8 @@ export class TournamentUI {
             });
         });
     }
-
-    async joinTournament(tournamentId: string): Promise<void> {
-        try {
-            const response = await fetch('/api/tournament/join', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ tournamentId })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || 'Failed to join tournament');
-            }
-
-            // Successfully joined, switch from spectator to participant mode
-            this.isSpectatorMode = false;
-            await this.openTournament(tournamentId);
-        } catch (error) {
-            console.error('Error joining tournament:', error);
-            this.showNotification('Failed to join tournament: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
-        }
-    }
     
-
-    async openTournament(tournamentId: string) {
-        try {
-            const response = await fetch(`/api/tournament/${tournamentId}`, {
-                credentials: 'include'
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to load tournament');
-            }
-
-            const tournament = await response.json();
-            this.showTournamentView(tournament);
-        } catch (error) {
-            console.error('Error opening tournament:', error);
-            alert('Failed to load tournament');
-        }
-    }
-
-    private async startTournament(tournamentId: string) {
-        try {
-            const response = await fetch('/api/tournament/start', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ tournamentId })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to start tournament');
-            }
-
-            // Refresh tournament view
-            await this.openTournament(tournamentId);
-        } catch (error) {
-            console.error('Error starting tournament:', error);
-            alert('Failed to start tournament');
-        }
-    }
-
-    async createTournament(name: string, maxPlayers: number): Promise<void> {
-        try {
-            const response = await fetch('/api/tournament/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ name, maxPlayers })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to create tournament');
-            }
-
-            const data = await response.json();
-            
-            // Load the created tournament
-            const tournamentResponse = await fetch(`/api/tournament/${data.tournamentId}`, {
-                credentials: 'include'
-            });
-            
-            this.connectWebSocket(data.tournamentId);
-
-            if (tournamentResponse.ok) {
-                const tournament = await tournamentResponse.json();
-                this.showTournamentView(tournament);
-            } else {
-                this.showTournamentHome();
-            }
-        } catch (error) {
-            console.error('Error creating tournament:', error);
-            this.showNotification('Failed to create tournament', 'error');
-        }
-    }
-
-    private async confirmMatch(tournamentId: string, matchId: string) {
-        try {
-            console.log(`Confirming match ${matchId} in tournament ${tournamentId}`);
-            
-            // Show loading state
-            const confirmButton = document.querySelector(`[data-match-id="${matchId}"]`) as HTMLButtonElement;
-            if (confirmButton) {
-                confirmButton.disabled = true;
-                confirmButton.textContent = 'CONFIRMING...';
-                confirmButton.classList.add('bg-gray-500');
-                confirmButton.classList.remove('bg-green-500');
-            }
-
-            const response = await fetch('/api/tournament/confirm-match', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ tournamentId, matchId })
-            });
-
-            const result = await response.json();
-
-            if (!response.ok) {
-                throw new Error(result.error || 'Failed to confirm match');
-            }
-
-            console.log('Match confirmed successfully:', result);
-            this.showNotification('Match confirmed successfully!', 'success');
-
-            // The UI will be updated via WebSocket, but if WebSocket is slow, 
-            // we can also manually refresh the tournament view
-            setTimeout(async () => {
-                try {
-                    const tournamentResponse = await fetch(`/api/tournament/${tournamentId}`, {
-                        credentials: 'include'
-                    });
-                    if (tournamentResponse.ok) {
-                        const updatedTournament = await tournamentResponse.json();
-                        this.currentTournament = updatedTournament;
-                        this.showTournamentView(updatedTournament);
-                    }
-                } catch (error) {
-                    console.error('Error refreshing tournament after confirmation:', error);
-                }
-            }, 1000);
-
-        } catch (error) {
-            console.error('Error confirming match:', error);
-            this.showNotification('Failed to confirm match: ' + (error instanceof Error ? error.message : 'Unknown error'), 'error');
-            
-            // Reset button state on error
-            const confirmButton = document.querySelector(`[data-match-id="${matchId}"]`) as HTMLButtonElement;
-            if (confirmButton) {
-                confirmButton.disabled = false;
-                confirmButton.textContent = 'CONFIRM';
-                confirmButton.classList.remove('bg-gray-500');
-                confirmButton.classList.add('bg-green-500');
-            }
-        }
-    }
-
-    private connectWebSocket(tournamentId: string) {
-        this.disconnectWebSocket();
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        this.ws = new WebSocket(`${protocol}//${window.location.host}/api/tournament/ws/${tournamentId}`);
-
-        this.ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            this.handleWebSocketMessage(data);
-        };
-
-        this.ws.onerror = (error) => {
-            console.error('Tournament WebSocket error:', error);
-        };
-
-        this.ws.onclose = () => {
-            console.log('Tournament WebSocket closed');
-        };
-    }
-
-    private disconnectWebSocket() {
-        if (this.ws) {
-            this.ws.close();
-            this.ws = null;
-        }
-    }
-
-    private showNotification(message: string, type: 'success' | 'error' | 'info' = 'info') {
-        const notification = document.createElement('div');
-        notification.className = `fixed top-4 right-4 z-50 p-4 border-thick shadow-sharp animate-pop max-w-sm ${
-            type === 'success' ? 'bg-green-500 text-white' :
-            type === 'error' ? 'bg-red-500 text-white' :
-            'bg-blue-500 text-white'
-        }`;
-        notification.innerHTML = `
-            <div class="flex justify-between items-center">
-                <span class="font-teko text-lg uppercase">${message}</span>
-                <button class="ml-4 text-white hover:text-gray-200 text-xl">&times;</button>
-            </div>
-        `;
-        
-        document.body.appendChild(notification);
-        
-        // Auto remove after 5 seconds
-        setTimeout(() => {
-            if (notification.parentNode) {
-                notification.remove();
-            }
-        }, 5000);
-        
-        // Manual close
-        notification.querySelector('button')?.addEventListener('click', () => {
-            notification.remove();
-        });
-    }
-
-    private handleWebSocketMessage(data: any) {
+    public handleWebSocketMessage(data: any) {
         console.log('Tournament WebSocket message received:', data);
         
         switch (data.type) {
@@ -832,14 +498,14 @@ export class TournamentUI {
                 break;
                 
             case 'match_ready':
-                this.showNotification('Your match is ready! Please confirm to start playing.', 'info');
+                showNotification('Your match is ready! Please confirm to start playing.', 'info');
                 if (this.currentTournament) {
                     this.refreshTournamentView();
                 }
                 break;
                 
             case 'match_confirmed':
-                this.showNotification('Match confirmation received!', 'success');
+                showNotification('Match confirmation received!', 'success');
                 if (this.currentTournament) {
                     this.refreshTournamentView();
                 }
@@ -847,7 +513,7 @@ export class TournamentUI {
                 
             case 'game_ready':
                 if (data.gameId && this.isPlayerInMatch(data.match)) {
-                    this.showNotification('Game starting! Redirecting...', 'success');
+                    showNotification('Game starting! Redirecting...', 'success');
                     setTimeout(() => {
                         if (this.currentTournament) {
                             startTournamentGame(data.gameId, this.currentUser?.id?.toString(), this.currentTournament.id);
@@ -863,10 +529,10 @@ export class TournamentUI {
 
     private handleTournamentDeleted(tournamentName: string) {
         // Show notification
-        this.showNotification(`Tournament "${tournamentName}" has been deleted by the host`, 'error');
+        showNotification(`Tournament "${tournamentName}" has been deleted by the host`, 'error');
         
         // Disconnect from WebSocket
-        this.disconnectWebSocket();
+        disconnectWebSocketTournament();
         
         // Clear current tournament
         this.currentTournament = null;
@@ -875,27 +541,6 @@ export class TournamentUI {
         setTimeout(() => {
             this.showTournamentHome();
         }, 2000);
-    }
-
-    async deleteTournament(tournamentId: string): Promise<void> {
-        try {
-            const response = await fetch('/api/tournament/delete', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ tournamentId })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to delete tournament');
-            }
-
-            this.showNotification('Tournament deleted successfully', 'success');
-            this.showTournamentHome();
-        } catch (error) {
-            console.error('Error deleting tournament:', error);
-            this.showNotification('Failed to delete tournament', 'error');
-        }
     }
 
     private isPlayerInMatch(match: any): boolean {
@@ -922,40 +567,9 @@ export class TournamentUI {
         }
     }
 
-
-    private getRoundName(roundNum: number, totalRounds: number): string {
-        const roundsFromEnd = totalRounds - roundNum + 1;
-        switch (roundsFromEnd) {
-            case 1: return 'FINAL';
-            case 2: return 'SEMI-FINAL';
-            case 3: return 'QUARTER-FINAL';
-            default: return `ROUND ${roundNum}`;
-        }
-    }
-
-    private getStatusColor(status: string): string {
-        switch (status) {
-            case 'waiting': return 'text-gray-500';
-            case 'confirming': return 'text-yellow-600';
-            case 'playing': return 'text-blue-600';
-            case 'finished': return 'text-green-600';
-            default: return 'text-gray-500';
-        }
-    }
-
-    private getStatusText(status: string): string {
-        switch (status) {
-            case 'waiting': return 'Waiting';
-            case 'confirming': return 'Confirming';
-            case 'playing': return 'Playing';
-            case 'finished': return 'Finished';
-            default: return status;
-        }
-    }
-
     public cleanup() {
-        this.disconnectWebSocket();
-        this.isSpectatorMode = false;
+        disconnectWebSocketTournament();
+        appState.isSpectatorMode = false;
         this.currentTournament = null;
     }
 
@@ -971,7 +585,7 @@ export class TournamentUI {
 
     setTournamentId(tournamentId: string) {
         // Load and show specific tournament
-        this.openTournament(tournamentId);
+        openTournament(tournamentId);
     }
 
     showBracket(tournament: Tournament) {

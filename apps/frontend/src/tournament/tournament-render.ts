@@ -2,7 +2,8 @@ import { appState } from '../state/state';
 import { showSection, showNotification } from '../services/ui'
 import { TournamentUI } from './tournament-ui';
 import { returnToMainMenu } from '../utils/tools';
-import { openTournamentFromHome } from './tournament-services';
+import { openTournamentFromHome, openTournament } from './tournament-services';
+import { Tournament, BracketMatch, TournamentPlayer } from '../../../../packages/common-types/src/tournament';
 
 export function showTournamentView(tournament: any) {
     showSection('tournament');
@@ -19,8 +20,6 @@ export function showTournamentView(tournament: any) {
     appState.tournamentUI!.showTournamentView(tournament);
 }
 
-
-
 export function returnToTournamentLobby() {
     try {
         console.log('Returning to tournament lobby...');
@@ -30,7 +29,7 @@ export function returnToTournamentLobby() {
             showSection('tournament');
             
             // Refresh the tournament view to get latest state
-            appState.tournamentUI.openTournament(appState.currentTournament.id);
+            openTournament(appState.currentTournament.id);
             showNotification('Returned to tournament lobby', 'info');
         } else {
             console.log('No tournament context available, returning to main menu');
@@ -292,4 +291,142 @@ export function renderActiveTournamentsList(containerId: string, showCreateButto
             }
         });
     });
+}
+
+export function renderPlayersView(tournament: Tournament): string {
+    return `
+        <div class="players-view">
+            <h2 class="text-3xl mb-4 text-outline-white">PLAYERS</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                ${tournament.players.map(player => `
+                    <div class="player-card bg-gray-100 p-4 border-thick">
+                        <h3 class="text-xl font-bold">${player.nickname}</h3>
+                        <p class="text-lg">Rating: ${player.rating}</p>
+                    </div>
+                `).join('')}
+                ${Array.from({length: tournament.maxPlayers - tournament.players.length}, (_, i) => `
+                    <div class="player-card bg-gray-300 p-4 border-thick border-dashed">
+                        <h3 class="text-xl text-gray-500">Waiting for player...</h3>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+}
+
+export function renderBracketView(tournament: Tournament): string {
+    if (!tournament.bracket.length) {
+        return '<div class="text-center p-8">No bracket available</div>';
+    }
+
+    // Group matches by round
+    const rounds: { [round: number]: BracketMatch[] } = {};
+    tournament.bracket.forEach(match => {
+        if (!rounds[match.round]) rounds[match.round] = [];
+        rounds[match.round].push(match);
+    });
+
+    const roundNumbers = Object.keys(rounds).map(r => parseInt(r)).sort((a, b) => a - b);
+
+    return `
+        <div class="bracket-view">
+            <h2 class="text-3xl mb-4 text-outline-white">TOURNAMENT BRACKET</h2>
+            <div class="bracket-container overflow-x-auto">
+                <div class="flex gap-8 min-w-max">
+                    ${roundNumbers.map(roundNum => `
+                        <div class="round-column min-w-64">
+                            <h3 class="text-xl font-bold text-center mb-4">
+                                ${getRoundName(roundNum, roundNumbers.length)}
+                            </h3>
+                            <div class="space-y-4">
+                                ${rounds[roundNum].map(match => renderMatch(match)).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+export function renderMatch(match: BracketMatch): string {
+    const isCurrentUserMatch = !appState.isSpectatorMode && 
+                                (match.player1?.id === appState.currentUser?.id?.toString() || 
+                                match.player2?.id === appState.currentUser?.id?.toString());
+    const needsConfirmation = match.status === 'confirming' && isCurrentUserMatch && 
+                            !match.confirmations.includes(appState.currentUser?.id?.toString());
+
+    return `
+        <div class="match-card bg-white border-thick p-4 ${match.status === 'playing' ? 'bg-yellow-100' : ''}">
+            <div class="match-players">
+                <div class="player ${match.winner?.id === match.player1?.id ? 'winner' : ''}">
+                    <span class="font-bold">${match.player1?.nickname || 'TBD'}</span>
+                </div>
+                <div class="text-center text-sm">VS</div>
+                <div class="player ${match.winner?.id === match.player2?.id ? 'winner' : ''}">
+                    <span class="font-bold">${match.player2?.nickname || 'TBD'}</span>
+                </div>
+            </div>
+            
+            <div class="match-status mt-2 text-center">
+                <span class="text-sm ${getStatusColor(match.status)}">${getStatusText(match.status)}</span>
+            </div>
+
+            ${needsConfirmation ? `
+                <div class="text-center mt-2">
+                    <button class="confirm-match-btn bg-green-500 text-white py-1 px-3 text-sm border-thick hover-anarchy" 
+                            data-match-id="${match.id}">
+                        CONFIRM
+                    </button>
+                </div>
+            ` : ''}
+
+            ${match.status === 'playing' && match.gameId ? `
+                <div class="text-center mt-2">
+                    ${isCurrentUserMatch ? `
+                        <button class="join-game-btn bg-blue-500 text-white py-1 px-3 text-sm border-thick hover-anarchy" 
+                                data-game-id="${match.gameId}">
+                            JOIN GAME
+                        </button>
+                    ` : appState.isSpectatorMode ? `
+                        <button class="spectate-game-btn bg-purple-500 text-white py-1 px-3 text-sm border-thick hover-anarchy" 
+                                data-game-id="${match.gameId}">
+                            SPECTATE
+                        </button>
+                    ` : ''}
+                </div>
+            ` : ''}
+        </div>
+    `;
+}
+
+
+function getRoundName(roundNum: number, totalRounds: number): string {
+    const roundsFromEnd = totalRounds - roundNum + 1;
+    switch (roundsFromEnd) {
+        case 1: return 'FINAL';
+        case 2: return 'SEMI-FINAL';
+        case 3: return 'QUARTER-FINAL';
+        default: return `ROUND ${roundNum}`;
+    }
+}
+
+function getStatusColor(status: string): string {
+    switch (status) {
+        case 'waiting': return 'text-gray-500';
+        case 'confirming': return 'text-yellow-600';
+        case 'playing': return 'text-blue-600';
+        case 'finished': return 'text-green-600';
+        default: return 'text-gray-500';
+    }
+}
+
+function getStatusText(status: string): string {
+    switch (status) {
+        case 'waiting': return 'Waiting';
+        case 'confirming': return 'Confirming';
+        case 'playing': return 'Playing';
+        case 'finished': return 'Finished';
+        default: return status;
+    }
 }

@@ -2,7 +2,7 @@ import { appState } from '../state/state';
 import { TournamentUI } from '../tournament/tournament-ui';
 import { showSection } from '../services/ui';
 import { cleanupCurrentGame } from '../game/game-manager';
-import { cleanupTournamentUI } from '../tournament/tournament-services';
+import { cleanupTournamentUI, openTournament } from '../tournament/tournament-services';
 
 
 export function returnToMainMenu() {
@@ -33,7 +33,7 @@ export function returnToMainMenu() {
                 }
             }
 
-            appState.tournamentUI.openTournament(tournamentId).catch((error) => {
+            openTournament(tournamentId).catch((error) => {
                 console.error('Failed to restore tournament view, returning to main menu:', error);
                 proceedToMainMenu();
             });

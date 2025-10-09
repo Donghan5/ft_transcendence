@@ -2,6 +2,7 @@ import { appState } from '../state/state';
 import { renderActiveTournamentsList } from './tournament-render';
 
 let isConnectingOrConnected = false;
+let tournamentWs: WebSocket | null = null;
 
 export function connectActiveTournamentsSocket() {
     if (isConnectingOrConnected) {
@@ -65,4 +66,30 @@ export function connectActiveTournamentsSocket() {
         console.error('[Global] Active tournaments WebSocket error:', error);
         isConnectingOrConnected = false;
     };
+}
+
+export function connectWebSocketTournament(tournamentId: string, onMessageCallback: (data: any) => void) {
+    disconnectWebSocketTournament();
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    tournamentWs = new WebSocket(`${protocol}//${window.location.host}/api/tournament/ws/${tournamentId}`);
+
+    tournamentWs.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        onMessageCallback(data);
+    };
+
+    tournamentWs.onerror = (error) => {
+        console.error('Tournament WebSocket error:', error);
+    };
+
+    tournamentWs.onclose = () => {
+        console.log('Tournament WebSocket closed');
+    };
+}
+
+export function disconnectWebSocketTournament() {
+    if (tournamentWs) {
+        tournamentWs.close();
+        tournamentWs = null;
+    }
 }
