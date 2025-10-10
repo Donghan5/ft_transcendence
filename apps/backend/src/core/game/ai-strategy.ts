@@ -19,6 +19,16 @@ class AiStrategy {
 	private hasTarget: boolean = false;
 	private targetZ: number = 0;
 
+	private decideReactionThreshold(level: any): void {
+		if (level === AI_LEVEL.EASY) {
+			this.reactionThresholdX = 6;
+		} else if (level === AI_LEVEL.MIDDLE) {
+			this.reactionThresholdX = 4;
+		} else {
+			this.reactionThresholdX = 2;
+		}
+	}
+
 	/**
 	 * @description Make the decision of next AI state based on the current game state
 	 * @param game: current game state
@@ -44,10 +54,17 @@ class AiStrategy {
 			let finalTargetZ = perfectTargetZ;
 
 			if (Math.random() < level.mistakeChance) {
-				const maxError = (1 - level.accuracy) * 15;
-				const error = (Math.random() - 0.5) * maxError;
-				finalTargetZ += error;
+				console.log("AI decided to make a mistake!");
+				const mistakeDirection = perfectTargetZ > 0 ? -1 : 1;
+				finalTargetZ = perfectTargetZ + (mistakeDirection * PADDLE_DEPTH * 0.9);
+			} else {
+				if (Math.random() < level.mistakeChance) {
+					const maxError = (1 - level.accuracy) * 15;
+					const error = (Math.random() - 0.5) * maxError;
+					finalTargetZ += error;
+				}
 			}
+
 
 			this.targetZ = finalTargetZ;
 			this.hasTarget = true;
@@ -127,6 +144,8 @@ class AiStrategy {
 		const levelKey = (game.aiLevel?.toUpperCase() || 'MIDDLE') as keyof typeof AI_LEVEL;
 		const level = AI_LEVEL[levelKey];
 
+		this.decideReactionThreshold(level);
+
 		if (game.ball.velocity.x > 0 && game.ball.position.x < this.reactionThresholdX) {
 			this.executeCentering(game, level);
 		} else {
@@ -147,7 +166,7 @@ class AiStrategy {
 			}
 		}
 
-		const paddleLimit = 13;
+		const paddleLimit = 16;
 		if (game.player2.paddleZ > paddleLimit) game.player2.paddleZ = paddleLimit;
 		if (game.player2.paddleZ < -paddleLimit) game.player2.paddleZ = -paddleLimit;
 	}
