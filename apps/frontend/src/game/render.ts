@@ -37,6 +37,13 @@ import {
     INTERPOLATION_DELAY
 } from "@trans/common-types";
 
+
+/**
+ * Function lists
+ * showCountDownDisplay (feature changed)
+ * hideCountDownDisplay (feature changed)
+ * onGameEnd (feature changed)
+ */
 export class PongGame3D {
     private engine: Engine;
     private scene: Scene;
@@ -106,6 +113,23 @@ export class PongGame3D {
         this.resizeHandler = () => this.engine.resize();
         window.addEventListener('resize', this.resizeHandler);
     }
+
+    public updatePlayerAvatars(player1Avatar?: string, player2Avatar?: string): void {
+        if (player1Avatar) {
+            const p1AvatarEl = document.getElementById('player1-avatar') as HTMLImageElement;
+            if (p1AvatarEl) {
+                p1AvatarEl.src = player1Avatar + '?t=' + new Date().getTime();
+            }
+        }
+        
+        if (player2Avatar) {
+            const p2AvatarEl = document.getElementById('player2-avatar') as HTMLImageElement;
+            if (p2AvatarEl) {
+                p2AvatarEl.src = player2Avatar + '?t=' + new Date().getTime();
+            }
+        }
+    }
+
 
     private detectCollisions(): void {
         if (!this.previousBallPosition) return;
@@ -373,11 +397,36 @@ export class PongGame3D {
 
     private updateScoreDisplay(): void {
         if (!this.state) return;
-        if (this.player1NameEl && this.player1ScoreEl && this.player2NameEl && this.player2ScoreEl) {
+        
+        // Update names
+        if (this.player1NameEl) {
             this.player1NameEl.textContent = this.state.player1.nickname || 'Player 1';
-            this.player1ScoreEl.textContent = this.state.player1.score.toString();
+        }
+        if (this.player2NameEl) {
             this.player2NameEl.textContent = this.state.player2.nickname || 'Player 2';
+        }
+        
+        // Update scores
+        if (this.player1ScoreEl) {
+            this.player1ScoreEl.textContent = this.state.player1.score.toString();
+        }
+        if (this.player2ScoreEl) {
             this.player2ScoreEl.textContent = this.state.player2.score.toString();
+        }
+        
+        // Update avatars if they're provided in the game state
+        if (this.state.player1.avatarUrl) {
+            const p1Avatar = document.getElementById('player1-avatar') as HTMLImageElement;
+            if (p1Avatar && p1Avatar.src !== this.state.player1.avatarUrl) {
+                p1Avatar.src = this.state.player1.avatarUrl + '?t=' + new Date().getTime();
+            }
+        }
+        
+        if (this.state.player2.avatarUrl) {
+            const p2Avatar = document.getElementById('player2-avatar') as HTMLImageElement;
+            if (p2Avatar && p2Avatar.src !== this.state.player2.avatarUrl) {
+                p2Avatar.src = this.state.player2.avatarUrl + '?t=' + new Date().getTime();
+            }
         }
     }
 
@@ -515,6 +564,374 @@ export class PongGame3D {
         }, 600);
     }
 
+    private showCountdownSpotlight(playerSide: 'player1' | 'player2' | 'both' = 'both', count: number) {
+        // Enhanced local play detection
+        const isLocalPlay = this.gameMode === 'LOCAL_PVP' || this.gameMode === 'quick';
+        
+        // DEBUG: Log to console so we can see what's happening
+        console.log(`[COUNTDOWN DEBUG] gameMode="${this.gameMode}", isLocalPlay=${isLocalPlay}, playerSide="${playerSide}"`);
+        
+        // Force 'both' mode for local play
+        if (isLocalPlay && playerSide !== 'both') {
+            console.log('[COUNTDOWN] Forcing playerSide to "both" for local play');
+            playerSide = 'both';
+        }
+        
+        // SKIP "GO!" - When count hits 0, just hide everything
+        if (count === 0) {
+            console.log('[COUNTDOWN] Count is 0, hiding countdown (no GO!)');
+            this.hideCountdownSpotlight();
+            return;
+        }
+        
+        // Check if this is the first call
+        const isFirstCall = count === 3 || !document.getElementById('countdown-spotlight-overlay');
+        
+        if (isFirstCall) {
+            // First time - create everything
+            this.hideCountdownSpotlight();
+            
+            // Create main overlay container with DARK BACKGROUND
+            const overlay = document.createElement('div');
+            overlay.id = 'countdown-spotlight-overlay';
+            overlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.75);
+                pointer-events: none;
+                z-index: 9999;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-family: 'Anton', sans-serif;
+            `;
+            
+            // Function to create a side panel
+            const createSidePanel = (side: 'left' | 'right', color: string, playerNum: 1 | 2, playerName: string) => {
+                const panel = document.createElement('div');
+                panel.className = 'countdown-panel';
+                
+                const isLeft = side === 'left';
+                const rotation = isLeft ? '-2deg' : '2deg';
+                
+                panel.style.cssText = `
+                    position: absolute;
+                    ${isLeft ? 'left: 5%' : 'right: 5%'};
+                    top: 50%;
+                    transform: translateY(-50%) rotate(${rotation});
+                    width: 280px;
+                    z-index: 10001;
+                    opacity: 0;
+                `;
+                
+                panel.innerHTML = `
+                    <div style="
+                        position: absolute;
+                        ${isLeft ? 'right: -30px' : 'left: -30px'};
+                        top: 50%;
+                        transform: translateY(-50%);
+                        width: 0;
+                        height: 0;
+                        border-top: 20px solid transparent;
+                        border-bottom: 20px solid transparent;
+                        ${isLeft ? 
+                            `border-left: 30px solid ${color};` : 
+                            `border-right: 30px solid ${color};`
+                        }
+                    "></div>
+                    
+                    <div style="
+                        background: ${color};
+                        border: 6px solid black;
+                        padding: 2rem 1.5rem;
+                        box-shadow: 8px 8px 0 rgba(0,0,0,0.8);
+                        position: relative;
+                    ">
+                        <div style="
+                            font-size: 2.5rem;
+                            color: white;
+                            font-weight: bold;
+                            text-align: center;
+                            text-shadow: 4px 4px 0 black;
+                            margin-bottom: 1rem;
+                            text-transform: uppercase;
+                        ">${playerName}</div>
+                    </div>
+                `;
+                
+                panel.animate([
+                    { 
+                        transform: `translateY(-50%) translateY(-100px) rotate(${rotation})`,
+                        opacity: '0'
+                    },
+                    { 
+                        transform: `translateY(-50%) translateY(20px) rotate(${rotation})`,
+                        opacity: '1',
+                        offset: 0.6
+                    },
+                    { 
+                        transform: `translateY(-50%) translateY(0) rotate(${rotation})`,
+                        opacity: '1'
+                    }
+                ], {
+                    duration: 600,
+                    easing: 'ease-out',
+                    fill: 'forwards'
+                });
+                
+                return panel;
+            };
+            
+            // Add side panels based on player side
+            if (playerSide === 'both' || playerSide === 'player1') {
+                const player1Label = isLocalPlay ? 'PLAYER 1' : 'YOU';
+                const leftPanel = createSidePanel('left', '#FF69B4', 1, player1Label);
+                overlay.appendChild(leftPanel);
+            }
+            
+            if (playerSide === 'both' || playerSide === 'player2') {
+                const player2Label = isLocalPlay ? 'PLAYER 2' : 'YOU';
+                const rightPanel = createSidePanel('right', '#4169E1', 2, player2Label);
+                overlay.appendChild(rightPanel);
+            }
+            
+            // Add CONTROLS AT BOTTOM
+            const controlsBottom = document.createElement('div');
+            controlsBottom.className = 'countdown-controls-bottom';
+            
+            controlsBottom.style.cssText = `
+                position: fixed !important;
+                bottom: 5% !important;
+                left: 50% !important;
+                transform: translateX(-50%) !important;
+                z-index: 10001 !important;
+                opacity: 1 !important;
+                animation: none !important;
+            `;
+            
+            if (isLocalPlay) {
+                controlsBottom.innerHTML = `
+                    <div style="
+                        background: white;
+                        border: 6px solid black;
+                        padding: 20px 40px;
+                        box-shadow: 8px 8px 0 rgba(0,0,0,0.8);
+                        display: flex;
+                        gap: 4rem;
+                        align-items: center;
+                    ">
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <div style="
+                                font-size: 1.2rem;
+                                font-weight: bold;
+                                color: #FF69B4;
+                                text-shadow: 2px 2px 0 black;
+                            ">PLAYER 1</div>
+                            <div style="display: flex; gap: 10px;">
+                                <div style="
+                                    background: #FF69B4;
+                                    border: 3px solid black;
+                                    padding: 8px 16px;
+                                    font-size: 1.5rem;
+                                    font-weight: bold;
+                                    color: white;
+                                    text-shadow: 2px 2px 0 black;
+                                    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+                                ">W</div>
+                                <div style="
+                                    background: #FF69B4;
+                                    border: 3px solid black;
+                                    padding: 8px 16px;
+                                    font-size: 1.5rem;
+                                    font-weight: bold;
+                                    color: white;
+                                    text-shadow: 2px 2px 0 black;
+                                    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+                                ">S</div>
+                            </div>
+                        </div>
+                        
+                        <div style="
+                            font-size: 3rem;
+                            font-weight: bold;
+                            color: black;
+                            text-shadow: 3px 3px 0 #FCD34D;
+                        ">VS</div>
+                        
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+                            <div style="
+                                font-size: 1.2rem;
+                                font-weight: bold;
+                                color: #4169E1;
+                                text-shadow: 2px 2px 0 black;
+                            ">PLAYER 2</div>
+                            <div style="display: flex; gap: 10px;">
+                                <div style="
+                                    background: #4169E1;
+                                    border: 3px solid black;
+                                    padding: 8px 16px;
+                                    font-size: 1.5rem;
+                                    font-weight: bold;
+                                    color: white;
+                                    text-shadow: 2px 2px 0 black;
+                                    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+                                ">↑</div>
+                                <div style="
+                                    background: #4169E1;
+                                    border: 3px solid black;
+                                    padding: 8px 16px;
+                                    font-size: 1.5rem;
+                                    font-weight: bold;
+                                    color: white;
+                                    text-shadow: 2px 2px 0 black;
+                                    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
+                                ">↓</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                const keys = playerSide === 'player1' ? 'W / S' : '↑ / ↓';
+                controlsBottom.innerHTML = `
+                    <div style="
+                        background: white;
+                        border: 6px solid black;
+                        padding: 20px 40px;
+                        box-shadow: 8px 8px 0 rgba(0,0,0,0.8);
+                    ">
+                        <div style="
+                            font-size: 2rem;
+                            color: black;
+                            font-weight: bold;
+                            text-align: center;
+                        ">CONTROLS: <span style="color: #4169E1; text-shadow: 2px 2px 0 white;">${keys}</span></div>
+                    </div>
+                `;
+            }
+            
+            overlay.appendChild(controlsBottom);
+            document.body.appendChild(overlay);
+            
+            if (isLocalPlay) {
+                const bannerDiv = document.createElement('div');
+                bannerDiv.className = 'countdown-banner';
+                bannerDiv.style.cssText = `
+                    position: fixed;
+                    top: 8%;
+                    left: 50%;
+                    transform: translateX(-50%) rotate(-2deg);
+                    z-index: 10002;
+                    pointer-events: none;
+                `;
+                
+                bannerDiv.innerHTML = `
+                    <div style="
+                        background: #FCD34D;
+                        border: 6px solid black;
+                        padding: 1rem 3rem;
+                        box-shadow: 8px 8px 0 rgba(0,0,0,0.8);
+                        position: relative;
+                    ">
+                        <div style="
+                            font-size: 2.5rem;
+                            color: black;
+                            font-weight: bold;
+                            text-transform: uppercase;
+                            letter-spacing: 3px;
+                            text-shadow: 3px 3px 0 white;
+                        ">LOCAL BATTLE!</div>
+                        
+                        <div style="
+                            position: absolute;
+                            top: -6px;
+                            right: -6px;
+                            width: 30px;
+                            height: 30px;
+                            background: linear-gradient(135deg, black 50%, #FCD34D 50%);
+                            border-left: 6px solid black;
+                            border-bottom: 6px solid black;
+                        "></div>
+                    </div>
+                `;
+                
+                document.body.appendChild(bannerDiv);
+                
+                bannerDiv.animate([
+                    { opacity: '0', transform: 'translateX(-50%) translateY(-50px) rotate(-2deg)' },
+                    { opacity: '1', transform: 'translateX(-50%) translateY(0) rotate(-2deg)' }
+                ], {
+                    duration: 500,
+                    easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                    fill: 'forwards'
+                });
+            }
+        }
+        
+        // Update countdown number (only for 3, 2, 1 - never 0)
+        const oldCountdown = document.getElementById('countdown-number');
+        if (oldCountdown) {
+            oldCountdown.remove();
+        }
+        
+        const countdownDiv = document.createElement('div');
+        countdownDiv.id = 'countdown-number';
+        countdownDiv.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 10002;
+        `;
+        
+        const displayNumber = count.toString();
+        const finalRotation = '-2deg';
+        
+        countdownDiv.innerHTML = `
+            <div style="
+                background: white;
+                border: 8px solid black;
+                padding: 3rem 5rem;
+                box-shadow: 12px 12px 0 rgba(0,0,0,0.8);
+                transform: rotate(${finalRotation});
+                position: relative;
+            ">
+                <div style="
+                    font-size: 10rem;
+                    color: black;
+                    font-weight: bold;
+                    text-shadow: 6px 6px 0 #FCD34D;
+                    line-height: 1;
+                ">${displayNumber}</div>
+            </div>
+        `;
+        
+        document.body.appendChild(countdownDiv);
+        
+        // Instant appearance + subtle frame rotation
+        countdownDiv.animate([
+            { 
+                transform: `translate(-50%, -50%) rotate(-7deg)`,
+                opacity: '1'
+            },
+            { 
+                transform: `translate(-50%, -50%) rotate(-4deg)`,
+                opacity: '1',
+                offset: 0.5
+            },
+            { 
+                transform: `translate(-50%, -50%) rotate(${finalRotation})`,
+                opacity: '1'
+            }
+        ], {
+            duration: 300,
+        easing: 'ease-out',
+        fill: 'forwards'
+    });
+}
+
     private onGameEnd(data: { winnerNickname: string, winnerId: string, finalScore: any }): void {
         if (this.gameEndHandled) {
             console.log('[DEBUG] Game end already handled, ignoring duplicate event');
@@ -540,6 +957,63 @@ export class PongGame3D {
             winnerMessage.textContent = `${data.winnerNickname} wins!`;
             modal.classList.remove('hidden');
         }
+    }
+
+    // Also update the highlightPlayerPaddle method for cleaner effect
+    // Where is it called?
+    private highlightPlayerPaddle(playerSide: 'player1' | 'player2') {
+        if (this.gameMode === 'spectator') return;
+        
+        const color = playerSide === 'player1' ? '#3B82F6' : '#EF4444';
+        const paddleMesh = playerSide === 'player1' ? this.player1Paddle : this.player2Paddle;
+        
+        if (!paddleMesh) return;
+
+        const glowMaterial = new StandardMaterial(`${playerSide}-glow`, this.scene);
+        glowMaterial.diffuseColor = Color3.FromHexString(color);
+        glowMaterial.emissiveColor = Color3.FromHexString(color).scale(0.3);
+        
+        const originalMaterial = paddleMesh.material;
+        paddleMesh.material = glowMaterial;
+        
+        let pulseValue = 0;
+        const pulseInterval = setInterval(() => {
+            pulseValue += 0.1;
+            const intensity = 0.3 + Math.sin(pulseValue) * 0.2;
+            glowMaterial.emissiveColor = Color3.FromHexString(color).scale(intensity);
+        }, 50);
+        
+        (this as any)._paddleHighlightCleanup = () => {
+            clearInterval(pulseInterval);
+            if (paddleMesh && originalMaterial) {
+                paddleMesh.material = originalMaterial;
+            }
+        };
+        
+        setTimeout(() => {
+            if ((this as any)._paddleHighlightCleanup) {
+                (this as any)._paddleHighlightCleanup();
+                delete (this as any)._paddleHighlightCleanup;
+            }
+        }, 3000);
+    }
+
+    private hideCountdownSpotlight() {
+        const overlay = document.getElementById('countdown-spotlight-overlay');
+        
+        // // If overlay has "keep alive" flag, don't hide it yet (GO! is showing)
+        // if (overlay && overlay.getAttribute('data-keep-alive') === 'true') {
+        //     console.log('[COUNTDOWN] Keep alive flag set, not hiding yet');
+        //     return;
+        // }
+        
+        if (overlay) overlay.remove();
+        
+        const countdown = document.getElementById('countdown-number');
+        if (countdown) countdown.remove();
+        
+        // Remove all countdown-related elements
+        document.querySelectorAll('.countdown-panel, .countdown-banner, .countdown-controls-bottom').forEach(el => el.remove());
     }
 
     public dispose(): void {
