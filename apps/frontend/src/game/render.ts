@@ -253,15 +253,32 @@ export class PongGame3D {
 
     private setupConnectionHandlers(): void {
         this.connection.on('gameState', (newState: GameState) => {
+            if (newState.status === 'playing') {
+                this.hideWaitingForOpponent();
+                this.hideCountdownSpotlight();
+            }
+            
+            if (newState.status === 'countdown') {
+                this.hideWaitingForOpponent();
+                
+                // Determine which paddle(s) to highlight
+                let highlightMode: 'player1' | 'player2' | 'both';
+                if (this.gameMode === 'LOCAL_PVP') {
+                    highlightMode = 'both';
+                } else {
+                    highlightMode = this.localPlayerId === newState.player1Id ? 'player1' : 'player2';
+                }
+                
+                if (newState.countdownValue !== undefined) {
+                    this.showCountdownSpotlight(highlightMode, newState.countdownValue!);
+                }
+            }
+            
             this.previousState = this.state ? { ...this.state } : newState;
             this.state = newState;
             this.lastStateTimestamp = Date.now();
             this.updateScoreDisplay();
-            if (newState.status === 'countdown') {
-                this.updateCountDownDisplay(newState.countdownValue);
-            } else {
-                this.hideCountDownDisplay();
-            }
+            
             if (this.previousState && (this.previousState.player1.score !== newState.player1.score || this.previousState.player2.score !== newState.player2.score)) {
                 this.updateScoreDisplay();
                 this.onScoreUpdate();
@@ -274,6 +291,236 @@ export class PongGame3D {
         this.connection.on('error', (errorMsg: string) => {
             console.error('Connection error:', errorMsg);
         });
+        this.connection.on('waitingForOpponent', (playerSide: 'player1' | 'player2') => {
+            this.showWaitingForOpponent(playerSide);
+        });
+
+        this.connection.on('playerJoined', (joinedPlayerId: string) => {
+            this.hideWaitingForOpponent();
+        });
+
+        this.connection.on('connectionLost', () => {
+            this.hideWaitingForOpponent();
+            this.removePaddleHighlight();
+        });
+    }
+
+    private removePaddleHighlight() {
+        if ((this as any)._paddleHighlightCleanup) {
+            (this as any)._paddleHighlightCleanup();
+            delete (this as any)._paddleHighlightCleanup;
+        }
+    }
+
+
+    private showWaitingForOpponent(playerSide: 'player1' | 'player2') {
+        this.hideWaitingForOpponent();
+        
+        const isSpectator = this.gameMode === 'spectator';
+        const isLocalMode = this.gameMode === 'LOCAL_PVP';
+        
+        const overlay = document.createElement('div');
+        overlay.id = 'waiting-opponent-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background-image: 
+                repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.05) 10px, rgba(255,255,255,.05) 20px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            font-family: 'Anton', sans-serif;
+        `;
+        
+        if (isLocalMode) {
+            overlay.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="
+                        background: white;
+                        border: 8px solid black;
+                        padding: 3rem 4rem;
+                        box-shadow: 12px 12px 0 rgba(0,0,0,0.5);
+                        transform: rotate(-2deg);
+                        margin-bottom: 3rem;
+                    ">
+                        <h1 style="
+                            font-size: 4rem; 
+                            color: black; 
+                            text-transform: uppercase;
+                            letter-spacing: 4px;
+                            margin: 0;
+                            text-shadow: 4px 4px 0 #FCD34D;
+                        ">
+                            QUICK GAME!
+                        </h1>
+                    </div>
+                    
+                    <div style="display: flex; gap: 4rem; justify-content: center; align-items: center;">
+                        <div style="text-align: center;">
+                            <div style="
+                                background: #FF69B4;
+                                border: 6px solid black;
+                                padding: 2rem;
+                                box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
+                                margin-bottom: 1rem;
+                            ">
+                                <div style="font-size: 3rem; color: white; font-weight: bold; text-shadow: 3px 3px 0 black;">PINK</div>
+                            </div>
+                            <div style="
+                                background: white;
+                                border: 4px solid black;
+                                padding: 1rem;
+                                font-size: 1.5rem;
+                                font-weight: bold;
+                            ">
+                                W / S
+                            </div>
+                        </div>
+                        
+                        <div style="text-align: center;">
+                            <div style="
+                                background: #4169E1;
+                                border: 6px solid black;
+                                padding: 2rem;
+                                box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
+                                margin-bottom: 1rem;
+                            ">
+                                <div style="font-size: 3rem; color: white; font-weight: bold; text-shadow: 3px 3px 0 black;">BLUE</div>
+                            </div>
+                            <div style="
+                                background: white;
+                                border: 4px solid black;
+                                padding: 1rem;
+                                font-size: 1.5rem;
+                                font-weight: bold;
+                            ">
+                                ↑ / ↓
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (isSpectator) {
+            overlay.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="
+                        background: white;
+                        border: 8px solid black;
+                        padding: 3rem 4rem;
+                        box-shadow: 12px 12px 0 rgba(0,0,0,0.5);
+                        transform: rotate(-2deg);
+                        margin-bottom: 2rem;
+                    ">
+                        <h1 style="
+                            font-size: 4rem; 
+                            color: black; 
+                            text-transform: uppercase;
+                            letter-spacing: 4px;
+                            margin: 0;
+                            text-shadow: 4px 4px 0 #FCD34D;
+                        ">
+                            WAITING...
+                        </h1>
+                    </div>
+                    
+                    <div style="
+                        background: #FCD34D;
+                        border: 6px solid black;
+                        padding: 1.5rem 2rem;
+                        box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
+                        transform: rotate(1deg);
+                        font-size: 1.5rem;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                    ">
+                        FOR PLAYERS TO CONNECT
+                    </div>
+                    
+                    <p style="font-size: 1rem; color: white; margin-top: 2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+                        Press ESC to return to tournament
+                    </p>
+                </div>
+            `;
+        } else {
+            const sideColor = playerSide === 'player1' ? '#FF69B4' : '#4169E1';
+            const sideName = playerSide === 'player1' ? 'PINK' : 'BLUE';
+            
+            overlay.innerHTML = `
+                <div style="text-align: center;">
+                    <div style="
+                        background: white;
+                        border: 8px solid black;
+                        padding: 3rem 4rem;
+                        box-shadow: 12px 12px 0 rgba(0,0,0,0.5);
+                        transform: rotate(-2deg);
+                        margin-bottom: 2rem;
+                    ">
+                        <h1 style="
+                            font-size: 4rem; 
+                            color: black; 
+                            text-transform: uppercase;
+                            letter-spacing: 4px;
+                            margin: 0;
+                            text-shadow: 4px 4px 0 #FCD34D;
+                        ">
+                            WAITING...
+                        </h1>
+                    </div>
+                    
+                    <div style="
+                        background: ${sideColor};
+                        border: 6px solid black;
+                        padding: 1.5rem 2rem;
+                        box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
+                        transform: rotate(1deg);
+                        margin-bottom: 2rem;
+                    ">
+                        <div style="
+                            font-size: 2.5rem;
+                            color: white;
+                            font-weight: bold;
+                            text-transform: uppercase;
+                            text-shadow: 3px 3px 0 black;
+                        ">
+                            YOU ARE ${sideName}
+                        </div>
+                    </div>
+                    
+                    <div style="
+                        background: #FCD34D;
+                        border: 6px solid black;
+                        padding: 1.5rem 2rem;
+                        box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
+                        transform: rotate(-1deg);
+                        font-size: 1.5rem;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                    ">
+                        WAITING FOR OPPONENT
+                    </div>
+                    
+                    <p style="font-size: 1rem; color: white; margin-top: 2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+                        Press ESC to forfeit and return
+                    </p>
+                </div>
+            `;
+        }
+        
+        document.body.appendChild(overlay);
+    }
+
+    private hideWaitingForOpponent() {
+        const overlay = document.getElementById('waiting-opponent-overlay');
+        if (overlay) overlay.remove();
+        
+        const styles = document.getElementById('waiting-screen-styles');
+        if (styles) styles.remove();
     }
 
     private updateCountDownDisplay(count: number | undefined): void {

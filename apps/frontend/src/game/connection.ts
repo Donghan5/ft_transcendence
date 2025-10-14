@@ -1,6 +1,7 @@
 export interface ConnectionEvenets {
 	'gameState': (gameState: any) => void;     // => is return type | like lambda ?
 	'playerJoined': (playerId: string) => void;
+	'waitingForOpponent': (playerSide: 'player1' | 'player2') => void;
 	'playerLeft': (playerId: string) => void;
 	'updateScore': (scores: { player1: number, player2: number }) => void;
 	'gameEnd': (data: { winnerId: string, winnerNickname: string, finalScore: { player1: number, player2: number }}) => void;
@@ -106,6 +107,9 @@ export class Connection {
 				break;
 			case 'playerJoined':
 				this.emit('playerJoined', data.playerId);
+				break;
+			case 'waitingForOpponent':
+				this.emit('waitingForOpponent', data.playerSide);
 				break;
 			case 'playerLeft':
 				this.emit('playerLeft', data.playerId);

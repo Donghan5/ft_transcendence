@@ -10,6 +10,7 @@ export interface AppState {
   currentGame: PongGame3D | null;
   currentGameId: string | null;
   currentTournament: any | null;
+  currentTournamentId: string | null;
   tournamentUI: TournamentUI | null;
   isSpectatorMode: boolean;
   matchmakingWs: WebSocket | null;
@@ -34,6 +35,7 @@ export const appState: AppState = (() => {
     currentGame: null,
     currentGameId: null,
     currentTournament: null,
+    currentTournamentId: null,
     tournamentUI: null,
     isSpectatorMode: false,
     matchmakingWs: null,

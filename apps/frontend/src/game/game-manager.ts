@@ -102,43 +102,67 @@ export function showGameScreen() {
 /**
  * @description Enhanced startGame function to properly set tournament context
  */
-export function startGame(gameId: string, playerId: string, gameMode: string, tournamentId?: string) {
-    showGameScreen();
-    console.log(`Starting initialize game... GameID: ${gameId}, PlayerID: ${playerId}, Mode: ${gameMode}`);
-
-    // Track current game mode and spectator status
+export async function startGame(
+    gameId: string,
+    playerId: string,
+    gameMode: string, 
+    tournamentId?: string,
+    player1Avatar?: string,
+    player2Avatar?: string,
+    player1Nickname?: string,
+    player2Nickname?: string
+) {
+    console.log(`Starting game: ${gameId}, Player: ${playerId}, Mode: ${gameMode}`);
+    
+    appState.currentGameId = gameId;
     appState.currentGameMode = gameMode;
-    appState.isSpectatorMode = gameMode === 'spectator';
-
-    // For tournament games, ensure we have tournament context
-    if (gameMode === 'tournament' && tournamentId) {
-        // Store tournament ID for later retrieval
-        localStorage.setItem('currentTournamentId', tournamentId);
-        console.log(`Tournament game started, stored tournament ID: ${tournamentId}`);
+    
+    if (tournamentId) {
+        appState.currentTournamentId = tournamentId;
+        console.log(`Game is part of tournament: ${tournamentId}`);
     }
-
-    if (appState.currentGame) {
-        appState.currentGame.dispose();
+    
+    showGameScreen();
+    
+    // Fetch fresh user data to get latest avatar
+    try {
+        const response = await fetch('/api/auth/me', { credentials: 'include' });
+        if (response.ok) {
+            const freshUserData = await response.json();
+            appState.currentUser = freshUserData; // Update currentUser with fresh data
+        }
+    } catch (error) {
+        console.error('Failed to refresh user data:', error);
     }
-
-    // Call initializeGame with correct parameter order: containerId, gameId, playerId, gameMode, nickname
-    appState.currentGame = initializeGame('gameContainer', gameId, playerId, gameMode, appState.currentUser.nickname);
-
+    
+    // Get current user's nickname and avatar (now with fresh data)
+    const currentNickname = appState.currentUser?.nickname || appState.currentUser?.name || 'Player';
+    const currentAvatar = appState.currentUser?.avatarUrl || appState.currentUser?.avatar_url || '/default-avatar.png';
+    
+    // Use provided avatars/nicknames or defaults
+    const p1Avatar = player1Avatar || currentAvatar;
+    const p2Avatar = player2Avatar || '/default-avatar.png';
+    const p1Nick = player1Nickname || currentNickname;
+    const p2Nick = player2Nickname || 'Player 2';
+    
+    // Initialize game with avatar and nickname support
+    appState.currentGame = initializeGame(
+        'gameSection',
+        gameId,
+        playerId,
+        gameMode,
+        currentNickname,
+        p1Avatar,
+        p2Avatar,
+        p1Nick,
+        p2Nick
+    );
+    
     if (appState.currentGame) {
         console.log('Game initialized successfully');
-        const canvas = document.getElementById('game-canvas');
-        if (canvas) canvas.focus();
-        updateConnectionStatus('connected');
-
-        // For tournament games, make sure the game starts automatically
-        if (gameMode === 'tournament') {
-            console.log('Tournament game - starting automatically');
-        }
     } else {
         console.error('Failed to initialize game');
-        updateConnectionStatus('disconnected');
     }
-    console.log(`Start game with game mode: ${gameMode}`);
 }
 
 /**
