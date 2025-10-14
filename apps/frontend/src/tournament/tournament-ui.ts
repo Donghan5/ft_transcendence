@@ -812,6 +812,7 @@ export class TournamentUI {
                 if (this.currentTournament && data.tournament.id === this.currentTournament.id) {
                     console.log('Updating tournament view with new data');
                     this.currentTournament = data.tournament;
+                    this.refreshTournamentView();
                     this.showTournamentView(data.tournament);
                 }
                 break;

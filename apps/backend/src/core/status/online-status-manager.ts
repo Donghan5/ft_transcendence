@@ -26,6 +26,37 @@ export class OnlineStatusManager {
         return OnlineStatusManager.instance;
     }
 
+    public async notifyFriendsAvatarChange(userId: number, newAvatarUrl: string): Promise<void> {
+        try {
+            const friends = await dbAll(
+                `SELECT DISTINCT
+                    CASE
+                        WHEN uf.user_id = ? THEN uf.friend_id
+                        ELSE uf.user_id
+                    END as friend_id
+                FROM users_friends uf
+                WHERE (uf.user_id = ? OR uf.friend_id = ?)
+                AND uf.status = 'accepted'
+                `, [userId, userId, userId]);
+
+            for (const friend of friends) {
+                const friendSocket = this.userSockets.get(friend.friend_id);
+                if (friendSocket && friendSocket.readyState === WebSocket.OPEN) {
+                    const message = JSON.stringify({
+                        type: 'friend_avatar_updated',
+                        payload: {
+                            userId: userId,
+                            avatarUrl: newAvatarUrl
+                        }
+                    });
+                    friendSocket.send(message);
+                }
+            }
+        } catch (error) {
+            console.error(`Error notifying friends of user ${userId} avatar change:`, error);
+        }
+    }
+
     /**
      * @description Updates the last seen time for a user to keep them active.
      * @param userId

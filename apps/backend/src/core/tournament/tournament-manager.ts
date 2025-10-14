@@ -45,6 +45,26 @@ export class TournamentManager {
         });
     }
 
+    async refreshPlayerAvatar(userId: string, newAvatarUrl: string): Promise<void> {
+        // Update avatar in all tournaments where this user is a participant
+        for (const [tournamentId, tournament] of this.tournaments) {
+            const playerIndex = tournament.players.findIndex(p => p.id === userId);
+            
+            if (playerIndex !== -1) {
+                // Update the player's avatar
+                tournament.players[playerIndex].avatarUrl = newAvatarUrl;
+                
+                // Broadcast the update to all connected clients
+                this.broadcastToTournament(tournamentId, {
+                    type: 'player_updated',
+                    players: tournament.players
+                });
+                
+                console.log(`Updated avatar for user ${userId} in tournament ${tournament.name}`);
+            }
+        }
+    }
+
     // Load active tournaments from database on startup
     private async loadActiveTournaments() {
         try {

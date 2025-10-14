@@ -4,6 +4,8 @@ import { dbGet, dbAll, dbRun, getDatabase } from '../../../database/helpers';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { UserStatsManager } from '../../../core/stats/user-stats-manager';
+import { tournamentManager } from '../../../core/tournament/tournament-manager';
+import { OnlineStatusManager } from '../../../core/status/online-status-manager';
 
 /**
  * @param request
@@ -33,6 +35,8 @@ async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
  * @description Route to get the current user's profile information
  */
 export default async function profileRoute(fastify: FastifyInstance) {
+	const statusManager = OnlineStatusManager.getInstance();
+
 	fastify.get('/profile', { preHandler: [verifyJwt] }, async (request: FastifyRequest, reply: FastifyReply) => {
 		const userId = request.user?.userId;
 
@@ -241,6 +245,13 @@ export default async function profileRoute(fastify: FastifyInstance) {
 			'UPDATE users SET avatar_url = ? WHERE id = ?',
 			[avatarUrl, userId]
 		);
+
+		try {
+			await tournamentManager.refreshPlayerAvatar(userId!.toString(), avatarUrl);
+			await statusManager.notifyFriendsAvatarChange(userId!, avatarUrl);
+		} catch (error) {
+			fastify.log.error('Error refreshing tournament avatars:', error);
+		}
 
 		return { success: true, avatarUrl };
 	});

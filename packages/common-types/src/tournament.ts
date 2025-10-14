@@ -4,6 +4,7 @@ export interface TournamentPlayer {
     id: string;
     nickname: string;
     rating: number;
+    avatarUrl?: string;
 }
 
 export interface BracketMatch {

@@ -123,19 +123,21 @@ export async function showFriendsScreen() {
             const data = await response.json();
 
             // Get friend statuses if StatusManager is available
-            const friendStatuses = appState.statusManager?.getFriends() || [];
+             const friendStatuses = new Map(appState.statusManager?.getFriends().map(f => [f.userId, f]));
 
             // Render Friends List
             friendsListEl.innerHTML = data.friends.map((friend: any) => {
-                const statusInfo = friendStatuses.find(f => f.userId === friend.id);
+                const statusInfo = friendStatuses.get(friend.id);
                 const status = statusInfo ? statusInfo.status : 'offline';
                 const statusColor = getStatusColor(status);
+                
+                const avatarUrl = statusInfo?.avatarUrl || friend.avatar_url || '/default-avatar.png';
 
                 return `
                     <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
                         <div class="flex items-center gap-x-3">
                             <div class="w-3 h-3 rounded-full ${statusColor}" title="${status.charAt(0).toUpperCase() + status.slice(1)}"></div>
-                            <img src="${friend.avatar_url || '/default-avatar.png'}" alt="${friend.nickname}" class="w-10 h-10 rounded-full">
+                            <img src="${avatarUrl}" alt="${friend.nickname}" class="w-10 h-10 rounded-full">
                             <span class="text-black font-bold">${friend.nickname}</span>
                         </div>
                         <div class="flex items-center gap-x-2">
@@ -272,7 +274,6 @@ export async function showFriendsScreen() {
         appState.statusManager.onFriendUpdate(renderFriendLists);
     }
 
-    
     // Initial render
     await renderFriendLists();
 }
