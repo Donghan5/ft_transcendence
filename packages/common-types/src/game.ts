@@ -31,7 +31,7 @@ export interface GameState {
   status: 'waiting' | 'countdown' | 'playing' | 'finished';
   startTime?: number;
   lastUpdate: number;
-  aiLevel?: 'EASY' | 'MIDDLE' | 'HARD';
+  aiStrategy?: 'Defensive' | 'Aggressive' | 'Trickshot';
   countdownValue?: number;
   gameMode: string;
   isTournamentGame?: boolean;

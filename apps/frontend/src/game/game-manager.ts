@@ -31,10 +31,10 @@ export async function createNewGame(gameMode: string) {
                 };
                 break;
             case 'ai':
-                const selectedAiLevel = await selectingAiLevel(); // temp set
+                const selectedAiStrategy = await selectingAiStrategy(); // temp set
 
-                if (!selectedAiLevel) {
-                    console.log('AI level selection cancelled');
+                if (!selectedAiStrategy) {
+                    console.log('AI strategy selection cancelled');
                     return;
                 }
 
@@ -43,7 +43,7 @@ export async function createNewGame(gameMode: string) {
                     player1Nickname: appState.currentUser.nickname,
                     player2Id: 'AI',
                     gameMode: 'AI',
-                    aiLevel: selectedAiLevel
+                    aiStrategy: selectedAiStrategy
                 };
                 break;
             case 'pvp':
@@ -194,28 +194,28 @@ export async function handleGameStart(gameMode: string) {
 /**
  * @description selecting AI level for the game, came from UI
  * @returns {Promise<string | null>} - The selected AI level or null if cancelled
- * @throws Error if the AI level selection fails
+ * @throws Error if the AI strategy selection fails
  */
-export async function selectingAiLevel(): Promise<string | null> {
-	const aiLevel = await showAiLevelSelectionUI();
-	if (!aiLevel) {
-		throw new Error('AI level selection failed');
+export async function selectingAiStrategy(): Promise<string | null> {
+	const aiStrategy = await showAiStrategySelectionUI();
+	if (!aiStrategy) {
+		throw new Error('AI strategy selection failed');
 	}
 
-	return aiLevel;
+	return aiStrategy;
 }
 
 /**
  * @description Showing a select UI
- * @returns {Promise<string | null>} - The selected AI level or null if cancelled
+ * @returns {Promise<string | null>} - The selected AI strategy or null if cancelled
  */
-export function showAiLevelSelectionUI(): Promise<string | null> {
+export function showAiStrategySelectionUI(): Promise<string | null> {
     return new Promise((resolve) => {
-        const modal = document.getElementById('aiLevelModal');
+        const modal = document.getElementById('aiStrategyModal');
         const cancelBtn = document.getElementById('cancelAiSelect');
 
         if (!modal || !cancelBtn) {
-            console.error('AI Level Modal not found');
+            console.error('AI Strategy Modal not found');
             resolve(null);
             return;
         }
@@ -224,9 +224,9 @@ export function showAiLevelSelectionUI(): Promise<string | null> {
         const handleClick = (event: MouseEvent) => {
             const target = event.target as HTMLElement;
 
-            if (target.matches('.ai-level-btn')) {
+            if (target.matches('.ai-strategy-btn')) {
                 cleanup();
-                resolve(target.getAttribute('data-level'));
+                resolve(target.getAttribute('data-strategy'));
             } else if (target === cancelBtn) {
                 cleanup();
             }

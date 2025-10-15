@@ -1,4 +1,4 @@
-import { AI_LEVEL, selectLevelAI, predictBallPosition } from "./ai-logic";
+import { AI_STRATEGY, selectAiStrategy, predictBallPosition } from "./ai-logic";
 import { GameState, PADDLE_DEPTH } from "@trans/common-types";
 import { initState } from "./logic";
 
@@ -19,16 +19,6 @@ class AiStrategy {
 	private hasTarget: boolean = false;
 	private targetZ: number = 0;
 
-	private decideReactionThreshold(level: any): void {
-		if (level === AI_LEVEL.EASY) {
-			this.reactionThresholdX = 6;
-		} else if (level === AI_LEVEL.MIDDLE) {
-			this.reactionThresholdX = 4;
-		} else {
-			this.reactionThresholdX = 2;
-		}
-	}
-
 	/**
 	 * @description Make the decision of next AI state based on the current game state
 	 * @param game: current game state
@@ -47,8 +37,8 @@ class AiStrategy {
 
 		if (ball.velocity.x > 0 && !this.hasTarget) {
 			this.lastStateChange = now;
-			const levelKey = (game.aiLevel?.toUpperCase() || 'MIDDLE') as keyof typeof AI_LEVEL;
-			const level = AI_LEVEL[levelKey];
+			const levelKey = (game.aiStrategy || 'Defensive') as keyof typeof AI_STRATEGY;
+			const level = AI_STRATEGY[levelKey];
 
 			const perfectTargetZ = predictBallPosition(ball, game.player2.position.x, level);
 			let finalTargetZ = perfectTargetZ;
@@ -141,10 +131,10 @@ class AiStrategy {
 	public updateAIPaddle(game: GameState): void {
 		this.decideNextState(game);
 
-		const levelKey = (game.aiLevel?.toUpperCase() || 'MIDDLE') as keyof typeof AI_LEVEL;
-		const level = AI_LEVEL[levelKey];
+		const levelKey = (game.aiStrategy || 'Defensive') as keyof typeof AI_STRATEGY;
+		const level = AI_STRATEGY[levelKey];
 
-		this.decideReactionThreshold(level);
+		this.reactionThresholdX = 4;
 
 		if (game.ball.velocity.x > 0 && game.ball.position.x < this.reactionThresholdX) {
 			this.executeCentering(game, level);

@@ -12,7 +12,7 @@ const createGameBodySchema = {
     player1Nickname: { type: 'string' },
     player2Nickname: { type: 'string' },
     gameMode: { type: 'string', enum: ['PVP', 'AI', 'LOCAL_PVP', 'TOURNAMENT'] },
-    aiLevel: { type: 'string', enum: ['EASY', 'MIDDLE', 'HARD'] },
+    aiStrategy: { type: 'string', enum: ['Defensive', 'Aggressive', 'Trickshot'] },
     tournamentId: { type: 'string' },
     matchId: { type: 'string' }
   },
@@ -30,7 +30,7 @@ export default async function createGameRoute(fastify: FastifyInstance) {
           player1Nickname,  // GET FROM REQUEST
           player2Nickname,  // GET FROM REQUEST
           gameMode, 
-          aiLevel,
+          aiStrategy,
           tournamentId,     // GET FROM REQUEST
           matchId           // GET FROM REQUEST
         } = request.body as any;
@@ -64,7 +64,7 @@ export default async function createGameRoute(fastify: FastifyInstance) {
             gameId = gameEngine.createGame(player1Id, 'local player', 'LOCAL_PVP', undefined, resolvedPlayer1Nickname, resolvedPlayer2Nickname);
             break;
           case 'AI':
-            gameId = gameEngine.createGame(player1Id, 'AI', 'AI', aiLevel, resolvedPlayer1Nickname, resolvedPlayer2Nickname);
+            gameId = gameEngine.createGame(player1Id, 'AI', 'AI', aiStrategy, resolvedPlayer1Nickname, resolvedPlayer2Nickname);
             break;
           case 'TOURNAMENT':
             if (!player2Id) {

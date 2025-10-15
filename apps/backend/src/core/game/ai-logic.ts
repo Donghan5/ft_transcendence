@@ -6,28 +6,28 @@ import { POINT_PER_GOAL, WIN_SCORE } from "@trans/common-types";
  * @elements speed: how fast the AI can move its paddle
  * @elements mistakeChance: the chance that the AI will make a mistake (Drop out intended)
  */
-export const AI_LEVEL = {
-	EASY: { accuracy: 0.3, speed: 0.1, mistakeChance: 0.8 },
-	MIDDLE: { accuracy: 0.5, speed: 0.1, mistakeChance: 0.6 },
-	HARD: { accuracy: 0.85, speed: 0.1, mistakeChance: 0.4 },
+export const AI_STRATEGY = {
+	Defensive: { accuracy: 0.8, speed: 0.1, mistakeChance: 0.4 },
+	Aggressive: { accuracy: 0.4, speed: 0.1, mistakeChance: 0.6 },
+	Trickshot: { accuracy: 0.1, speed: 0.1, mistakeChance: 0.8 },
 };
 
 /**
- *
+ * Selects the AI strategy based on the user input.
  * @param level : input by user choices
  * @returns level of AI
  * this function is making decisions based on the current game state
  * Suppose that the Player 1 is controlling by the user and Player 2 is controlled by AI
  */
-export function selectLevelAI(level: string): { accuracy: number, speed: number, mistakeChance: number} {
+export function selectAiStrategy(level: string): { accuracy: number, speed: number, mistakeChance: number} {
 
     // The player chose the level of AI
-	if (level === "easy") {
-		return AI_LEVEL.EASY;
-	} else if (level === "middle") {
-		return AI_LEVEL.MIDDLE;
+	if (level === "defensive") {
+		return AI_STRATEGY.Defensive;
+	} else if (level === "aggressive") {
+		return AI_STRATEGY.Aggressive;
 	} else {
-		return AI_LEVEL.HARD;
+		return AI_STRATEGY.Trickshot;
 	}
 }
 

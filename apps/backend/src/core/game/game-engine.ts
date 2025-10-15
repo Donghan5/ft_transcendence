@@ -70,7 +70,7 @@ class Enhanced3DPongGame {
 	 * @param player2Id - ID of player 2
 	 * @return gameId - ID of the created game
 	 */
-	public createGame(player1Id: string, player2Id: string, gameMode: string, aiLevel?: 'EASY' | 'MIDDLE' | 'HARD',
+	public createGame(player1Id: string, player2Id: string, gameMode: string, aiStrategy?: 'Defensive' | 'Aggressive' | 'Trickshot',
 		player1Nickname?: string, player2Nickname?: string
 	): string {
 		const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
@@ -81,7 +81,7 @@ class Enhanced3DPongGame {
 			game_mode: gameMode,
 			player1: { id: player1Id, nickname: player1Nickname },
 			player2: { id: player2Id, nickname: player2Nickname },
-			ai_level: aiLevel
+			ai_strategy: aiStrategy
 		});
 
 		// Log game creation event
@@ -91,7 +91,7 @@ class Enhanced3DPongGame {
 				{ id: player2Id, nickname: player2Nickname || 'Player 2' }
 			],
 			game_mode: gameMode,
-			ai_level: aiLevel
+			ai_strategy: aiStrategy
 		});
 		
 		const initialState = gameLogics.initState(gameId);
@@ -120,7 +120,7 @@ class Enhanced3DPongGame {
 			status: 'waiting',
 			lastUpdate: Date.now(),
 			gameMode: gameMode,
-			aiLevel: aiLevel
+			aiStrategy: aiStrategy
 		};
 
 		this.games.set(gameId, gameState);
