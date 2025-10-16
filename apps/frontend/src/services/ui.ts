@@ -3,6 +3,7 @@ import { TournamentUI } from '../tournament/tournament-ui';
 import { showPublicProfileScreen } from '../services/user';
 import { loadHomeTournaments } from '../tournament/tournament-services';
 import { connectActiveTournamentsSocket } from '../tournament/tournament-ws';
+import { pushToNavigationHistory } from '../utils/navigation';
 
 let renderFriendLists: () => Promise<void> = async () => {};
 let friendsRefreshInterval: ReturnType<typeof setInterval> | null = null;
@@ -14,7 +15,15 @@ let friendsRefreshInterval: ReturnType<typeof setInterval> | null = null;
 export function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting' | 'tournament', pushToHistory: boolean = true) {
     const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection', 'publicProfileSection', 'waitingSection', 'tournamentSection'];
     
-    console.log(`SHOW SECTION with ${sectionId}, ${pushToHistory}`);
+    if (pushToHistory && appState.currentSection && appState.currentSection !== sectionId) {
+        const currentTournamentId = appState.currentTournament?.id;
+        
+        pushToNavigationHistory(
+            appState.currentSection,
+            currentTournamentId,
+            undefined
+        );
+    }
 
     sections.forEach(id => {
         const el = document.getElementById(id);
@@ -67,12 +76,8 @@ export function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | '
             loadHomeTournaments();
             // startTournamentPolling();
         }
-    } else {
-        // Stop polling when leaving hero section to save resources
-        // stopTournamentPolling();
     }
 
-    // Rest of the showSection logic...
     if (appState.currentSection === sectionId && pushToHistory) {
         console.log(`Already in section ${sectionId}, skipping history push`);
         return;

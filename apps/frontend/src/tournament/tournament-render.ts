@@ -3,6 +3,10 @@ import { showSection, showNotification } from '../services/ui'
 import { TournamentUI } from './tournament-ui';
 import { returnToMainMenu } from '../utils/tools';
 import { openTournamentFromHome } from './tournament-services';
+import { navigateBack, pushToNavigationHistory } from '../utils/navigation';
+
+// Expose openTournamentFromHome globally so onclick handlers work
+(window as any).openTournamentFromHome = openTournamentFromHome;
 
 export function showTournamentView(tournament: any) {
     showSection('tournament');
@@ -15,21 +19,15 @@ export function showTournamentView(tournament: any) {
         appState.tournamentUI.setCurrentUser(appState.currentUser);
     }
 
-    // Show the specific tournament view (this is the "lobby" for a specific tournament)
     appState.tournamentUI!.showTournamentView(tournament);
 }
-
-
 
 export function returnToTournamentLobby() {
     try {
         console.log('Returning to tournament lobby...');
         
-        // Check if tournament UI is available and we have a current tournament
         if (appState.tournamentUI && appState.currentTournament) {
             showSection('tournament');
-            
-            // Refresh the tournament view to get latest state
             appState.tournamentUI.openTournament(appState.currentTournament.id);
             showNotification('Returned to tournament lobby', 'info');
         } else {
@@ -42,74 +40,74 @@ export function returnToTournamentLobby() {
     }
 }
 
-
-
 export function showMyTournaments(tournaments: any[]) {
     if (!appState.tournamentUI) return;
     
     const container = document.getElementById('tournamentSection');
     if (!container) return;
 
+    pushToNavigationHistory('tournament', undefined, 'my-tournaments');
+
     container.innerHTML = `
         <div class="tournament-view animate-pop">
             <button id="my-tournaments-return-btn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
             
-            <div class="bg-white border-thick shadow-sharp p-8">
-                <h1 class="text-4xl text-white text-outline-black mb-8">MY HOSTED TOURNAMENTS</h1>
-
+            <div class="bg-yellow-300 border-thick shadow-sharp p-8">
+                <h1 class="text-4xl text-white text-outline-lg-black mb-8">MY TOURNAMENTS</h1>
+                
                 <div class="space-y-4">
-                    ${tournaments.length === 0 ? 
-                        `<div class="text-center py-12">
-                            <h2 class="text-2xl text-gray-600 mb-4">No Hosted Tournaments Yet</h2>
-                            <p class="text-lg text-gray-500 mb-6">You haven't created any tournaments yet.</p>
-                            <button id="create-tournament-from-empty" 
-                                    class="bg-green-500 text-white py-3 px-8 text-xl border-thick shadow-sharp hover-anarchy">
-                                CREATE YOUR FIRST TOURNAMENT
+                    ${tournaments.length === 0 ?
+                        `
+                        <div class="text-center p-8 bg-gray-100 border-thick">
+                            <p class="text-xl text-gray-600 mb-4">No tournaments created yet</p>
+                            <button id="create-from-my-tournaments" class="bg-pink-500 text-white py-2 px-6 text-lg border-thick shadow-sharp hover-anarchy font-bold">
+                                CREATE TOURNAMENT
                             </button>
-                        </div>` :
-                        tournaments.map(tournament => `
-                            <div class="bg-gray-100 border-thick p-4">
-                                <div class="flex justify-between items-center">
-                                    <div>
-                                        <h3 class="text-xl font-bold">${tournament.name}</h3>
-                                        <p class="text-sm">Status: ${tournament.status.toUpperCase()}</p>
-                                        <p class="text-sm">Players: ${tournament.players?.length || 0}/${tournament.maxPlayers || 8}</p>
-                                        <p class="text-sm">Created: ${new Date(tournament.createdAt).toLocaleDateString()}</p>
-                                        ${tournament.finishedAt ? 
-                                            `<p class="text-sm">Finished: ${new Date(tournament.finishedAt).toLocaleDateString()}</p>` : 
-                                            ''
-                                        }
-                                        ${tournament.winner ? 
-                                            `<p class="text-sm text-green-600">Winner: ${tournament.winner.nickname}</p>` : 
-                                            ''
-                                        }
+                        </div>
+                        ` : tournaments.map(t => `
+                        <div class="bg-gray-50 border-thick p-6">
+                            <div class="flex justify-between items-center">
+                                <div class="flex-1">
+                                    <h3 class="text-2xl font-bold mb-2">${t.name}</h3>
+                                    <div class="grid grid-cols-2 gap-2 text-sm">
+                                        <span class="font-bold">Status: <span class="uppercase ${
+                                            t.status === 'waiting' ? 'text-yellow-600' :
+                                            t.status === 'active' ? 'text-cyan-600' :
+                                            'text-gray-600'
+                                        }">${t.status}</span></span>
+                                        <span class="font-bold">Players: ${t.players?.length || 0}/${t.maxPlayers}</span>
                                     </div>
-                                    <button onclick="openTournamentFromHome('${tournament.id}', 'host')" 
-                                            class="bg-blue-500 text-white px-4 py-2 border-thick hover-anarchy">
-                                        ${tournament.status === 'waiting' ? 'MANAGE' : 'VIEW'}
-                                    </button>
                                 </div>
+                                <button data-tournament-id="${t.id}" class="open-my-tournament-btn bg-blue-500 text-white px-6 py-3 text-lg border-thick shadow-sharp hover-anarchy font-bold">
+                                    OPEN
+                                </button>
                             </div>
-                        `).join('')
-                    }
+                        </div>
+                    `).join('')}
                 </div>
             </div>
         </div>
     `;
 
     document.getElementById('my-tournaments-return-btn')?.addEventListener('click', () => {
-        if (appState.tournamentUI) {
-            appState.tournamentUI.showTournamentHome();
-        }
+        console.log('My tournaments back button clicked');
+        navigateBack();
     });
 
-    if (tournaments.length === 0) {
-        document.getElementById('create-tournament-from-empty')?.addEventListener('click', () => {
-            if (appState.tournamentUI) {
-                appState.tournamentUI.showCreateTournament();
+    document.getElementById('create-from-my-tournaments')?.addEventListener('click', () => {
+        if (appState.tournamentUI) {
+            appState.tournamentUI.showCreateTournament();
+        }
+    });
+    
+    document.querySelectorAll('.open-my-tournament-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const tournamentId = (e.currentTarget as HTMLElement).dataset.tournamentId;
+            if (tournamentId) {
+                openTournamentFromHome(tournamentId, 'participant');
             }
         });
-    }
+    });
 }
 
 export function showTournamentHistory(history: any[]) {
@@ -118,63 +116,67 @@ export function showTournamentHistory(history: any[]) {
     const container = document.getElementById('tournamentSection');
     if (!container) return;
 
+    pushToNavigationHistory('tournament', undefined, 'history');
+
     container.innerHTML = `
         <div class="tournament-view animate-pop">
             <button id="tournament-history-return-btn" class="mb-4 bg-black text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy">&lt; Back</button>
             
-            <div class="bg-white border-thick shadow-sharp p-8">
-                <h1 class="text-4xl text-white text-outline-black mb-8">TOURNAMENT HISTORY</h1>
+            <div class="bg-yellow-300 border-thick shadow-sharp p-8">
+                <h1 class="text-4xl text-white text-outline-lg-black mb-8">TOURNAMENT HISTORY</h1>
 
                 <div class="space-y-4">
-                    ${history.length === 0 ? 
-                        `<div class="text-center py-12">
-                            <h2 class="text-2xl text-gray-600 mb-4">No Tournament History</h2>
-                            <p class="text-lg text-gray-500 mb-6">You haven't participated in any completed tournaments yet.</p>
-                            <p class="text-md text-gray-400">Join or create tournaments to build your competitive history!</p>
-                            <button id="join-tournament-from-empty" 
-                                    class="bg-green-500 text-white py-3 px-8 text-xl border-thick shadow-sharp hover-anarchy mt-6">
-                                FIND TOURNAMENTS TO JOIN
+                    ${history.length === 0 ? `
+                        <div class="text-center p-8 bg-gray-100 border-thick">
+                            <p class="text-xl text-gray-600 mb-4">You haven't participated in any tournaments yet</p>
+                            <button id="join-tournament-from-empty" class="bg-pink-500 text-white py-2 px-6 text-lg border-thick shadow-sharp hover-anarchy font-bold">
+                                JOIN A TOURNAMENT
                             </button>
-                        </div>` :
-                        history.map(item => {
-                            const tournament = item.tournament;
-                            const myMatchesCount = item.myMatches.length;
-                            
-                            const wonMatches = item.myMatches.filter((match: any) => 
-                                match.winner && match.winner.id === appState.currentUser?.id?.toString()
-                            ).length;
-                            
-                            return `
-                                <div class="bg-gray-100 border-thick p-4">
-                                    <div class="flex justify-between items-center">
-                                        <div>
-                                            <h3 class="text-xl font-bold">${tournament.name}</h3>
-                                            <p class="text-sm">Finished: ${new Date(tournament.finishedAt).toLocaleDateString()}</p>
-                                            <p class="text-sm">Winner: ${tournament.winner?.nickname || 'Unknown'}</p>
-                                            <p class="text-sm">Your Performance: ${wonMatches}/${myMatchesCount} matches won</p>
-                                            ${tournament.winner?.id === appState.currentUser?.id?.toString() ? 
-                                                '<p class="text-sm text-green-600 font-bold">🏆 TOURNAMENT CHAMPION!</p>' : 
-                                                ''
-                                            }
-                                        </div>
-                                        <button onclick="openTournamentFromHome('${tournament.id}', 'spectator')" 
-                                                class="bg-purple-500 text-white px-4 py-2 border-thick hover-anarchy">
-                                            VIEW BRACKET
-                                        </button>
+                        </div>
+                    ` : history.map(item => {
+                        // The structure is { tournament, myMatches, finalBracket }
+                        const tournament = item.tournament;
+                        const myMatches = item.myMatches || [];
+                        
+                        const wonMatches = myMatches.filter((match: any) => 
+                            match.winner && match.winner.id === appState.currentUser?.id?.toString()
+                        ).length;
+                        
+                        const isWinner = tournament.winner?.id === appState.currentUser?.id?.toString();
+                        
+                        return `
+                        <div class="tournament-history-item bg-gray-50 border-thick p-6">
+                            <div class="flex justify-between items-start">
+                                <div class="flex-1">
+                                    <h3 class="text-2xl font-bold mb-2">${tournament.name}</h3>
+                                    <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+                                        <span class="font-bold">Status: <span class="uppercase text-gray-600">${tournament.status || 'finished'}</span></span>
+                                        <span class="font-bold">Players: ${tournament.players?.length || 0}/${tournament.maxPlayers || 'N/A'}</span>
+                                        <span class="font-bold">Date: ${tournament.finishedAt ? new Date(tournament.finishedAt).toLocaleDateString() : new Date(tournament.createdAt).toLocaleDateString()}</span>
+                                        <span class="font-bold">Your Record: <span class="text-blue-600">${wonMatches}/${myMatches.length} wins</span></span>
                                     </div>
+                                    ${isWinner ? 
+                                        '<p class="text-sm text-pink-600 font-bold">TOURNAMENT CHAMPION!</p>' : 
+                                        tournament.winner ? 
+                                        `<p class="text-sm text-gray-600">Winner: ${tournament.winner.nickname}</p>` :
+                                        ''
+                                    }
                                 </div>
-                            `;
-                        }).join('')
-                    }
+                                <button data-tournament-id="${tournament.id}" class="view-history-tournament-btn bg-purple-500 text-white px-6 py-3 text-lg border-thick shadow-sharp hover-anarchy font-bold">
+                                    VIEW BRACKET
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    }).join('')}
                 </div>
             </div>
         </div>
     `;
 
     document.getElementById('tournament-history-return-btn')?.addEventListener('click', () => {
-        if (appState.tournamentUI) {
-            appState.tournamentUI.showTournamentHome();
-        }
+        console.log('Tournament history back button clicked');
+        navigateBack();
     });
 
     if (history.length === 0) {
@@ -184,8 +186,17 @@ export function showTournamentHistory(history: any[]) {
             }
         });
     }
+    
+    // Attach listeners to view buttons
+    document.querySelectorAll('.view-history-tournament-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const tournamentId = (e.currentTarget as HTMLElement).dataset.tournamentId;
+            if (tournamentId) {
+                openTournamentFromHome(tournamentId, 'spectator');
+            }
+        });
+    });
 }
-
 
 export function renderActiveTournamentsList(containerId: string, showCreateButton: boolean = false): void {
     const container = document.getElementById(containerId);
@@ -197,20 +208,18 @@ export function renderActiveTournamentsList(containerId: string, showCreateButto
     if (appState.activeTournamentsData.length === 0) {
         container.innerHTML = `
             <div class="text-center py-8">
-                <p class="text-gray-600 mb-4">No active tournaments at the moment</p>
+                <p class="text-gray-600 mb-4 text-lg">No active tournaments at the moment</p>
                 ${showCreateButton ? `
-                    <button id="create-tournament-from-empty-${containerId}"
-                            class="bg-green-500 text-white py-3 px-8 text-xl border-thick shadow-sharp hover-anarchy">
-                        CREATE TOURNAMENT
+                    <button id="create-first-tournament-btn" 
+                            class="bg-pink-500 text-white py-2 px-6 text-lg border-thick shadow-sharp hover-anarchy font-bold">
+                        CREATE THE FIRST TOURNAMENT
                     </button>
-                ` : `
-                    <p class="text-black font-teko text-lg">Create your own tournament and invite friends!</p>
-                `}
+                ` : ''}
             </div>
         `;
-
+        
         if (showCreateButton) {
-            document.getElementById(`create-tournament-from-empty-${containerId}`)?.addEventListener('click', () => {
+            document.getElementById('create-first-tournament-btn')?.addEventListener('click', () => {
                 if (appState.tournamentUI) {
                     appState.tournamentUI.showCreateTournament();
                 }
@@ -219,77 +228,93 @@ export function renderActiveTournamentsList(containerId: string, showCreateButto
         return;
     }
 
-    container.innerHTML = appState.activeTournamentsData.map(tournament => {
-        const isParticipant = appState.currentUser && tournament.players &&
-                              tournament.players.some((p: any) => p.id === appState.currentUser.id?.toString());
-
-        let buttonText = '';
-        let buttonClass = '';
-        let action: 'join' | 'participant' | 'spectator' | '' = '';
-        let isDisabled = false;
-
-        if (tournament.status === 'waiting') {
-            if (isParticipant) {
-                buttonText = 'OPEN';
-                buttonClass = 'bg-blue-500';
-                action = 'participant';
-            } else if ((tournament.players?.length || 0) >= (tournament.maxPlayers || 8)) {
-                buttonText = 'FULL';
-                buttonClass = 'bg-gray-500';
-                isDisabled = true;
-            } else {
-                buttonText = 'JOIN';
-                buttonClass = 'bg-green-500';
-                action = 'join';
-            }
-        } else if (tournament.status === 'active' || tournament.status === 'finished') {
-            if (isParticipant) {
-                buttonText = 'OPEN';
-                buttonClass = 'bg-blue-500';
-                action = 'participant';
-            } else {
-                buttonText = 'VIEW';
-                buttonClass = 'bg-purple-500';
-                action = 'spectator';
-            }
-        }
-
-        return `
-            <div class="bg-gray-50 border-thick p-4 mb-4">
-                <div class="flex justify-between items-center">
-                    <div class="text-left">
-                        <h4 class="font-bold text-xl text-black font-teko uppercase">${tournament.name}</h4>
-                        <p class="text-sm text-gray-600 font-teko">
-                            Players: ${tournament.players?.length || 0}/${tournament.maxPlayers || 8} | Status: ${tournament.status.toUpperCase()}
-                        </p>
-                        ${tournament.status === 'active' && !isParticipant ?
-                            '<p class="text-xs text-purple-600 font-teko">You can spectate this tournament</p>' : ''}
-                    </div>
-                    <div class="flex gap-2">
-                         <button
-                            class="tournament-action-btn ${buttonClass} text-white px-4 py-2 border-thick hover-anarchy font-teko uppercase"
-                            data-tournament-id="${tournament.id}"
-                            data-action="${action}"
-                            ${isDisabled ? 'disabled' : ''}>
-                            ${buttonText}
+    container.innerHTML = `
+        <div class="tournaments-grid grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            ${appState.activeTournamentsData.map(tournament => {
+                const isUserParticipant = appState.currentUser && 
+                                        tournament.players.some((p: any) => p.id === appState.currentUser.id?.toString());
+                const isFull = tournament.players.length >= tournament.maxPlayers;
+                const isWaiting = tournament.status === 'waiting';
+                const isActive = tournament.status === 'active';
+                
+                // Determine which button to show
+                let buttonHtml = '';
+                if (isUserParticipant) {
+                    // User is a participant - show OPEN button
+                    buttonHtml = `
+                        <button onclick="openTournamentFromHome('${tournament.id}', 'participant')" 
+                                class="flex-1 bg-blue-500 text-white py-3 px-4 font-black uppercase border-thick shadow-sharp hover-anarchy text-sm">
+                            OPEN
                         </button>
+                    `;
+                } else if (isWaiting && !isFull) {
+                    // Can join - show JOIN button
+                    buttonHtml = `
+                        <button onclick="openTournamentFromHome('${tournament.id}', 'join')" 
+                                class="flex-1 bg-cyan-500 text-white py-3 px-4 font-black uppercase border-thick shadow-sharp hover-anarchy text-sm">
+                            JOIN
+                        </button>
+                    `;
+                }
+                
+                // Always show VIEW button for spectators (when full or started and user is not participant)
+                if ((isFull || isActive) && !isUserParticipant) {
+                    buttonHtml += `
+                        <button onclick="openTournamentFromHome('${tournament.id}', 'spectator')" 
+                                class="flex-1 bg-purple-500 text-white py-3 px-4 font-black uppercase border-thick shadow-sharp hover-anarchy text-sm">
+                            VIEW
+                        </button>
+                    `;
+                }
+
+                return `
+                    <div class="tournament-card bg-white border-thick shadow-sharp p-6">
+                        <!-- Tournament Title -->
+                        <div class="mb-4 pb-4 border-b-4 border-black">
+                            <h3 class="text-2xl font-black mb-2 text-black truncate" title="${tournament.name}">
+                                ${tournament.name}
+                            </h3>
+                        </div>
+                        
+                        <!-- Tournament Info Grid -->
+                        <div class="space-y-3 mb-4">
+                            <!-- Status Badge -->
+                            <div class="flex items-center gap-2">
+                                <span class="font-black text-sm text-gray-700 min-w-[60px]">STATUS:</span>
+                                <span class="px-3 py-1.5 text-xs font-black uppercase border-2 border-black shadow-[3px_3px_0_0_rgba(0,0,0,1)] ${
+                                    isWaiting ? 'bg-yellow-300 text-yellow-900' :
+                                    isActive ? 'bg-cyan-300 text-cyan-900' :
+                                    'bg-gray-300 text-gray-900'
+                                }">
+                                    ${isWaiting ? 'WAITING' : isActive ? 'IN PROGRESS' : tournament.status.toUpperCase()}
+                                </span>
+                            </div>
+                            
+                            <!-- Players Count -->
+                            <div class="flex items-center gap-2">
+                                <span class="font-black text-sm text-gray-700 min-w-[60px]">PLAYERS:</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xl font-black ${isFull ? 'text-red-600' : 'text-blue-600'}">
+                                        ${tournament.players.length}/${tournament.maxPlayers}
+                                    </span>
+                                    ${isFull ? '<span class="text-xs font-bold text-red-600 uppercase">FULL</span>' : ''}
+                                </div>
+                            </div>
+                            
+                            <!-- Host Info -->
+                            <div class="flex items-center gap-2">
+                                <span class="font-black text-sm text-gray-700 min-w-[60px]">HOST:</span>
+                                <span class="font-bold text-purple-700 truncate">${tournament.hostNickname || 'Unknown'}</span>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex gap-2 mt-6">
+                            ${buttonHtml}
+                        </div>
                     </div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    container.querySelectorAll('.tournament-action-btn').forEach(button => {
-        button.addEventListener('click', (e) => {
-            const target = e.currentTarget as HTMLButtonElement;
-            if (target.disabled) return;
-
-            const tournamentId = target.dataset.tournamentId;
-            const action = target.dataset.action as 'join' | 'participant' | 'spectator';
-
-            if (tournamentId && action) {
-                openTournamentFromHome(tournamentId, action);
-            }
-        });
-    });
+                `;
+            }).join('')}
+        </div>
+    `;
 }

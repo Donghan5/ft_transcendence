@@ -1,4 +1,3 @@
-// init.ts
 import { PongGame3D } from './render'
 import { Vector3 } from '@babylonjs/core'
 import { initialBallVelocity } from '@trans/common-types'
@@ -34,7 +33,7 @@ export function initializeGame(
                 <div class="relative">
                     <!-- Player tag -->
                     <div class="bg-pink-500 border-4 border-black pl-4 pr-6 py-1 shadow-[4px_4px_0_rgba(0,0,0,1)] transform -rotate-2">
-                        <div class="font-anton text-xs text-white uppercase tracking-widest [-webkit-text-stroke:1px_black]">
+                        <div class="font-anton text-lg text-white uppercase tracking-widest">
                             ${player1Nickname || 'PLAYER 1'}
                         </div>
                     </div>
@@ -45,18 +44,18 @@ export function initializeGame(
                     <!-- Avatar circle with score -->
                     <div class="absolute top-10 left-2 flex items-center gap-3">
                         <div class="relative">
-                            <div class="w-16 h-16 rounded-full border-4 border-black bg-yellow-300 flex items-center justify-center shadow-[4px_4px_0_rgba(0,0,0,1)]">
+                            <div class="w-12 h-12 md:w-16 md:h-16 rounded-full border-4 border-black bg-yellow-300 flex items-center justify-center shadow-[4px_4px_0_rgba(0,0,0,1)]">
                                 <img id="player1-avatar" 
                                      src="${player1Avatar || '/default-avatar.png'}" 
                                      alt="${player1Nickname || 'Player 1'}"
-                                     class="w-14 h-14 rounded-full object-cover">
+                                     class="w-10 h-10 md:w-14 md:h-14 rounded-full object-cover">
                             </div>
                         </div>
                         <!-- Score bubble -->
                         <div class="relative">
-                            <div class="bg-yellow-300 border-4 border-black px-4 py-2 shadow-[5px_5px_0_rgba(0,0,0,1)]">
+                            <div class="bg-yellow-300 border-4 border-black px-3 py-1 md:px-4 md:py-2 shadow-[5px_5px_0_rgba(0,0,0,1)]">
                                 <div id="player1-score" 
-                                     class="font-anton text-5xl text-black leading-none">
+                                     class="font-anton text-4xl md:text-5xl text-black leading-none">
                                     0
                                 </div>
                             </div>
@@ -73,7 +72,7 @@ export function initializeGame(
                 <div class="relative">
                     <!-- Player tag -->
                     <div class="bg-cyan-400 border-4 border-black pl-6 pr-4 py-1 shadow-[4px_4px_0_rgba(0,0,0,1)] transform rotate-2">
-                        <div class="font-anton text-xs text-white uppercase tracking-widest [-webkit-text-stroke:1px_black]">
+                        <div class="font-anton text-lg text-black uppercase tracking-widest">
                             ${player2Nickname || 'PLAYER 2'}
                         </div>
                     </div>
@@ -85,9 +84,9 @@ export function initializeGame(
                     <div class="absolute top-10 right-2 flex items-center gap-3">
                         <!-- Score bubble -->
                         <div class="relative">
-                            <div class="bg-yellow-300 border-4 border-black px-4 py-2 shadow-[5px_5px_0_rgba(0,0,0,1)]">
+                            <div class="bg-yellow-300 border-4 border-black px-3 py-1 md:px-4 md:py-2 shadow-[5px_5px_0_rgba(0,0,0,1)]">
                                 <div id="player2-score" 
-                                     class="font-anton text-5xl text-black leading-none">
+                                     class="font-anton text-4xl md:text-5xl text-black leading-none">
                                     0
                                 </div>
                             </div>
@@ -96,11 +95,11 @@ export function initializeGame(
                             <div class="absolute top-1/2 -right-2 -translate-y-1/2 w-0 h-0 border-t-[10px] border-t-transparent border-b-[10px] border-b-transparent border-l-[10px] border-l-yellow-300"></div>
                         </div>
                         <div class="relative">
-                            <div class="w-16 h-16 rounded-full border-4 border-black bg-yellow-300 flex items-center justify-center shadow-[4px_4px_0_rgba(0,0,0,1)]">
+                            <div class="w-12 h-12 md:w-16 md:h-16 rounded-full border-4 border-black bg-yellow-300 flex items-center justify-center shadow-[4px_4px_0_rgba(0,0,0,1)]">
                                 <img id="player2-avatar" 
                                      src="${player2Avatar || '/default-avatar.png'}" 
                                      alt="${player2Nickname || 'Player 2'}"
-                                     class="w-14 h-14 rounded-full object-cover">
+                                     class="w-10 h-10 md:w-14 md:h-14 rounded-full object-cover">
                             </div>
                         </div>
                     </div>
@@ -116,26 +115,6 @@ export function initializeGame(
                 </div>
             </div>
         </div>
-        
-        <style>
-            #game-canvas {
-                touch-action: none;
-            }
-            
-            /* Responsive adjustments */
-            @media (max-width: 768px) {
-                .text-5xl { font-size: 2.5rem; }
-                .text-3xl { font-size: 1.75rem; }
-                .text-sm { font-size: 0.75rem; }
-                .text-xs { font-size: 0.625rem; }
-                .w-16.h-16 { width: 3rem; height: 3rem; }
-                .w-14.h-14 { width: 2.5rem; height: 2.5rem; }
-                .px-6 { padding-left: 1rem; padding-right: 1rem; }
-                .px-4 { padding-left: 0.75rem; padding-right: 0.75rem; }
-                .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-                .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
-            }
-        </style>
     `;
     
     const canvasElement = document.getElementById('game-canvas');

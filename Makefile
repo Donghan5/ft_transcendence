@@ -28,9 +28,17 @@ build:
 	docker-compose build --pull
 
 up: check-env
+	$(eval APP_URL := https://transcendence.${LOCAL_IP}.nip.io:8443)
+
 	@echo "Please verify, the dependency of backend"
 	docker-compose --profile elk up --build -d
-	@open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || xdg-open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || echo "Open https://transcendence.${LOCAL_IP}.nip.io:8443"
+	
+	@sleep 1
+	
+	@echo "Application should be ready at: $(APP_URL)"
+	@echo "Attempting to open in your browser..."
+	
+	@open $(APP_URL) 2>/dev/null || xdg-open $(APP_URL) 2>/dev/null || echo "Could not open browser automatically. Please navigate to the URL above."
 
 down:
 	docker-compose down --remove-orphans
@@ -97,10 +105,16 @@ kibana-open:
 	@open http://localhost:5601 2>/dev/null || xdg-open http://localhost:5601 2>/dev/null || echo "Open http://localhost:5601"
 
 web-game: check-env
-	@echo "Please verify, the dependency of backend"
-	@echo "Starting up non-ELK services (frontend, backend, nginx)..."
-	@docker-compose up --build -d
-	@open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || xdg-open https://transcendence.${LOCAL_IP}.nip.io:8443 2>/dev/null || echo "Open https://transcendence.${LOCAL_IP}.nip.io:8443"
+	$(eval APP_URL := https://transcendence.${LOCAL_IP}.nip.io:8443)
 
+	@echo "Please verify, the dependency of backend"
+	docker-compose up --build -d
+	
+	@sleep 1
+	
+	@echo "Application should be ready at: $(APP_URL)"
+	@echo "Attempting to open in your browser..."
+	
+	@open $(APP_URL) 2>/dev/null || xdg-open $(APP_URL) 2>/dev/null || echo "Could not open browser automatically. Please navigate to the URL above."
 
 .PHONY: all start build up down clean fclean re logs ps sh debug test check-env kibana-open web-game

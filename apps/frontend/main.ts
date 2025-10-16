@@ -7,6 +7,7 @@ import { setupLocalAuthHandlers, updateLoginStatus, showLoginScreen } from './sr
 import { cleanupTournamentUI } from './src/tournament/tournament-services';
 import { StatusManager } from './src/status/status-manager';
 import { showNotification } from './src/services/ui';
+import { navigateBack } from './src/utils/navigation';
 
 document.addEventListener('DOMContentLoaded', () => {
 	const path = window.location.pathname;
@@ -126,10 +127,26 @@ function setupEventListeners() {
 		window.location.href = '/api/auth/logout';
 	});
 
-	document.getElementById('profileReturnBtn')?.addEventListener('click', returnToMainMenu);
-	document.getElementById('friendsReturnBtn')?.addEventListener('click', returnToMainMenu);
+	
+    document.getElementById('profileReturnBtn')?.addEventListener('click', () => {
+        console.log('Profile back button clicked');
+        navigateBack();
+    });
 
-	document.getElementById('publicProfileReturnBtn')?.addEventListener('click', showFriendsScreen);
+    document.getElementById('friendsReturnBtn')?.addEventListener('click', () => {
+        console.log('Friends back button clicked');
+        navigateBack();
+    });
+
+    document.getElementById('tournament-return-btn')?.addEventListener('click', () => {
+        console.log('Tournament back button clicked');
+        navigateBack();
+    });
+
+    document.getElementById('publicProfileReturnBtn')?.addEventListener('click', () => {
+        console.log('Public profile back button clicked');
+        navigateBack();
+    });
 
 	window.addEventListener('navigate', (event: any) => {
 		const detail = event.detail;
@@ -184,30 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 (window as any).triggerGameEnd = triggerGameEnd;
-const reminderCSS = `
-#esc-key-reminder {
-    position: fixed;
-    bottom: 1rem;
-    right: 1rem;
-    background-color: rgba(0, 0, 0, 0.8);
-    color: white;
-    padding: 0.75rem 1rem;
-    font-family: 'Teko', sans-serif;
-    font-size: 0.875rem;
-    text-transform: uppercase;
-    border: 2px solid white;
-    z-index: 9999;
-    border-radius: 4px;
-}
-`;
-
-// Add CSS if not already added
-if (!document.getElementById('esc-reminder-css')) {
-	const style = document.createElement('style');
-	style.id = 'esc-reminder-css';
-	style.textContent = reminderCSS;
-	document.head.appendChild(style);
-}
 
 document.addEventListener('keydown', (event) => {
 	if (event.key === 'Escape' && appState.currentGame && appState.currentSection === 'game') {

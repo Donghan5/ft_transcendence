@@ -316,90 +316,43 @@ export class PongGame3D {
     private showWaitingForOpponent(playerSide: 'player1' | 'player2') {
         this.hideWaitingForOpponent();
         
+        const player1UI = document.querySelector('.absolute.top-6.left-6') as HTMLElement;
+        const player2UI = document.querySelector('.absolute.top-6.right-6') as HTMLElement;
+        if (player1UI) player1UI.style.display = 'none';
+        if (player2UI) player2UI.style.display = 'none';
+        
         const isSpectator = this.gameMode === 'spectator';
         const isLocalMode = this.gameMode === 'LOCAL_PVP';
         
         const overlay = document.createElement('div');
         overlay.id = 'waiting-opponent-overlay';
-        overlay.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            background-image: 
-                repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.05) 10px, rgba(255,255,255,.05) 20px);
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            z-index: 9999;
-            font-family: 'Anton', sans-serif;
-        `;
-        
+        overlay.className = 'fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-[11000] font-anton';
+        overlay.style.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.05) 10px, rgba(255,255,255,.05) 20px)';
+
         if (isLocalMode) {
             overlay.innerHTML = `
-                <div style="text-align: center;">
-                    <div style="
-                        background: white;
-                        border: 8px solid black;
-                        padding: 3rem 4rem;
-                        box-shadow: 12px 12px 0 rgba(0,0,0,0.5);
-                        transform: rotate(-2deg);
-                        margin-bottom: 3rem;
-                    ">
-                        <h1 style="
-                            font-size: 4rem; 
-                            color: black; 
-                            text-transform: uppercase;
-                            letter-spacing: 4px;
-                            margin: 0;
-                            text-shadow: 4px 4px 0 #FCD34D;
-                        ">
+                <div class="text-center">
+                    <div class="bg-white border-[8px] border-black p-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-12">
+                        <h1 class="text-6xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#FCD34D]">
                             QUICK GAME!
                         </h1>
                     </div>
                     
-                    <div style="display: flex; gap: 4rem; justify-content: center; align-items: center;">
-                        <div style="text-align: center;">
-                            <div style="
-                                background: #FF69B4;
-                                border: 6px solid black;
-                                padding: 2rem;
-                                box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
-                                margin-bottom: 1rem;
-                            ">
-                                <div style="font-size: 3rem; color: white; font-weight: bold; text-shadow: 3px 3px 0 black;">PINK</div>
+                    <div class="flex gap-16 justify-center items-center">
+                        <div class="text-center">
+                            <div class="bg-player1-pink border-[6px] border-black p-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] mb-4">
+                                <div class="text-5xl text-white font-bold [text-shadow:3px_3px_0_black]">PINK</div>
                             </div>
-                            <div style="
-                                background: white;
-                                border: 4px solid black;
-                                padding: 1rem;
-                                font-size: 1.5rem;
-                                font-weight: bold;
-                            ">
+                            <div class="bg-white border-4 border-black p-4 text-2xl font-bold">
                                 W / S
                             </div>
                         </div>
                         
-                        <div style="text-align: center;">
-                            <div style="
-                                background: #4169E1;
-                                border: 6px solid black;
-                                padding: 2rem;
-                                box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
-                                margin-bottom: 1rem;
-                            ">
-                                <div style="font-size: 3rem; color: white; font-weight: bold; text-shadow: 3px 3px 0 black;">BLUE</div>
+                        <div class="text-center">
+                            <div class="bg-player2-blue border-[6px] border-black p-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] mb-4">
+                                <div class="text-5xl text-white font-bold [text-shadow:3px_3px_0_black]">BLUE</div>
                             </div>
-                            <div style="
-                                background: white;
-                                border: 4px solid black;
-                                padding: 1rem;
-                                font-size: 1.5rem;
-                                font-weight: bold;
-                            ">
+                            <div class="bg-white border-4 border-black p-4 text-2xl font-bold">
                                 ↑ / ↓
                             </div>
                         </div>
@@ -408,104 +361,45 @@ export class PongGame3D {
             `;
         } else if (isSpectator) {
             overlay.innerHTML = `
-                <div style="text-align: center;">
-                    <div style="
-                        background: white;
-                        border: 8px solid black;
-                        padding: 3rem 4rem;
-                        box-shadow: 12px 12px 0 rgba(0,0,0,0.5);
-                        transform: rotate(-2deg);
-                        margin-bottom: 2rem;
-                    ">
-                        <h1 style="
-                            font-size: 4rem; 
-                            color: black; 
-                            text-transform: uppercase;
-                            letter-spacing: 4px;
-                            margin: 0;
-                            text-shadow: 4px 4px 0 #FCD34D;
-                        ">
+                <div class="text-center">
+                    <div class="bg-white border-[8px] border-black py-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-8">
+                        <h1 class="text-6xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#FCD34D]">
                             WAITING...
                         </h1>
                     </div>
                     
-                    <div style="
-                        background: #FCD34D;
-                        border: 6px solid black;
-                        padding: 1.5rem 2rem;
-                        box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
-                        transform: rotate(1deg);
-                        font-size: 1.5rem;
-                        font-weight: bold;
-                        text-transform: uppercase;
-                    ">
+                    <div class="bg-comic-yellow border-[6px] border-black py-6 px-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] rotate-1 text-2xl font-bold uppercase">
                         FOR PLAYERS TO CONNECT
                     </div>
                     
-                    <p style="font-size: 1rem; color: white; margin-top: 2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+                    <p class="text-base text-white mt-8 [text-shadow:2px_2px_4px_rgba(0,0,0,0.5)]">
                         Press ESC to return to tournament
                     </p>
                 </div>
             `;
         } else {
-            const sideColor = playerSide === 'player1' ? '#FF69B4' : '#4169E1';
+            const sideColorClass = playerSide === 'player1' ? 'bg-player1-pink' : 'bg-player2-blue';
             const sideName = playerSide === 'player1' ? 'PINK' : 'BLUE';
             
             overlay.innerHTML = `
-                <div style="text-align: center;">
-                    <div style="
-                        background: white;
-                        border: 8px solid black;
-                        padding: 3rem 4rem;
-                        box-shadow: 12px 12px 0 rgba(0,0,0,0.5);
-                        transform: rotate(-2deg);
-                        margin-bottom: 2rem;
-                    ">
-                        <h1 style="
-                            font-size: 4rem; 
-                            color: black; 
-                            text-transform: uppercase;
-                            letter-spacing: 4px;
-                            margin: 0;
-                            text-shadow: 4px 4px 0 #FCD34D;
-                        ">
+                <div class="text-center">
+                    <div class="bg-white border-[8px] border-black py-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-8">
+                        <h1 class="text-6xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#FCD34D]">
                             WAITING...
                         </h1>
                     </div>
                     
-                    <div style="
-                        background: ${sideColor};
-                        border: 6px solid black;
-                        padding: 1.5rem 2rem;
-                        box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
-                        transform: rotate(1deg);
-                        margin-bottom: 2rem;
-                    ">
-                        <div style="
-                            font-size: 2.5rem;
-                            color: white;
-                            font-weight: bold;
-                            text-transform: uppercase;
-                            text-shadow: 3px 3px 0 black;
-                        ">
+                    <div class="${sideColorClass} border-[6px] border-black py-6 px-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] rotate-1 mb-8">
+                        <div class="text-4xl text-white font-bold uppercase [text-shadow:3px_3px_0_black]">
                             YOU ARE ${sideName}
                         </div>
                     </div>
                     
-                    <div style="
-                        background: #FCD34D;
-                        border: 6px solid black;
-                        padding: 1.5rem 2rem;
-                        box-shadow: 8px 8px 0 rgba(0,0,0,0.5);
-                        transform: rotate(-1deg);
-                        font-size: 1.5rem;
-                        font-weight: bold;
-                        text-transform: uppercase;
-                    ">
+                    <div class="bg-comic-yellow border-[6px] border-black py-6 px-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] -rotate-1 text-2xl font-bold uppercase">
                         WAITING FOR OPPONENT
                     </div>
                     
-                    <p style="font-size: 1rem; color: white; margin-top: 2rem; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+                    <p class="text-base text-white mt-8 [text-shadow:2px_2px_4px_rgba(0,0,0,0.5)]">
                         Press ESC to forfeit and return
                     </p>
                 </div>
@@ -514,6 +408,7 @@ export class PongGame3D {
         
         document.body.appendChild(overlay);
     }
+
 
     private hideWaitingForOpponent() {
         const overlay = document.getElementById('waiting-opponent-overlay');
@@ -812,312 +707,195 @@ export class PongGame3D {
     }
 
     private showCountdownSpotlight(playerSide: 'player1' | 'player2' | 'both' = 'both', count: number) {
-        // Enhanced local play detection
         const isLocalPlay = this.gameMode === 'LOCAL_PVP' || this.gameMode === 'quick';
+        const isSpectator = this.gameMode === 'spectator';
         
-        // DEBUG: Log to console so we can see what's happening
-        console.log(`[COUNTDOWN DEBUG] gameMode="${this.gameMode}", isLocalPlay=${isLocalPlay}, playerSide="${playerSide}"`);
+        console.log(`[COUNTDOWN DEBUG] gameMode="${this.gameMode}", isLocalPlay=${isLocalPlay}, isSpectator=${isSpectator}, playerSide="${playerSide}"`);
         
-        // Force 'both' mode for local play
         if (isLocalPlay && playerSide !== 'both') {
             console.log('[COUNTDOWN] Forcing playerSide to "both" for local play');
             playerSide = 'both';
         }
         
-        // SKIP "GO!" - When count hits 0, just hide everything
         if (count === 0) {
             console.log('[COUNTDOWN] Count is 0, hiding countdown (no GO!)');
             this.hideCountdownSpotlight();
             return;
         }
         
-        // Check if this is the first call
         const isFirstCall = count === 3 || !document.getElementById('countdown-spotlight-overlay');
         
         if (isFirstCall) {
-            // First time - create everything
             this.hideCountdownSpotlight();
             
-            // Create main overlay container with DARK BACKGROUND
             const overlay = document.createElement('div');
             overlay.id = 'countdown-spotlight-overlay';
-            overlay.style.cssText = `
-                position: fixed;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                background: rgba(0, 0, 0, 0.75);
-                pointer-events: none;
-                z-index: 9999;
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                font-family: 'Anton', sans-serif;
-            `;
+            overlay.className = `fixed top-0 left-0 w-full h-full bg-black/75 pointer-events-none z-[10500] flex items-center ${isSpectator ? 'justify-center' : 'justify-between'} font-['Anton',sans-serif]`;
             
-            // Function to create a side panel
-            const createSidePanel = (side: 'left' | 'right', color: string, playerNum: 1 | 2, playerName: string) => {
-                const panel = document.createElement('div');
-                panel.className = 'countdown-panel';
+            if (isSpectator) {
+                // SPECTATOR MODE - message at BOTTOM (SMALLER SIZE)
+                const spectatorMessageBottom = document.createElement('div');
+                spectatorMessageBottom.className = 'spectator-countdown-message-bottom fixed bottom-[5%] left-1/2 -translate-x-1/2 z-[10501] text-center opacity-0';
                 
-                const isLeft = side === 'left';
-                const rotation = isLeft ? '-2deg' : '2deg';
-                
-                panel.style.cssText = `
-                    position: absolute;
-                    ${isLeft ? 'left: 5%' : 'right: 5%'};
-                    top: 50%;
-                    transform: translateY(-50%) rotate(${rotation});
-                    width: 280px;
-                    z-index: 10001;
-                    opacity: 0;
-                `;
-                
-                panel.innerHTML = `
-                    <div style="
-                        position: absolute;
-                        ${isLeft ? 'right: -30px' : 'left: -30px'};
-                        top: 50%;
-                        transform: translateY(-50%);
-                        width: 0;
-                        height: 0;
-                        border-top: 20px solid transparent;
-                        border-bottom: 20px solid transparent;
-                        ${isLeft ? 
-                            `border-left: 30px solid ${color};` : 
-                            `border-right: 30px solid ${color};`
-                        }
-                    "></div>
+                spectatorMessageBottom.innerHTML = `
+                    <div class="bg-white border-[6px] border-black p-4 px-8 shadow-[8px_8px_0_rgba(0,0,0,0.8)] -rotate-[2deg] mb-3">
+                        <h1 class="text-[1.8rem] text-black uppercase tracking-[3px] m-0 [text-shadow:3px_3px_0_#FCD34D]">
+                            SPECTATOR MODE
+                        </h1>
+                    </div>
                     
-                    <div style="
-                        background: ${color};
-                        border: 6px solid black;
-                        padding: 2rem 1.5rem;
-                        box-shadow: 8px 8px 0 rgba(0,0,0,0.8);
-                        position: relative;
-                    ">
-                        <div style="
-                            font-size: 2.5rem;
-                            color: white;
-                            font-weight: bold;
-                            text-align: center;
-                            text-shadow: 4px 4px 0 black;
-                            margin-bottom: 1rem;
-                            text-transform: uppercase;
-                        ">${playerName}</div>
+                    <div class="bg-purple-700 border-4 border-black py-3 px-6 shadow-[6px_6px_0_rgba(0,0,0,0.8)] rotate-1 text-base font-bold text-white uppercase [text-shadow:2px_2px_0_black] mb-2">
+                        MATCH STARTING SOON
                     </div>
+                    
+                    <p class="text-[0.85rem] text-white [text-shadow:2px_2px_4px_rgba(0,0,0,0.5)] m-0">
+                        Press ESC to return to tournament
+                    </p>
                 `;
                 
-                panel.animate([
-                    { 
-                        transform: `translateY(-50%) translateY(-100px) rotate(${rotation})`,
-                        opacity: '0'
-                    },
-                    { 
-                        transform: `translateY(-50%) translateY(20px) rotate(${rotation})`,
-                        opacity: '1',
-                        offset: 0.6
-                    },
-                    { 
-                        transform: `translateY(-50%) translateY(0) rotate(${rotation})`,
-                        opacity: '1'
-                    }
-                ], {
-                    duration: 600,
-                    easing: 'ease-out',
-                    fill: 'forwards'
-                });
+                overlay.appendChild(spectatorMessageBottom);
+                document.body.appendChild(overlay);
                 
-                return panel;
-            };
-            
-            // Add side panels based on player side
-            if (playerSide === 'both' || playerSide === 'player1') {
-                const player1Label = isLocalPlay ? 'PLAYER 1' : 'YOU';
-                const leftPanel = createSidePanel('left', '#FF69B4', 1, player1Label);
-                overlay.appendChild(leftPanel);
-            }
-            
-            if (playerSide === 'both' || playerSide === 'player2') {
-                const player2Label = isLocalPlay ? 'PLAYER 2' : 'YOU';
-                const rightPanel = createSidePanel('right', '#4169E1', 2, player2Label);
-                overlay.appendChild(rightPanel);
-            }
-            
-            // Add CONTROLS AT BOTTOM
-            const controlsBottom = document.createElement('div');
-            controlsBottom.className = 'countdown-controls-bottom';
-            
-            controlsBottom.style.cssText = `
-                position: fixed !important;
-                bottom: 5% !important;
-                left: 50% !important;
-                transform: translateX(-50%) !important;
-                z-index: 10001 !important;
-                opacity: 1 !important;
-                animation: none !important;
-            `;
-            
-            if (isLocalPlay) {
-                controlsBottom.innerHTML = `
-                    <div style="
-                        background: white;
-                        border: 6px solid black;
-                        padding: 20px 40px;
-                        box-shadow: 8px 8px 0 rgba(0,0,0,0.8);
-                        display: flex;
-                        gap: 4rem;
-                        align-items: center;
-                    ">
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-                            <div style="
-                                font-size: 1.2rem;
-                                font-weight: bold;
-                                color: #FF69B4;
-                                text-shadow: 2px 2px 0 black;
-                            ">PLAYER 1</div>
-                            <div style="display: flex; gap: 10px;">
-                                <div style="
-                                    background: #FF69B4;
-                                    border: 3px solid black;
-                                    padding: 8px 16px;
-                                    font-size: 1.5rem;
-                                    font-weight: bold;
-                                    color: white;
-                                    text-shadow: 2px 2px 0 black;
-                                    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
-                                ">W</div>
-                                <div style="
-                                    background: #FF69B4;
-                                    border: 3px solid black;
-                                    padding: 8px 16px;
-                                    font-size: 1.5rem;
-                                    font-weight: bold;
-                                    color: white;
-                                    text-shadow: 2px 2px 0 black;
-                                    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
-                                ">S</div>
-                            </div>
-                        </div>
-                        
-                        <div style="
-                            font-size: 3rem;
-                            font-weight: bold;
-                            color: black;
-                            text-shadow: 3px 3px 0 #FCD34D;
-                        ">VS</div>
-                        
-                        <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-                            <div style="
-                                font-size: 1.2rem;
-                                font-weight: bold;
-                                color: #4169E1;
-                                text-shadow: 2px 2px 0 black;
-                            ">PLAYER 2</div>
-                            <div style="display: flex; gap: 10px;">
-                                <div style="
-                                    background: #4169E1;
-                                    border: 3px solid black;
-                                    padding: 8px 16px;
-                                    font-size: 1.5rem;
-                                    font-weight: bold;
-                                    color: white;
-                                    text-shadow: 2px 2px 0 black;
-                                    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
-                                ">↑</div>
-                                <div style="
-                                    background: #4169E1;
-                                    border: 3px solid black;
-                                    padding: 8px 16px;
-                                    font-size: 1.5rem;
-                                    font-weight: bold;
-                                    color: white;
-                                    text-shadow: 2px 2px 0 black;
-                                    box-shadow: 3px 3px 0 rgba(0,0,0,0.5);
-                                ">↓</div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else {
-                const keys = playerSide === 'player1' ? 'W / S' : '↑ / ↓';
-                controlsBottom.innerHTML = `
-                    <div style="
-                        background: white;
-                        border: 6px solid black;
-                        padding: 20px 40px;
-                        box-shadow: 8px 8px 0 rgba(0,0,0,0.8);
-                    ">
-                        <div style="
-                            font-size: 2rem;
-                            color: black;
-                            font-weight: bold;
-                            text-align: center;
-                        ">CONTROLS: <span style="color: #4169E1; text-shadow: 2px 2px 0 white;">${keys}</span></div>
-                    </div>
-                `;
-            }
-            
-            overlay.appendChild(controlsBottom);
-            document.body.appendChild(overlay);
-            
-            if (isLocalPlay) {
-                const bannerDiv = document.createElement('div');
-                bannerDiv.className = 'countdown-banner';
-                bannerDiv.style.cssText = `
-                    position: fixed;
-                    top: 8%;
-                    left: 50%;
-                    transform: translateX(-50%) rotate(-2deg);
-                    z-index: 10002;
-                    pointer-events: none;
-                `;
-                
-                bannerDiv.innerHTML = `
-                    <div style="
-                        background: #FCD34D;
-                        border: 6px solid black;
-                        padding: 1rem 3rem;
-                        box-shadow: 8px 8px 0 rgba(0,0,0,0.8);
-                        position: relative;
-                    ">
-                        <div style="
-                            font-size: 2.5rem;
-                            color: black;
-                            font-weight: bold;
-                            text-transform: uppercase;
-                            letter-spacing: 3px;
-                            text-shadow: 3px 3px 0 white;
-                        ">LOCAL BATTLE!</div>
-                        
-                        <div style="
-                            position: absolute;
-                            top: -6px;
-                            right: -6px;
-                            width: 30px;
-                            height: 30px;
-                            background: linear-gradient(135deg, black 50%, #FCD34D 50%);
-                            border-left: 6px solid black;
-                            border-bottom: 6px solid black;
-                        "></div>
-                    </div>
-                `;
-                
-                document.body.appendChild(bannerDiv);
-                
-                bannerDiv.animate([
-                    { opacity: '0', transform: 'translateX(-50%) translateY(-50px) rotate(-2deg)' },
-                    { opacity: '1', transform: 'translateX(-50%) translateY(0) rotate(-2deg)' }
+                // Animate in from bottom
+                spectatorMessageBottom.animate([
+                    { opacity: '0', transform: 'translateX(-50%) translateY(50px)' },
+                    { opacity: '1', transform: 'translateX(-50%) translateY(0)' }
                 ], {
                     duration: 500,
                     easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
                     fill: 'forwards'
                 });
+            } else {
+                // PLAYER MODE - Function to create a side panel
+                const createSidePanel = (side: 'left' | 'right', playerNum: 1 | 2, playerName: string) => {
+                    const panel = document.createElement('div');
+                    
+                    const isLeft = side === 'left';
+                    const rotation = isLeft ? '-2deg' : '2deg';
+                    const positionClass = isLeft ? 'left-[5%]' : 'right-[5%]';
+                    const bgColorClass = playerNum === 1 ? 'bg-player1-pink' : 'bg-player2-blue';
+                    const arrowColorClass = playerNum === 1 ? 'border-l-player1-pink' : 'border-r-player2-blue';
+
+                    panel.className = `countdown-panel absolute ${positionClass} top-1/2 -translate-y-1/2 rotate-[${rotation}] w-[280px] z-[10501] opacity-0`;
+                    
+                    const arrowPositionClass = isLeft ? 'right-[-30px]' : 'left-[-30px]';
+                    const arrowBorderClass = isLeft ? 'border-l-[30px]' : 'border-r-[30px]';
+                    
+                    panel.innerHTML = `
+                        <div class="absolute ${arrowPositionClass} top-1/2 -translate-y-1/2 w-0 h-0 border-t-[20px] border-t-transparent border-b-[20px] border-b-transparent ${arrowBorderClass} ${arrowColorClass}"></div>
+                        <div class="border-[6px] border-black p-8 px-6 shadow-[8px_8px_0_rgba(0,0,0,0.8)] relative ${bgColorClass}">
+                            <div class="text-[2.5rem] text-white font-bold text-center [text-shadow:4px_4px_0_black] mb-4 uppercase">${playerName}</div>
+                        </div>
+                    `;
+                    
+                    panel.animate([
+                        { transform: `translateY(-50%) translateY(-100px) rotate(${rotation})`, opacity: '0' },
+                        { transform: `translateY(-50%) translateY(20px) rotate(${rotation})`, opacity: '1', offset: 0.6 },
+                        { transform: `translateY(-50%) translateY(0) rotate(${rotation})`, opacity: '1' }
+                    ], {
+                        duration: 600,
+                        easing: 'ease-out',
+                        fill: 'forwards'
+                    });
+                    
+                    return panel;
+                };
+                
+                // Create panels for players
+                if (playerSide === 'both' || playerSide === 'player1') {
+                    const player1Label = 'YOU';
+                    const leftPanel = createSidePanel('left', 1, player1Label);
+                    overlay.appendChild(leftPanel);
+                }
+                
+                if (playerSide === 'both' || playerSide === 'player2') {
+                    const player2Label = isLocalPlay ? 'PLAYER 2' : 'YOU';
+                    const rightPanel = createSidePanel('right', 2, player2Label);
+                    overlay.appendChild(rightPanel);
+                }
+                
+                // Add CONTROLS AT BOTTOM
+                const controlsBottom = document.createElement('div');
+                controlsBottom.className = 'countdown-controls-bottom fixed bottom-[5%] left-1/2 -translate-x-1/2 z-[10501] opacity-100';
+                
+                if (isLocalPlay) {
+                    // LOCAL MODE - Show both players' controls
+                    controlsBottom.innerHTML = `
+                        <div class="bg-white border-[6px] border-black py-5 px-10 shadow-[8px_8px_0_rgba(0,0,0,0.8)] flex gap-16 items-center">
+                            <div class="flex flex-col items-center gap-2.5">
+                                <div class="text-xl font-bold text-player1-pink [text-shadow:2px_2px_0_black]">YOU</div>
+                                <div class="flex gap-2.5">
+                                    <div class="bg-player1-pink border-[3px] border-black py-2 px-4 text-2xl font-bold text-white [text-shadow:2px_2px_0_black]">W</div>
+                                    <div class="bg-player1-pink border-[3px] border-black py-2 px-4 text-2xl font-bold text-white [text-shadow:2px_2px_0_black]">S</div>
+                                </div>
+                            </div>
+                            
+                            <div class="text-3xl font-bold text-black">VS</div>
+                            
+                            <div class="flex flex-col items-center gap-2.5">
+                                <div class="text-xl font-bold text-player2-blue [text-shadow:2px_2px_0_black]">PLAYER 2</div>
+                                <div class="flex gap-2.5">
+                                    <div class="bg-player2-blue border-[3px] border-black py-2 px-4 text-2xl font-bold text-white [text-shadow:2px_2px_0_black]">↑</div>
+                                    <div class="bg-player2-blue border-[3px] border-black py-2 px-4 text-2xl font-bold text-white [text-shadow:2px_2px_0_black]">↓</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // ONLINE MODE - Always show W/S (never arrows)
+                    controlsBottom.innerHTML = `
+                        <div class="bg-white border-[6px] border-black py-5 px-10 shadow-[8px_8px_0_rgba(0,0,0,0.8)]">
+                            <div class="text-3xl text-black font-bold text-center">CONTROLS: <span class="text-player2-blue [text-shadow:2px_2px_0_white]">W / S</span></div>
+                        </div>
+                    `;
+                }
+                
+                overlay.appendChild(controlsBottom);
+                document.body.appendChild(overlay);
+                
+                if (isLocalPlay) {
+                    const bannerDiv = document.createElement('div');
+                    bannerDiv.className = 'countdown-banner fixed top-[8%] left-1/2 -translate-x-1/2 -rotate-[2deg] z-[10502] pointer-events-none';
+                    
+                    bannerDiv.innerHTML = `
+                        <div class="bg-comic-yellow border-[6px] border-black p-4 px-12 shadow-[8px_8px_0_rgba(0,0,0,0.8)] relative">
+                            <div class="text-[2.5rem] text-black font-bold uppercase tracking-[3px] [text-shadow:3px_3px_0_white]">LOCAL BATTLE!</div>
+                            
+                            <div class="absolute -top-1.5 -right-1.5 w-[30px] h-[30px] bg-gradient-to-br from-black from-50% to-comic-yellow to-50% border-l-[6px] border-b-[6px] border-black"></div>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(bannerDiv);
+                    
+                    bannerDiv.animate([
+                        { opacity: '0', transform: 'translateX(-50%) translateY(-50px) rotate(-2deg)' },
+                        { opacity: '1', transform: 'translateX(-50%) translateY(0) rotate(-2deg)' }
+                    ], {
+                        duration: 500,
+                        easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                        fill: 'forwards'
+                    });
+                }
+                
+                setTimeout(() => {
+                    const panels = document.querySelectorAll('.countdown-panel');
+                    panels.forEach((panel, index) => {
+                        setTimeout(() => {
+                            (panel as HTMLElement).animate([
+                                { opacity: '0', transform: 'translateY(-50%) scale(0.8)' },
+                                { opacity: '1', transform: 'translateY(-50%) scale(1)' }
+                            ], {
+                                duration: 500,
+                                easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+                                fill: 'forwards'
+                            });
+                        }, index * 150);
+                    });
+                }, 100);
             }
         }
         
-        // Update countdown number (only for 3, 2, 1 - never 0)
+        // Update countdown number
         const oldCountdown = document.getElementById('countdown-number');
         if (oldCountdown) {
             oldCountdown.remove();
@@ -1125,59 +903,29 @@ export class PongGame3D {
         
         const countdownDiv = document.createElement('div');
         countdownDiv.id = 'countdown-number';
-        countdownDiv.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 10002;
-        `;
+        countdownDiv.className = 'fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[10502]';
         
         const displayNumber = count.toString();
         const finalRotation = '-2deg';
         
         countdownDiv.innerHTML = `
-            <div style="
-                background: white;
-                border: 8px solid black;
-                padding: 3rem 5rem;
-                box-shadow: 12px 12px 0 rgba(0,0,0,0.8);
-                transform: rotate(${finalRotation});
-                position: relative;
-            ">
-                <div style="
-                    font-size: 10rem;
-                    color: black;
-                    font-weight: bold;
-                    text-shadow: 6px 6px 0 #FCD34D;
-                    line-height: 1;
-                ">${displayNumber}</div>
+            <div class="bg-white border-[8px] border-black p-12 px-20 shadow-[12px_12px_0_rgba(0,0,0,0.8)] -rotate-[2deg] relative">
+                <div class="text-[10rem] text-black font-bold [text-shadow:6px_6px_0_#FCD34D] leading-none">${displayNumber}</div>
             </div>
         `;
         
         document.body.appendChild(countdownDiv);
         
-        // Instant appearance + subtle frame rotation
         countdownDiv.animate([
-            { 
-                transform: `translate(-50%, -50%) rotate(-7deg)`,
-                opacity: '1'
-            },
-            { 
-                transform: `translate(-50%, -50%) rotate(-4deg)`,
-                opacity: '1',
-                offset: 0.5
-            },
-            { 
-                transform: `translate(-50%, -50%) rotate(${finalRotation})`,
-                opacity: '1'
-            }
+            { transform: `translate(-50%, -50%) rotate(-7deg)`, opacity: '1' },
+            { transform: `translate(-50%, -50%) rotate(-4deg)`, opacity: '1', offset: 0.5 },
+            { transform: `translate(-50%, -50%) rotate(${finalRotation})`, opacity: '1' }
         ], {
             duration: 300,
-        easing: 'ease-out',
-        fill: 'forwards'
-    });
-}
+            easing: 'ease-out',
+            fill: 'forwards'
+        });
+    }
 
     private onGameEnd(data: { winnerNickname: string, winnerId: string, finalScore: any }): void {
         if (this.gameEndHandled) {
@@ -1185,24 +933,47 @@ export class PongGame3D {
             return;
         }
         
+        this.hideWaitingForOpponent();
+        this.hideCountdownSpotlight();
+        
         this.gameEndHandled = true;
-        console.log(`[DEBUG] onGameEnd called with winner: ${data.winnerNickname}`);
-
         this.connection?.disconnect();
-        console.log('[DEBUG] Game WebSocket disconnected to prevent duplicate events');
 
         const modal = document.getElementById('gameOverModal');
+        const modalContent = document.getElementById('gameOverModalContent');
         const winnerMessage = document.getElementById('winnerMessage');
         const gameOverTitle = document.getElementById('gameOverTitle');
 
-        if (modal && winnerMessage && gameOverTitle) {
-            // Determine if current player won
-            const currentPlayerId = this.connection?.playerId?.toString();
-            const isWinner = data.winnerId?.toString() === currentPlayerId;
+        if (modal && modalContent && winnerMessage && gameOverTitle) {
+            const isWinner = data.winnerId?.toString() === this.connection?.playerId?.toString();
             
-            gameOverTitle.textContent = isWinner ? 'VICTORY!' : 'DEFEAT!';
-            winnerMessage.textContent = `${data.winnerNickname} wins!`;
+            // Reset state
+            modalContent.classList.remove('bg-yellow-300', 'bg-red-600', 'text-comic-red', 'text-comic-yellow');
+            
+            if (isWinner) {
+                gameOverTitle.textContent = 'VICTORY!';
+                modalContent.classList.add('bg-yellow-300');
+                gameOverTitle.className = 'text-6xl text-red-600 text-outline-lg-black font-black mb-4';
+            } else {
+                gameOverTitle.textContent = 'DEFEAT!';
+                modalContent.classList.add('bg-red-600');
+                gameOverTitle.className = 'text-6xl text-yellow-300 text-outline-lg-black font-black mb-4';
+            }
+            
+            winnerMessage.textContent = `${data.winnerNickname} WINS!`;
+            winnerMessage.className = 'text-3xl uppercase mb-8 font-black text-black';
+            
             modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            modalContent.animate([
+                { transform: 'scale(0.8) rotate(-5deg)', opacity: '0' },
+                { transform: 'scale(1.05) rotate(2deg)', opacity: '1' },
+                { transform: 'scale(1) rotate(0deg)', opacity: '1' }
+            ], {
+                duration: 400,
+                easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)'
+            });
         }
     }
 

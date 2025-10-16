@@ -5,6 +5,13 @@ import { StatsManager } from '../stats/stats-manager';
 
 type UserResolver = (user: any) => void;
 
+export interface NavigationHistoryEntry {
+  sectionId: string;
+  tournamentId?: string;
+  tournamentView?: string;
+  timestamp: number;
+}
+
 export interface AppState {
   currentUser: any | null;
   currentGame: PongGame3D | null;
@@ -22,6 +29,7 @@ export interface AppState {
   activeTournamentsData: any[];
   userReady: Promise<any>;
   _resolveUserReady: UserResolver;
+  navigationHistory: NavigationHistoryEntry[];
 }
 
 export const appState: AppState = (() => {
@@ -47,5 +55,6 @@ export const appState: AppState = (() => {
     activeTournamentsData: [],
     userReady: userReadyPromise,
     _resolveUserReady: resolveUserFn,
+    navigationHistory: [],
   };
 })();

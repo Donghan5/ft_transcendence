@@ -506,54 +506,6 @@
             <button id="cancelAiSelect" class="mt-8 text-black uppercase text-xl hover:text-pink-500 font-teko transition-colors duration-200">Cancel</button>
         </div>
     </div>
-
-    <script>
-        function showAuthTab(tabName) {
-            console.log('Switching to tab:', tabName);
-            
-            const loginForm = document.getElementById('login-form');
-            const registerForm = document.getElementById('register-form');
-            const loginTab = document.querySelector('[data-tab="login"]');
-            const registerTab = document.querySelector('[data-tab="register"]');
-
-            // Hide both forms
-            loginForm.classList.add('hidden');
-            registerForm.classList.add('hidden');
-
-            // Reset both tabs to gray using inline styles to override Tailwind
-            loginTab.style.backgroundColor = 'rgb(229, 231, 235)'; // gray-200
-            loginTab.style.color = 'rgb(75, 85, 99)'; // gray-600
-            registerTab.style.backgroundColor = 'rgb(229, 231, 235)'; // gray-200
-            registerTab.style.color = 'rgb(75, 85, 99)'; // gray-600
-
-            if (tabName === 'login') {
-                loginForm.classList.remove('hidden');
-                loginTab.style.backgroundColor = 'rgb(253, 224, 71)'; // yellow-300
-                loginTab.style.color = 'rgb(0, 0, 0)'; // black
-                console.log('Login tab activated');
-            } else if (tabName === 'register') {
-                registerForm.classList.remove('hidden');
-                registerTab.style.backgroundColor = 'rgb(253, 224, 71)'; // yellow-300
-                registerTab.style.color = 'rgb(0, 0, 0)'; // black
-                console.log('Register tab activated');
-            }
-
-            // Clear any error/success messages
-            document.querySelectorAll('#loginError, #registerError, #loginSuccess, #registerSuccess').forEach(el => {
-                el.classList.add('hidden');
-                el.textContent = '';
-            });
-        }
-
-        // Initialize with login tab active
-        document.addEventListener('DOMContentLoaded', () => {
-            showAuthTab('login');
-        });
-
-        // Make function globally available
-        window.showAuthTab = showAuthTab;
-    </script>
-
     <script type="module" src="./main.ts"></script>
 </body>
 </html>

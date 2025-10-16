@@ -1,75 +1,69 @@
 import { appState } from "../state/state";
 import { redirectGoogleLogin } from '../../auth/login/google';
 import { AuthService } from '../../auth/services/auth-service';
-import { StatsManager } from "../stats/stats-manager";
 import { StatusManager } from "../status/status-manager";
 import { showAppScreen, showSection } from "../services/ui";
 import { showNicknameSetupScreen, showFriendsScreen } from "./ui";
 import { showProfileScreen } from "./user";
 
 /**
- * @description handler setting up local authentication handlers
+ * @description Sets up all UI and logic for the local authentication section (tabs and forms).
  */
 export function setupLocalAuthHandlers(): void {
-    // Initialize auth tabs
-    initializeAuthTabs();
-    
-    // Setup all auth event listeners
-    setupAuthEventListeners();
+    setupAuthTabs();
+    showAuthTab('login'); // Initialize with the login tab active
+    setupFormSubmissionHandlers();
 }
 
 /**
- * @description Show the specified authentication tab with proper styling
- * @param tabName - The name of the tab to show ('login' or 'register')
+ * @description Manages switching between Login and Register forms using Tailwind classes.
+ * @param tabName The name of the tab to display: 'login' or 'register'.
  */
-export function showAuthTab(tabName: 'login' | 'register'): void {
-    console.log('Switching to tab:', tabName);
-    
-    // Get form elements
-    const loginForm = document.getElementById('login-form') as HTMLElement;
-    const registerForm = document.getElementById('register-form') as HTMLElement;
-    
-    // Get tab button elements
-    const loginTab = document.querySelector('[data-tab="login"]') as HTMLElement;
-    const registerTab = document.querySelector('[data-tab="register"]') as HTMLElement;
+function showAuthTab(tabName: 'login' | 'register'): void {
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('register-form');
+    const loginTab = document.querySelector('[data-tab="login"]');
+    const registerTab = document.querySelector('[data-tab="register"]');
 
-    if (!loginForm || !registerForm || !loginTab || !registerTab) {
-        console.error('Auth tab elements not found');
-        return;
-    }
+    if (!loginForm || !registerForm || !loginTab || !registerTab) return;
 
     // Hide both forms
     loginForm.classList.add('hidden');
     registerForm.classList.add('hidden');
 
-    // Reset both tabs to inactive state using direct style manipulation to override Tailwind
-    const inactiveStyles = {
-        backgroundColor: 'rgb(229, 231, 235)', // gray-200
-        color: 'rgb(75, 85, 99)' // gray-600
-    };
-
-    const activeStyles = {
-        backgroundColor: 'rgb(253, 224, 71)', // yellow-300
-        color: 'rgb(0, 0, 0)' // black
-    };
-
-    // Apply inactive styles to both tabs first
-    Object.assign(loginTab.style, inactiveStyles);
-    Object.assign(registerTab.style, inactiveStyles);
+    // Reset both tabs to inactive state
+    loginTab.classList.remove('bg-yellow-300', 'text-black');
+    loginTab.classList.add('bg-gray-200', 'text-gray-600');
+    registerTab.classList.remove('bg-yellow-300', 'text-black');
+    registerTab.classList.add('bg-gray-200', 'text-gray-600');
 
     // Show selected form and activate corresponding tab
     if (tabName === 'login') {
         loginForm.classList.remove('hidden');
-        Object.assign(loginTab.style, activeStyles);
-        console.log('Login tab activated');
+        loginTab.classList.remove('bg-gray-200', 'text-gray-600');
+        loginTab.classList.add('bg-yellow-300', 'text-black');
     } else if (tabName === 'register') {
         registerForm.classList.remove('hidden');
-        Object.assign(registerTab.style, activeStyles);
-        console.log('Register tab activated');
+        registerTab.classList.remove('bg-gray-200', 'text-gray-600');
+        registerTab.classList.add('bg-yellow-300', 'text-black');
     }
 
-    // Clear any error/success messages
     clearAuthMessages();
+}
+
+/**
+ * @description Attaches click event listeners to the auth tabs.
+ */
+function setupAuthTabs(): void {
+    const tabs = document.querySelectorAll('.auth-tab');
+    tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+            const tabName = (e.currentTarget as HTMLElement).dataset.tab as 'login' | 'register';
+            if (tabName) {
+                showAuthTab(tabName);
+            }
+        });
+    });
 }
 
 /**
@@ -84,35 +78,9 @@ export function clearAuthMessages(): void {
 }
 
 /**
- * @description Initialize auth tabs when DOM is loaded
+ * @description Setup authentication form submission event listeners
  */
-export function initializeAuthTabs(): void {
-    // Make function globally available for onclick handlers
-    (window as any).showAuthTab = showAuthTab;
-    
-    // Set login as default active tab
-    showAuthTab('login');
-    
-    console.log('Auth tabs initialized');
-}
-
-/**
- * @description Setup authentication event listeners
- */
-export function setupAuthEventListeners(): void {
-    // Add event listeners for tab buttons (alternative to onclick)
-    const loginTab = document.querySelector('[data-tab="login"]') as HTMLElement;
-    const registerTab = document.querySelector('[data-tab="register"]') as HTMLElement;
-    
-    if (loginTab) {
-        loginTab.addEventListener('click', () => showAuthTab('login'));
-    }
-    
-    if (registerTab) {
-        registerTab.addEventListener('click', () => showAuthTab('register'));
-    }
-
-    // Form submission handlers
+function setupFormSubmissionHandlers(): void {
     const loginForm = document.getElementById('loginForm') as HTMLFormElement;
     const registerForm = document.getElementById('registerForm') as HTMLFormElement;
 
@@ -124,7 +92,7 @@ export function setupAuthEventListeners(): void {
         registerForm.addEventListener('submit', handleLocalRegister);
     }
 
-    console.log('Auth event listeners setup complete');
+    console.log('Auth form event listeners setup complete');
 }
 
 /**
