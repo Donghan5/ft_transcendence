@@ -16,6 +16,7 @@ export function initializeGame(
     const container = document.getElementById(containerId)
     if (!container) return null
     
+    
     container.innerHTML = `
         <div class="fixed top-0 left-0 w-screen h-screen bg-gray-900 overflow-hidden">
             <canvas id="game-canvas" tabindex="-1" class="block w-full h-full absolute top-0 left-0 touch-action-none"></canvas>
@@ -33,7 +34,7 @@ export function initializeGame(
                 <div class="relative">
                     <!-- Player tag -->
                     <div class="bg-pink-500 border-4 border-black pl-4 pr-6 py-1 shadow-[4px_4px_0_rgba(0,0,0,1)] transform -rotate-2">
-                        <div class="font-anton text-lg text-white uppercase tracking-widest">
+                        <div id="player1-name" class="font-anton text-lg text-white uppercase tracking-widest">
                             ${player1Nickname || 'PLAYER 1'}
                         </div>
                     </div>
@@ -72,7 +73,7 @@ export function initializeGame(
                 <div class="relative">
                     <!-- Player tag -->
                     <div class="bg-cyan-400 border-4 border-black pl-6 pr-4 py-1 shadow-[4px_4px_0_rgba(0,0,0,1)] transform rotate-2">
-                        <div class="font-anton text-lg text-black uppercase tracking-widest">
+                        <div id="player2-name" class="font-anton text-lg text-black uppercase tracking-widest">
                             ${player2Nickname || 'PLAYER 2'}
                         </div>
                     </div>

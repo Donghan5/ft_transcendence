@@ -71,7 +71,7 @@ class Enhanced3DPongGame {
 	 * @return gameId - ID of the created game
 	 */
 	public createGame(player1Id: string, player2Id: string, gameMode: string, aiStrategy?: 'Defensive' | 'Aggressive' | 'Trickshot',
-		player1Nickname?: string, player2Nickname?: string
+		player1Nickname?: string, player2Nickname?: string, player1Avatar?: string, player2Avatar?: string
 	): string {
 		const gameId = `game_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 		
@@ -104,13 +104,15 @@ class Enhanced3DPongGame {
 				...initialState.player1, 
 				position: { x: -12, y: 1.5, z: 0 }, 
 				paddleZ: 0,
-				nickname: player1Nickname || player1Id
+				nickname: player1Nickname || player1Id,
+				avatarUrl: player1Avatar
 			},
 			player2: { 
 				...initialState.player2, 
 				position: { x: 12, y: 1.5, z: 0 }, 
 				paddleZ: 0,
-				nickname: player2Nickname || player2Id
+				nickname: player2Nickname || player2Id,
+				avatarUrl: player2Avatar
 			},
 			ball: {
 				position: { x: 0, y: 1, z: 0 },
