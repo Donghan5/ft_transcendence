@@ -129,9 +129,11 @@ export class PongGame3D {
             if (isWinner) {
                 gameOverTitle.textContent = 'VICTORY!';
                 modalContent.classList.add('bg-yellow-300');
+                gameOverTitle.className = 'text-6xl text-red-600 text-outline-lg-black font-black mb-4';
             } else {
                 gameOverTitle.textContent = 'DEFEAT!';
                 modalContent.classList.add('bg-red-600');
+                gameOverTitle.className = 'text-6xl text-yellow-300 text-outline-lg-black font-black mb-4';
             }
             
             winnerMessage.textContent = `${data.winnerNickname} WINS!`;
