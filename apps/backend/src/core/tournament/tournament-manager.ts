@@ -45,26 +45,6 @@ export class TournamentManager {
         });
     }
 
-    async refreshPlayerAvatar(userId: string, newAvatarUrl: string): Promise<void> {
-        // Update avatar in all tournaments where this user is a participant
-        for (const [tournamentId, tournament] of this.tournaments) {
-            const playerIndex = tournament.players.findIndex(p => p.id === userId);
-            
-            if (playerIndex !== -1) {
-                // Update the player's avatar
-                tournament.players[playerIndex].avatarUrl = newAvatarUrl;
-                
-                // Broadcast the update to all connected clients
-                this.broadcastToTournament(tournamentId, {
-                    type: 'player_updated',
-                    players: tournament.players
-                });
-                
-                console.log(`Updated avatar for user ${userId} in tournament ${tournament.name}`);
-            }
-        }
-    }
-
     // Load active tournaments from database on startup
     private async loadActiveTournaments() {
         try {
@@ -92,7 +72,7 @@ export class TournamentManager {
         try {
             // Get players
             const players = await dbAll(`
-                SELECT u.id, u.nickname, u.rating
+                SELECT u.id, u.nickname, u.rating, u.avatar_url
                 FROM tournament_participants tp
                 JOIN users u ON tp.user_id = u.id
                 WHERE tp.tournament_id = ?
@@ -101,9 +81,9 @@ export class TournamentManager {
             // Get bracket matches
             const matches = await dbAll(`
                 SELECT tm.*, 
-                       p1.nickname as player1_nickname, p1.rating as player1_rating,
-                       p2.nickname as player2_nickname, p2.rating as player2_rating,
-                       w.nickname as winner_nickname, w.rating as winner_rating
+                    p1.nickname as player1_nickname, p1.rating as player1_rating, p1.avatar_url as player1_avatar,
+                    p2.nickname as player2_nickname, p2.rating as player2_rating, p2.avatar_url as player2_avatar,
+                    w.nickname as winner_nickname, w.rating as winner_rating, w.avatar_url as winner_avatar
                 FROM tournament_matches tm
                 LEFT JOIN users p1 ON tm.player1_id = p1.id
                 LEFT JOIN users p2 ON tm.player2_id = p2.id
@@ -119,24 +99,28 @@ export class TournamentManager {
                 players: players.map(p => ({
                     id: p.id.toString(),
                     nickname: p.nickname,
-                    rating: p.rating
+                    rating: p.rating,
+                    avatarUrl: p.avatar_url || '/default-avatar.png'
                 })),
                 bracket: matches.map(m => ({
                     id: m.id,
                     player1: m.player1_id ? {
                         id: m.player1_id.toString(),
                         nickname: m.player1_nickname,
-                        rating: m.player1_rating
+                        rating: m.player1_rating,
+                        avatarUrl: m.player1_avatar || '/default-avatar.png'
                     } : null,
                     player2: m.player2_id ? {
                         id: m.player2_id.toString(),
                         nickname: m.player2_nickname,
-                        rating: m.player2_rating
+                        rating: m.player2_rating,
+                        avatarUrl: m.player2_avatar || '/default-avatar.png'
                     } : null,
                     winner: m.winner_id ? {
                         id: m.winner_id.toString(),
                         nickname: m.winner_nickname,
-                        rating: m.winner_rating
+                        rating: m.winner_rating,
+                        avatarUrl: m.winner_avatar || '/default-avatar.png'
                     } : null,
                     round: m.round,
                     position: m.position,
@@ -213,7 +197,7 @@ export class TournamentManager {
         }
 
         // Get user info
-        const user = await dbGet(`SELECT id, nickname, rating FROM users WHERE id = ?`, [parseInt(userId)]);
+        const user = await dbGet(`SELECT id, nickname, rating, avatar_url FROM users WHERE id = ?`, [parseInt(userId)]);
         if (!user) {
             return false;
         }
@@ -221,7 +205,8 @@ export class TournamentManager {
         const player: TournamentPlayer = {
             id: userId,
             nickname: user.nickname,
-            rating: user.rating
+            rating: user.rating,
+            avatarUrl: user.avatar_url || '/default-avatar.png'
         };
 
         // Add to tournament
@@ -346,6 +331,26 @@ export class TournamentManager {
         }
         
         return bracket;
+    }
+
+    async refreshPlayerAvatar(userId: string, newAvatarUrl: string): Promise<void> {
+        // Update avatar in all tournaments where this user is a participant
+        for (const [tournamentId, tournament] of this.tournaments) {
+            const playerIndex = tournament.players.findIndex(p => p.id === userId);
+            
+            if (playerIndex !== -1) {
+                // Update the player's avatar
+                tournament.players[playerIndex].avatarUrl = newAvatarUrl;
+                
+                // Broadcast the update to all connected clients
+                this.broadcastToTournament(tournamentId, {
+                    type: 'player_updated',
+                    players: tournament.players
+                });
+                
+                console.log(`Updated avatar for user ${userId} in tournament ${tournament.name}`);
+            }
+        }
     }
 
     private async saveBracketToDb(tournament: Tournament) {
@@ -642,29 +647,52 @@ export class TournamentManager {
     }
 
     async getActiveTournaments(): Promise<Tournament[]> {
-        return Array.from(this.tournaments.values())
-            .filter(t => t.status === 'waiting' || t.status === 'active');
+        const tournaments = Array.from(this.tournaments.values())
+        .filter(t => t.status === 'waiting' || t.status === 'active');
+    
+        // Add host nicknames
+        return Promise.all(
+            tournaments.map(async (t) => {
+                const host = await dbGet('SELECT nickname FROM users WHERE id = ?', [parseInt(t.hostId)]);
+                return {
+                    ...t,
+                    hostNickname: host?.nickname || 'Unknown'
+                };
+            })
+        );
     }
 
     async getTournament(tournamentId: string): Promise<Tournament | null> {
-        // First check memory
         let tournament = this.tournaments.get(tournamentId);
         
-        if (!tournament) {
-            // If not in memory, try to load from database
+        if (tournament) {
+            return tournament;
+        }
+        
+        try {
             const tournamentData = await dbGet(`
                 SELECT * FROM tournaments WHERE id = ?
             `, [tournamentId]);
             
-            if (tournamentData) {
-                tournament = await this.buildTournamentFromDb(tournamentData);
-                if (tournament && (tournament.status === 'waiting' || tournament.status === 'active')) {
-                    this.tournaments.set(tournamentId, tournament);
-                }
+            if (!tournamentData) {
+                return null;
             }
+            
+            tournament = await this.buildTournamentFromDb(tournamentData);
+            
+            if (!tournament) {
+                return null;
+            }
+            
+            if (tournament.status === 'waiting' || tournament.status === 'active') {
+                this.tournaments.set(tournamentId, tournament);
+            }
+            
+            return tournament;
+        } catch (error) {
+            console.error('Error getting tournament:', error);
+            return null;
         }
-        
-        return tournament || null;
     }
 
     async getUserTournamentHistory(userId: string): Promise<TournamentHistory[]> {

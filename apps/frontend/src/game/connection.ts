@@ -1,5 +1,5 @@
 export interface ConnectionEvenets {
-	'gameState': (gameState: any) => void;     // => is return type | like lambda ?
+	'gameState': (gameState: any) => void;
 	'playerJoined': (playerId: string) => void;
 	'waitingForOpponent': (playerSide: 'player1' | 'player2') => void;
 	'playerLeft': (playerId: string) => void;

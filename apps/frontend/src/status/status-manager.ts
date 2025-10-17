@@ -4,7 +4,6 @@ export interface FriendStatus {
     status: 'online' | 'in_game' | 'away' | 'offline';
     lastSeen: string;
     gameId?: string;
-    avatarUrl?: string;
 }
 
 export interface UserStats {
@@ -163,21 +162,8 @@ export class StatusManager {
                     this.notifyFriendUpdate();
                 });
                 break;
-            case 'friend_avatar_updated':
-                this.handleAvatarUpdate(data.payload);
-                break;
             default:
                 console.log('StatusManager: Unknown message type:', data.type);
-        }
-    }
-
-    private handleAvatarUpdate(payload: { userId: number; avatarUrl: string }): void {
-        const friend = this.friends.get(payload.userId);
-        if (friend) {
-            friend.avatarUrl = payload.avatarUrl;
-            this.friends.set(payload.userId, friend);
-            this.notifyStatusUpdate();
-            console.log(`Avatar for friend ${payload.userId} updated.`);
         }
     }
 
@@ -194,8 +180,7 @@ export class StatusManager {
     }
 
     private updateFriendStatus(friendData: FriendStatus): void {
-        const existingFriend = this.friends.get(friendData.userId);
-        this.friends.set(friendData.userId, { ...existingFriend, ...friendData });
+        this.friends.set(friendData.userId, friendData);
         this.notifyStatusUpdate();
     }
 

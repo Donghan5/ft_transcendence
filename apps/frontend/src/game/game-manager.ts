@@ -2,7 +2,6 @@ import { initializeGame } from '../game/init'
 import { appState } from '../state/state';
 import { returnToMainMenu } from '../utils/tools';
 import { showSection, showNotification } from '../services/ui';
-import { addEscKeyReminder } from '../utils/tools';
 import { updateConnectionStatus } from '../game/connection';
 
 /**
@@ -95,8 +94,6 @@ export async function createNewGame(gameMode: string) {
 export function showGameScreen() {
     showSection('game');
     console.log('Game screen is shown');
-    
-    addEscKeyReminder();
 }
 
 /**
@@ -192,9 +189,9 @@ export async function handleGameStart(gameMode: string) {
 }
 
 /**
- * @description selecting AI level for the game, came from UI
+ * @description selecting AI strategy for the game, came from UI
  * @returns {Promise<string | null>} - The selected AI level or null if cancelled
- * @throws Error if the AI strategy selection fails
+ * @throws Error if the AI level selection fails
  */
 export async function selectingAiStrategy(): Promise<string | null> {
 	const aiStrategy = await showAiStrategySelectionUI();
@@ -426,12 +423,6 @@ export function cleanupCurrentGame() {
             appState.currentGame = null;
             console.log('Current game reference cleared');
         }
-    }
-    
-    // Remove ESC reminder
-    const reminder = document.getElementById('esc-key-reminder');
-    if (reminder) {
-        reminder.remove();
     }
 }
 

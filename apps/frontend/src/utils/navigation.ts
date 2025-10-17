@@ -1,6 +1,7 @@
 import { appState, NavigationHistoryEntry } from '../state/state';
 import { showSection } from '../services/ui';
 import { TournamentUI } from '../tournament/tournament-ui';
+import { openTournament } from '../tournament/tournament-services';
 
 // Maximum navigation history size to prevent memory issues
 const MAX_HISTORY_SIZE = 50;
@@ -68,7 +69,7 @@ export function navigateBack() {
         // Restore the specific tournament view
         if (previousEntry.tournamentId) {
             // If we were viewing a specific tournament, restore it
-            appState.tournamentUI.openTournament(previousEntry.tournamentId).catch((error) => {
+            openTournament(previousEntry.tournamentId).catch((error) => {
                 console.error('Failed to restore tournament view:', error);
                 // Fallback to tournament home if we can't restore the specific tournament
                 appState.tournamentUI!.showTournamentHome();

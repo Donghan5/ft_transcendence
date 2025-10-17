@@ -143,7 +143,6 @@ class Enhanced3DPongGame {
 
 		this.connectedPlayers.get(gameId)!.set(playerId, ws);
 
-		// Log player join event
 		gameLogger.info(`Player ${playerId} joined game ${gameId}`);
 		logGameEvent(gameId, 'player_connect', {
 			player_id: playerId,
@@ -159,10 +158,18 @@ class Enhanced3DPongGame {
 
 			this.statusManager.setUserInGame(parseInt(playerId), gameId);
 
-			const isReadyToStart = (game.player2Id !== 'AI' && players.size === 2) || (game.player2Id === 'AI' && players.size === 1) || (game.gameMode === 'LOCAL_PVP');
-			if (isReadyToStart && game.status === 'waiting') {
-				this.startCountdown(gameId);
-			}
+			const isTournamentOrPvP = game.gameMode === 'TOURNAMENT' || game.gameMode === 'PVP';
+			const isAIGame = game.player2Id === 'AI';
+			const isLocalGame = game.gameMode === 'LOCAL_PVP';
+			
+			const actualPlayers = Array.from(players.keys()).filter(pid => 
+				pid === game.player1Id || pid === game.player2Id
+			);
+			
+			const isReadyToStart = 
+				(isTournamentOrPvP && actualPlayers.length === 2) ||
+				(isAIGame && players.size === 1) ||
+				(isLocalGame);
 
 			if (ws.readyState === WebSocket.OPEN) {
 				const message = JSON.stringify({
@@ -170,10 +177,29 @@ class Enhanced3DPongGame {
 					payload: game
 				});
 				ws.send(message);
-			} else {
-				console.warn(`Game ${gameId} not found for player ${playerId}`);
-				ws.close();
 			}
+
+			if (isTournamentOrPvP && !isReadyToStart && game.status === 'waiting') {
+				const playerSide = playerId === game.player1Id ? 'player1' : 'player2';
+				
+				if (ws.readyState === WebSocket.OPEN) {
+					ws.send(JSON.stringify({
+						type: 'waitingForOpponent',
+						playerSide: playerSide
+					}));
+				}
+				
+				console.log(`Game ${gameId}: Waiting for opponent. ${actualPlayers.length}/2 players connected.`);
+			} else if (isReadyToStart && game.status === 'waiting') {
+				console.log(`Game ${gameId}: All players connected, starting countdown!`);
+				
+				this.broadcastToGame(gameId, 'playerJoined', { playerId: playerId });
+				
+				this.startCountdown(gameId);
+			}
+		} else {
+			console.warn(`Game ${gameId} not found for player ${playerId}`);
+			ws.close();
 		}
 	}
 
@@ -489,11 +515,8 @@ class Enhanced3DPongGame {
 	public async endGame(gameId: string, predeterminedWinner?: string): Promise<void> {
 		console.log(`Ending game ${gameId}`, predeterminedWinner ? `with predetermined winner: ${predeterminedWinner}` : 'determining winner by score');
 		
-		// IMPORTANT: Stop the game loop FIRST to prevent any further broadcasts
 		this.stopGameLoop(gameId);
 		
-		// IMPORTANT: Wait a brief moment to ensure the game loop has fully stopped
-		// This prevents a race condition where a final gameState might be broadcast
 		await new Promise(resolve => setTimeout(resolve, 100));
 		
 		const game = this.games.get(gameId);
@@ -608,7 +631,7 @@ class Enhanced3DPongGame {
 		}, 30000);
 	}
 
-	 private async updatePlayersStats(game: GameState, winnerId: string): Promise<void> {
+	private async updatePlayersStats(game: GameState, winnerId: string): Promise<void> {
         try {
             const player1Id = parseInt(game.player1Id);
             const player2Id = parseInt(game.player2Id);

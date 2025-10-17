@@ -10,13 +10,23 @@ let friendsRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
  * @param sectionId - The ID of the section to show
- * @description Show a specific section by ID and hide others
+ * @param pushToHistory - Whether to push this navigation to the browser history
+ * @description Show a specific section by ID and hide others, with navigation history tracking
  */
-export function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting' | 'tournament', pushToHistory: boolean = true) {
+export function showSection(
+    sectionId: 'hero' | 'game' | 'profile' | 'login' | 'nicknameSetup' | 'friends' | 'publicProfile' | 'waiting' | 'tournament', 
+    pushToHistory: boolean = true
+) {
     const sections = ['heroSection', 'gameSection', 'profileSection', 'loginSection', 'appSection', 'nicknameSetupSection', 'friendsSection', 'publicProfileSection', 'waitingSection', 'tournamentSection'];
     
+    console.log(`SHOW SECTION with ${sectionId}, pushToHistory=${pushToHistory}`);
+
+    // IMPORTANT: Track navigation before changing section
+    // But only if we're actually changing sections and pushing to history
     if (pushToHistory && appState.currentSection && appState.currentSection !== sectionId) {
+        // Push the CURRENT section (where we're coming FROM) to history
         const currentTournamentId = appState.currentTournament?.id;
+        // const currentTournamentView = appState.tournamentUI?.getCurrentView?.();
         
         pushToNavigationHistory(
             appState.currentSection,
@@ -74,10 +84,10 @@ export function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | '
         // Load tournaments immediately when showing hero
         if (appState.currentUser) {
             loadHomeTournaments();
-            // startTournamentPolling();
         }
     }
 
+    // Rest of the showSection logic...
     if (appState.currentSection === sectionId && pushToHistory) {
         console.log(`Already in section ${sectionId}, skipping history push`);
         return;
@@ -93,13 +103,11 @@ export function showSection(sectionId: 'hero' | 'game' | 'profile' | 'login' | '
     }
 
     if (appState.currentSection === 'friends' && sectionId !== 'friends' && appState.statusManager) {
-        appState.statusManager.offFriendUpdate(renderFriendLists); // renderFriendLists를 참조할 수 있도록 해야 함
+        appState.statusManager.offFriendUpdate(renderFriendLists);
     }
 
     appState.currentSection = sectionId;
 }
-
-
 
 /**
  * @description Show friends screen with real-time updates
@@ -128,47 +136,76 @@ export async function showFriendsScreen() {
             const data = await response.json();
 
             // Get friend statuses if StatusManager is available
-             const friendStatuses = new Map(appState.statusManager?.getFriends().map(f => [f.userId, f]));
+            const friendStatuses = appState.statusManager?.getFriends() || [];
 
             // Render Friends List
             friendsListEl.innerHTML = data.friends.map((friend: any) => {
-                const statusInfo = friendStatuses.get(friend.id);
+                const statusInfo = friendStatuses.find(f => f.userId === friend.id);
                 const status = statusInfo ? statusInfo.status : 'offline';
                 const statusColor = getStatusColor(status);
+                const statusText = status.charAt(0).toUpperCase() + status.slice(1);
                 
-                const avatarUrl = statusInfo?.avatarUrl || friend.avatar_url || '/default-avatar.png';
-
                 return `
                     <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
                         <div class="flex items-center gap-x-3">
-                            <div class="w-3 h-3 rounded-full ${statusColor}" title="${status.charAt(0).toUpperCase() + status.slice(1)}"></div>
-                            <img src="${avatarUrl}" alt="${friend.nickname}" class="w-10 h-10 rounded-full">
-                            <span class="text-black font-bold">${friend.nickname}</span>
+                            <div class="relative">
+                                <img src="${friend.avatar_url || '/default-avatar.png'}" 
+                                     alt="${friend.nickname}" 
+                                     class="w-12 h-12 rounded-full border-2 border-black">
+                                <div class="absolute bottom-0 right-0 w-4 h-4 rounded-full ${statusColor} border-2 border-white" 
+                                     title="${statusText}"></div>
+                            </div>
+                            <div>
+                                <span class="text-black font-bold block">${friend.nickname}</span>
+                                <span class="text-sm text-gray-600">${statusText}</span>
+                            </div>
                         </div>
                         <div class="flex items-center gap-x-2">
-                            <button data-friend-id="${friend.id}" class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" data-nickname="${friend.nickname}">VIEW PROFILE & STATS</button>
-                            <button data-friend-id="${friend.id}" class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg border-thick hover-anarchy">REMOVE</button>
+                            <button data-friend-id="${friend.id}" 
+                                    class="friend-item bg-pink-500 text-white px-3 py-1 text-lg border-thick hover-anarchy" 
+                                    data-nickname="${friend.nickname}">
+                                VIEW PROFILE & STATS
+                            </button>
+                            <button data-friend-id="${friend.id}" 
+                                    class="remove-friend-btn bg-red-600 text-white px-3 py-1 text-lg border-thick hover-anarchy">
+                                REMOVE
+                            </button>
                         </div>
                     </li>
                 `;
             }).join('') || '<li class="bg-white p-3 border-thick text-black">No friends yet.</li>';
 
-            // Render Received Requests
+            // Render Received Requests (FIXED: was data.received, now data.receivedRequests)
             receivedRequestsListEl.innerHTML = data.receivedRequests.map((req: any) => `
                 <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-                    <img src="${req.avatar_url || '/default-avatar.png'}" alt="${req.nickname}" class="w-10 h-10 rounded-full mr-3">
-                    <span>${req.nickname}</span>
+                    <div class="flex items-center gap-3">
+                        <img src="${req.avatar_url || '/default-avatar.png'}" 
+                             alt="${req.nickname}" 
+                             class="w-10 h-10 rounded-full border-2 border-black">
+                        <span class="font-bold">${req.nickname}</span>
+                    </div>
                     <div>
-                        <button data-request-id="${req.id}" class="accept-friend-btn bg-green-500 text-white px-3 py-1 text-lg hover-anarchy mr-2">ACCEPT</button>
-                        <button data-request-id="${req.id}" class="reject-friend-btn bg-gray-500 text-white px-3 py-1 text-lg hover-anarchy">REJECT</button>
+                        <button data-request-id="${req.id}" 
+                                class="accept-friend-btn bg-green-500 text-white px-3 py-1 text-lg border-thick hover-anarchy mr-2">
+                            ACCEPT
+                        </button>
+                        <button data-request-id="${req.id}" 
+                                class="reject-friend-btn bg-gray-500 text-white px-3 py-1 text-lg border-thick hover-anarchy">
+                            REJECT
+                        </button>
                     </div>
                 </li>
             `).join('') || '<li class="bg-white p-3 border-thick text-black">No new friend requests.</li>';
 
-            // Render Sent Requests
+            // Render Sent Requests (FIXED: was data.sent, now data.sentRequests)
             sentRequestsListEl.innerHTML = data.sentRequests.map((req: any) => `
                 <li class="bg-white p-3 border-thick flex justify-between items-center text-black">
-                    <span>${req.nickname}</span>
+                    <div class="flex items-center gap-3">
+                        <img src="${req.avatar_url || '/default-avatar.png'}" 
+                             alt="${req.nickname}" 
+                             class="w-10 h-10 rounded-full border-2 border-black">
+                        <span class="font-bold">${req.nickname}</span>
+                    </div>
                     <span class="text-gray-500">Pending</span>
                 </li>
             `).join('') || '<li class="bg-white p-3 border-thick text-black">No sent requests.</li>';
@@ -186,14 +223,14 @@ export async function showFriendsScreen() {
         document.querySelectorAll('.accept-friend-btn').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const requestId = (e.target as HTMLElement).dataset.requestId;
-                await handleFriendAction('/api/user/friends/accept', 'PUT', { requestId });
+                await handleFriendAction('/api/user/friends/accept', 'PUT', { requestId: Number(requestId) });
             });
         });
         
         document.querySelectorAll('.reject-friend-btn').forEach(button => {
             button.addEventListener('click', async (e) => {
                 const requestId = (e.target as HTMLElement).dataset.requestId;
-                await handleFriendAction('/api/user/friends/reject', 'PUT', { requestId });
+                await handleFriendAction('/api/user/friends/reject', 'PUT', { requestId: Number(requestId) });
             });
         });
         
@@ -260,7 +297,7 @@ export async function showFriendsScreen() {
             friendNicknameInput.value = '';
             await renderFriendLists();
         } catch (error) {
-            addFriendStatus.textContent = `Error: ${error instanceof Error ? error.message : 'An unknown error occurred'}`;
+            addFriendStatus.textContent = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
         }
     };
 
@@ -279,6 +316,7 @@ export async function showFriendsScreen() {
         appState.statusManager.onFriendUpdate(renderFriendLists);
     }
 
+    
     // Initial render
     await renderFriendLists();
 }

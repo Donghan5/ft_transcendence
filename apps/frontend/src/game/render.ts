@@ -15,7 +15,9 @@ import {
     StandardMaterial,
     Color3,
     MeshBuilder,
-    DynamicTexture
+    DynamicTexture,
+    Matrix,
+    VertexBuffer
 } from '@babylonjs/core';
 import { GameState } from '@trans/common-types';
 import { Connection } from './connection';
@@ -37,13 +39,6 @@ import {
     INTERPOLATION_DELAY
 } from "@trans/common-types";
 
-
-/**
- * Function lists
- * showCountDownDisplay (feature changed)
- * hideCountDownDisplay (feature changed)
- * onGameEnd (feature changed)
- */
 export class PongGame3D {
     private engine: Engine;
     private scene: Scene;
@@ -114,23 +109,6 @@ export class PongGame3D {
         window.addEventListener('resize', this.resizeHandler);
     }
 
-    public updatePlayerAvatars(player1Avatar?: string, player2Avatar?: string): void {
-        if (player1Avatar) {
-            const p1AvatarEl = document.getElementById('player1-avatar') as HTMLImageElement;
-            if (p1AvatarEl) {
-                p1AvatarEl.src = player1Avatar + '?t=' + new Date().getTime();
-            }
-        }
-        
-        if (player2Avatar) {
-            const p2AvatarEl = document.getElementById('player2-avatar') as HTMLImageElement;
-            if (p2AvatarEl) {
-                p2AvatarEl.src = player2Avatar + '?t=' + new Date().getTime();
-            }
-        }
-    }
-
-
     private detectCollisions(): void {
         if (!this.previousBallPosition) return;
         const ballPos = this.ball.position;
@@ -156,6 +134,22 @@ export class PongGame3D {
         }
         if (prevBallPos.z > WALL_COLLISION_Z_BOTTOM && ballPos.z <= WALL_COLLISION_Z_BOTTOM) {
             this.createScreenShake(0.15);
+        }
+    }
+
+    public updatePlayerAvatars(player1Avatar?: string, player2Avatar?: string): void {
+        if (player1Avatar) {
+            const p1AvatarEl = document.getElementById('player1-avatar') as HTMLImageElement;
+            if (p1AvatarEl) {
+                p1AvatarEl.src = player1Avatar + '?t=' + new Date().getTime();
+            }
+        }
+        
+        if (player2Avatar) {
+            const p2AvatarEl = document.getElementById('player2-avatar') as HTMLImageElement;
+            if (p2AvatarEl) {
+                p2AvatarEl.src = player2Avatar + '?t=' + new Date().getTime();
+            }
         }
     }
 
@@ -232,8 +226,7 @@ export class PongGame3D {
         }
         cancelBtn.id = 'game-cancel-btn';
         cancelBtn.textContent = 'Quit Game';
-        cancelBtn.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400';
-        cancelBtn.style.zIndex = '1000';
+        cancelBtn.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 z-1000';
         cancelBtn.addEventListener('click', () => {
             if (confirm('Are you sure you want to quit and forfeit the game?')) {
                 this.forfeitGame();
@@ -303,138 +296,6 @@ export class PongGame3D {
             this.hideWaitingForOpponent();
             this.removePaddleHighlight();
         });
-    }
-
-    private removePaddleHighlight() {
-        if ((this as any)._paddleHighlightCleanup) {
-            (this as any)._paddleHighlightCleanup();
-            delete (this as any)._paddleHighlightCleanup;
-        }
-    }
-
-
-    private showWaitingForOpponent(playerSide: 'player1' | 'player2') {
-        this.hideWaitingForOpponent();
-        
-        const player1UI = document.querySelector('.absolute.top-6.left-6') as HTMLElement;
-        const player2UI = document.querySelector('.absolute.top-6.right-6') as HTMLElement;
-        if (player1UI) player1UI.style.display = 'none';
-        if (player2UI) player2UI.style.display = 'none';
-        
-        const isSpectator = this.gameMode === 'spectator';
-        const isLocalMode = this.gameMode === 'LOCAL_PVP';
-        
-        const overlay = document.createElement('div');
-        overlay.id = 'waiting-opponent-overlay';
-        overlay.className = 'fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-[11000] font-anton';
-        overlay.style.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.05) 10px, rgba(255,255,255,.05) 20px)';
-
-        if (isLocalMode) {
-            overlay.innerHTML = `
-                <div class="text-center">
-                    <div class="bg-white border-[8px] border-black p-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-12">
-                        <h1 class="text-6xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#FCD34D]">
-                            QUICK GAME!
-                        </h1>
-                    </div>
-                    
-                    <div class="flex gap-16 justify-center items-center">
-                        <div class="text-center">
-                            <div class="bg-player1-pink border-[6px] border-black p-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] mb-4">
-                                <div class="text-5xl text-white font-bold [text-shadow:3px_3px_0_black]">PINK</div>
-                            </div>
-                            <div class="bg-white border-4 border-black p-4 text-2xl font-bold">
-                                W / S
-                            </div>
-                        </div>
-                        
-                        <div class="text-center">
-                            <div class="bg-player2-blue border-[6px] border-black p-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] mb-4">
-                                <div class="text-5xl text-white font-bold [text-shadow:3px_3px_0_black]">BLUE</div>
-                            </div>
-                            <div class="bg-white border-4 border-black p-4 text-2xl font-bold">
-                                ↑ / ↓
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
-        } else if (isSpectator) {
-            overlay.innerHTML = `
-                <div class="text-center">
-                    <div class="bg-white border-[8px] border-black py-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-8">
-                        <h1 class="text-6xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#FCD34D]">
-                            WAITING...
-                        </h1>
-                    </div>
-                    
-                    <div class="bg-comic-yellow border-[6px] border-black py-6 px-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] rotate-1 text-2xl font-bold uppercase">
-                        FOR PLAYERS TO CONNECT
-                    </div>
-                    
-                    <p class="text-base text-white mt-8 [text-shadow:2px_2px_4px_rgba(0,0,0,0.5)]">
-                        Press ESC to return to tournament
-                    </p>
-                </div>
-            `;
-        } else {
-            const sideColorClass = playerSide === 'player1' ? 'bg-player1-pink' : 'bg-player2-blue';
-            const sideName = playerSide === 'player1' ? 'PINK' : 'BLUE';
-            
-            overlay.innerHTML = `
-                <div class="text-center">
-                    <div class="bg-white border-[8px] border-black py-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-8">
-                        <h1 class="text-6xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#FCD34D]">
-                            WAITING...
-                        </h1>
-                    </div>
-                    
-                    <div class="${sideColorClass} border-[6px] border-black py-6 px-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] rotate-1 mb-8">
-                        <div class="text-4xl text-white font-bold uppercase [text-shadow:3px_3px_0_black]">
-                            YOU ARE ${sideName}
-                        </div>
-                    </div>
-                    
-                    <div class="bg-comic-yellow border-[6px] border-black py-6 px-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] -rotate-1 text-2xl font-bold uppercase">
-                        WAITING FOR OPPONENT
-                    </div>
-                    
-                    <p class="text-base text-white mt-8 [text-shadow:2px_2px_4px_rgba(0,0,0,0.5)]">
-                        Press ESC to forfeit and return
-                    </p>
-                </div>
-            `;
-        }
-        
-        document.body.appendChild(overlay);
-    }
-
-
-    private hideWaitingForOpponent() {
-        const overlay = document.getElementById('waiting-opponent-overlay');
-        if (overlay) overlay.remove();
-        
-        const styles = document.getElementById('waiting-screen-styles');
-        if (styles) styles.remove();
-    }
-
-    private updateCountDownDisplay(count: number | undefined): void {
-        const countdownDisplay = document.getElementById('countdown-display');
-        if (countdownDisplay) {
-            countdownDisplay.style.display = 'block';
-            if (count !== undefined && count > 0) {
-                countdownDisplay.textContent = count.toString();
-            } else if (count === 0) {
-                countdownDisplay.textContent = 'GO!';
-            }
-        }
-    }
-
-    private hideCountDownDisplay(): void {
-        const countdownDisplay = document.getElementById('countdown-display');
-        if (countdownDisplay) {
-            countdownDisplay.style.display = 'none';
-        }
     }
 
     private interpolatePositions(): void {
@@ -531,10 +392,6 @@ export class PongGame3D {
             this.connection.sendPlayerInput(inputState, this.state.player2Id);
             this.lastSentInputStateP2 = inputState;
         }
-    }
-
-    private sendPaddleUpdate(playerId: string, paddleZ: number): void {
-        this.connection.sendGameAction('updatePaddle', { playerId, paddleZ });
     }
 
     private updateScoreDisplay(): void {
@@ -704,6 +561,115 @@ export class PongGame3D {
                 animation.stop();
             }
         }, 600);
+    }
+
+    private showWaitingForOpponent(playerSide: 'player1' | 'player2') {
+        this.hideWaitingForOpponent();
+        
+        const player1UI = document.querySelector('.absolute.top-6.left-6') as HTMLElement;
+        const player2UI = document.querySelector('.absolute.top-6.right-6') as HTMLElement;
+        if (player1UI) player1UI.style.display = 'none';
+        if (player2UI) player2UI.style.display = 'none';
+        
+        const isSpectator = this.gameMode === 'spectator';
+        const isLocalMode = this.gameMode === 'LOCAL_PVP';
+        
+        const overlay = document.createElement('div');
+        overlay.id = 'waiting-opponent-overlay';
+        overlay.className = 'fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-[11000] font-anton';
+        overlay.style.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.05) 10px, rgba(255,255,255,.05) 20px)';
+
+        if (isLocalMode) {
+            overlay.innerHTML = `
+                <div class="text-center">
+                    <div class="bg-white border-[8px] border-black p-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-12">
+                        <h1 class="text-6xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#FCD34D]">
+                            QUICK GAME!
+                        </h1>
+                    </div>
+                    
+                    <div class="flex gap-16 justify-center items-center">
+                        <div class="text-center">
+                            <div class="bg-player1-pink border-[6px] border-black p-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] mb-4">
+                                <div class="text-5xl text-white font-bold [text-shadow:3px_3px_0_black]">PINK</div>
+                            </div>
+                            <div class="bg-white border-4 border-black p-4 text-2xl font-bold">
+                                W / S
+                            </div>
+                        </div>
+                        
+                        <div class="text-center">
+                            <div class="bg-player2-blue border-[6px] border-black p-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] mb-4">
+                                <div class="text-5xl text-white font-bold [text-shadow:3px_3px_0_black]">BLUE</div>
+                            </div>
+                            <div class="bg-white border-4 border-black p-4 text-2xl font-bold">
+                                ↑ / ↓
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else if (isSpectator) {
+            overlay.innerHTML = `
+                <div class="text-center">
+                    <div class="bg-white border-[8px] border-black py-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-8">
+                        <h1 class="text-6xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#FCD34D]">
+                            WAITING...
+                        </h1>
+                    </div>
+                    
+                    <div class="bg-comic-yellow border-[6px] border-black py-6 px-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] rotate-1 text-2xl font-bold uppercase">
+                        FOR PLAYERS TO CONNECT
+                    </div>
+                    
+                    <p class="text-base text-white mt-8 [text-shadow:2px_2px_4px_rgba(0,0,0,0.5)]">
+                        Press ESC to return to tournament
+                    </p>
+                </div>
+            `;
+        } else {
+            const sideColorClass = playerSide === 'player1' ? 'bg-player1-pink' : 'bg-player2-blue';
+            const sideName = playerSide === 'player1' ? 'PINK' : 'BLUE';
+            
+            overlay.innerHTML = `
+                <div class="text-center">
+                    <div class="bg-white border-[8px] border-black py-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-8">
+                        <h1 class="text-6xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#FCD34D]">
+                            WAITING...
+                        </h1>
+                    </div>
+                    
+                    <div class="${sideColorClass} border-[6px] border-black py-6 px-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] rotate-1 mb-8">
+                        <div class="text-4xl text-white font-bold uppercase [text-shadow:3px_3px_0_black]">
+                            YOU ARE ${sideName}
+                        </div>
+                    </div>
+                    
+                    <div class="bg-comic-yellow border-[6px] border-black py-6 px-8 shadow-[8px_8px_0_rgba(0,0,0,0.5)] -rotate-1 text-2xl font-bold uppercase">
+                        WAITING FOR OPPONENT
+                    </div>
+                    
+                    <p class="text-base text-white mt-8 [text-shadow:2px_2px_4px_rgba(0,0,0,0.5)]">
+                        Press ESC to forfeit and return
+                    </p>
+                </div>
+            `;
+        }
+        
+        document.body.appendChild(overlay);
+    }
+
+    private hideWaitingForOpponent() {
+        const overlay = document.getElementById('waiting-opponent-overlay');
+        if (overlay) overlay.remove();
+        
+        const styles = document.getElementById('waiting-screen-styles');
+        if (styles) styles.remove();
+        
+        const player1UI = document.querySelector('.absolute.top-6.left-6') as HTMLElement;
+        const player2UI = document.querySelector('.absolute.top-6.right-6') as HTMLElement;
+        if (player1UI) player1UI.style.display = 'block';
+        if (player2UI) player2UI.style.display = 'block';
     }
 
     private showCountdownSpotlight(playerSide: 'player1' | 'player2' | 'both' = 'both', count: number) {
@@ -927,6 +893,24 @@ export class PongGame3D {
         });
     }
 
+    private hideCountdownSpotlight() {
+        const overlay = document.getElementById('countdown-spotlight-overlay');
+        if (overlay) overlay.remove();
+        
+        const countdown = document.getElementById('countdown-number');
+        if (countdown) countdown.remove();
+        
+        // Remove all countdown-related elements
+        document.querySelectorAll('.countdown-panel, .countdown-banner, .countdown-controls-bottom').forEach(el => el.remove());
+    }
+
+    private removePaddleHighlight() {
+        if ((this as any)._paddleHighlightCleanup) {
+            (this as any)._paddleHighlightCleanup();
+            delete (this as any)._paddleHighlightCleanup;
+        }
+    }
+
     private onGameEnd(data: { winnerNickname: string, winnerId: string, finalScore: any }): void {
         if (this.gameEndHandled) {
             console.log('[DEBUG] Game end already handled, ignoring duplicate event');
@@ -975,63 +959,6 @@ export class PongGame3D {
                 easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)'
             });
         }
-    }
-
-    // Also update the highlightPlayerPaddle method for cleaner effect
-    // Where is it called?
-    private highlightPlayerPaddle(playerSide: 'player1' | 'player2') {
-        if (this.gameMode === 'spectator') return;
-        
-        const color = playerSide === 'player1' ? '#3B82F6' : '#EF4444';
-        const paddleMesh = playerSide === 'player1' ? this.player1Paddle : this.player2Paddle;
-        
-        if (!paddleMesh) return;
-
-        const glowMaterial = new StandardMaterial(`${playerSide}-glow`, this.scene);
-        glowMaterial.diffuseColor = Color3.FromHexString(color);
-        glowMaterial.emissiveColor = Color3.FromHexString(color).scale(0.3);
-        
-        const originalMaterial = paddleMesh.material;
-        paddleMesh.material = glowMaterial;
-        
-        let pulseValue = 0;
-        const pulseInterval = setInterval(() => {
-            pulseValue += 0.1;
-            const intensity = 0.3 + Math.sin(pulseValue) * 0.2;
-            glowMaterial.emissiveColor = Color3.FromHexString(color).scale(intensity);
-        }, 50);
-        
-        (this as any)._paddleHighlightCleanup = () => {
-            clearInterval(pulseInterval);
-            if (paddleMesh && originalMaterial) {
-                paddleMesh.material = originalMaterial;
-            }
-        };
-        
-        setTimeout(() => {
-            if ((this as any)._paddleHighlightCleanup) {
-                (this as any)._paddleHighlightCleanup();
-                delete (this as any)._paddleHighlightCleanup;
-            }
-        }, 3000);
-    }
-
-    private hideCountdownSpotlight() {
-        const overlay = document.getElementById('countdown-spotlight-overlay');
-        
-        // // If overlay has "keep alive" flag, don't hide it yet (GO! is showing)
-        // if (overlay && overlay.getAttribute('data-keep-alive') === 'true') {
-        //     console.log('[COUNTDOWN] Keep alive flag set, not hiding yet');
-        //     return;
-        // }
-        
-        if (overlay) overlay.remove();
-        
-        const countdown = document.getElementById('countdown-number');
-        if (countdown) countdown.remove();
-        
-        // Remove all countdown-related elements
-        document.querySelectorAll('.countdown-panel, .countdown-banner, .countdown-controls-bottom').forEach(el => el.remove());
     }
 
     public dispose(): void {

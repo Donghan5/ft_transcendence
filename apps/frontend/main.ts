@@ -1,13 +1,14 @@
 import { appState } from './src/state/state';
-import { showSection, setupPongLogoRedirect, showFriendsScreen, showNicknameSetupScreen, showAppScreen } from './src/services/ui';
+import { showSection, setupPongLogoRedirect, showFriendsScreen, showNicknameSetupScreen, showAppScreen, showNotification } from './src/services/ui';
 import { handleGameStart, cancelMatchmaking, cleanupCurrentGame, forfeitCurrentGame, showGameScreen, startGame, triggerGameEnd } from './src/game/game-manager';
-import { returnToMainMenu, toggleFullscreen, addEscKeyReminder, removeEscKeyReminder } from './src/utils/tools';
+import { returnToMainMenu, toggleFullscreen } from './src/utils/tools';
 import { showProfileScreen } from './src/services/user';
-import { setupLocalAuthHandlers, updateLoginStatus, showLoginScreen } from './src/services/auth';
+import { setupLocalAuthHandlers, updateLoginStatus } from './src/services/auth';
 import { cleanupTournamentUI } from './src/tournament/tournament-services';
 import { StatusManager } from './src/status/status-manager';
-import { showNotification } from './src/services/ui';
 import { navigateBack } from './src/utils/navigation';
+
+// --- MAIN SCRIPT LOGIC ---
 
 document.addEventListener('DOMContentLoaded', () => {
 	const path = window.location.pathname;
@@ -35,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
 		console.trace(); // check
 	});
 
-	setupLocalAuthHandlers();
+	setupLocalAuthHandlers(); // Single call to set up all auth UI and logic
 	updateLoginStatus();
 	console.log('Start beautiful PONG game!');
 	setupEventListeners();
@@ -127,7 +128,6 @@ function setupEventListeners() {
 		window.location.href = '/api/auth/logout';
 	});
 
-	
     document.getElementById('profileReturnBtn')?.addEventListener('click', () => {
         console.log('Profile back button clicked');
         navigateBack();
@@ -163,7 +163,7 @@ function setupEventListeners() {
 				let gameMode = 'tournament';
 				if (detail.mode === 'spectator') {
 					gameMode = 'spectator';
-					showNotification('Spectator mode - you can watch but not play', 'info');
+                    showNotification('Spectator mode - you can watch but not play', 'info');
 				}
 
 				startGame(detail.gameId, String(appState.currentUser.id), gameMode);
@@ -191,8 +191,6 @@ document.addEventListener('DOMContentLoaded', () => {
 			// Only process if we're still in game section
 			if (appState.currentSection === 'game') {
 				cleanupCurrentGame();
-
-				// Then navigate (handles tournament redirection automatically)
 				returnToMainMenu();
 			}
 		}
@@ -203,28 +201,34 @@ document.addEventListener('DOMContentLoaded', () => {
 (window as any).triggerGameEnd = triggerGameEnd;
 
 document.addEventListener('keydown', (event) => {
-	if (event.key === 'Escape' && appState.currentGame && appState.currentSection === 'game') {
-		event.preventDefault();
+    if (event.key === 'Escape' && appState.currentGame && appState.currentSection === 'game') {
+        event.preventDefault();
 
-		if (appState.currentGameMode === 'spectator') {
-			// For spectators, just close without forfeit
-			console.log('Spectator exiting game...');
-			cleanupCurrentGame();
-			returnToMainMenu(); // This will handle tournament redirect
-		} else {
-			// For players, forfeit the game
-			forfeitCurrentGame();
-		}
-	}
+        if (appState.currentGameMode === 'spectator') {
+            // For spectators, just close without forfeit
+            console.log('Spectator exiting game...');
+            
+            // Hide waiting overlay for spectators
+            const waitingOverlay = document.getElementById('waiting-opponent-overlay');
+            if (waitingOverlay) {
+                waitingOverlay.remove();
+            }
+            
+            cleanupCurrentGame();
+            returnToMainMenu();
+        } else {
+            // For players, forfeit the game
+            forfeitCurrentGame();
+        }
+    }
 
-	if (event.key === 'F11') {
-		event.preventDefault();
-		toggleFullscreen();
-	}
+    if (event.key === 'F11') {
+        event.preventDefault();
+        toggleFullscreen();
+    }
 });
 
 window.addEventListener('beforeunload', () => {
-	// stopTournamentPolling();
 	cleanupTournamentUI();
 	cleanupCurrentGame();
 

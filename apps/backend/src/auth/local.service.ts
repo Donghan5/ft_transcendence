@@ -55,7 +55,7 @@ class LocalAuthService {
 			throw new Error('JWT secret is not defined');
 		}
 
-		return jwt.sign(jwtPayload, secret, { expiresIn: '1h' });
+		return jwt.sign(jwtPayload, secret, { expiresIn: '24h' });
 	}
 
 	public static async loginByEmail(email: string, password: string): Promise<string> {
@@ -84,7 +84,7 @@ class LocalAuthService {
 			throw new Error('JWT secret is not defined');
 		}
 
-		return jwt.sign(jwtPayload, secret, { expiresIn: '1h' });
+		return jwt.sign(jwtPayload, secret, { expiresIn: '24h' });
 	}
 
 	public static async changePassword(userId: number, oldPassword: string, newPassword: string): Promise<void> {

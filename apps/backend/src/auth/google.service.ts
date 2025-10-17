@@ -50,7 +50,7 @@ class GoogleService {
             profileComplete: user.profile_setup_complete || false,
         };
 
-        const ourJwtToken = jwt.sign(jwtPayload, secret, { expiresIn: '1h' });
+        const ourJwtToken = jwt.sign(jwtPayload, secret, { expiresIn: '24h' });
         return ourJwtToken;
     }
 }

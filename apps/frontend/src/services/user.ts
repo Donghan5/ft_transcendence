@@ -1,7 +1,7 @@
 import { PasswordChangeForm } from '../../components/password-change-form';
 import { AuthService } from '../../auth/services/auth-service';
 import { appState } from '../state/state';
-import { showSection } from './ui';
+import { showSection, showNotification } from './ui';
 import { StatsManager } from '../stats/stats-manager';
 import { UserStats } from '@/status/status-manager';
 
@@ -201,51 +201,73 @@ export async function showProfileScreen() {
  * @description Attach Avatar images
  */
 function attachAvatarFormListener() {
-    const avatarForm = document.getElementById('avatarForm');
-        if (avatarForm) {
-            avatarForm.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const avatarInput = document.getElementById('avatarUpload') as HTMLInputElement;
-            const avatarFiles = avatarInput.files;
-            if (!avatarFiles || avatarFiles.length === 0) {
-                // using default avatar
-                console.error('No avatar file selected. Showing default avatar.');
-                return;
-            }
+	const avatarForm = document.getElementById('avatarForm');
+	if (avatarForm) {
+		avatarForm.addEventListener('submit', async (event) => {
+			event.preventDefault();
+			const avatarInput = document.getElementById('avatarUpload') as HTMLInputElement;
+			const avatarFiles = avatarInput.files;
+			
+			if (!avatarFiles || avatarFiles.length === 0) {
+				console.error('No avatar file selected. Showing default avatar.');
+				return;
+			}
 
-            const formData = new FormData();
-            formData.append('avatar', avatarFiles[0]);
+			const formData = new FormData();
+			formData.append('avatar', avatarFiles[0]);
 
-            try {
-                const uploadResponse = await fetch('/api/user/avatar', {
-                    method: 'POST',
-                    body: formData,
-                    credentials: 'include'
-                });
-                const result = await uploadResponse.json();
+			try {
+				const uploadResponse = await fetch('/api/user/avatar', {
+					method: 'POST',
+					body: formData,
+					credentials: 'include'
+				});
+				const result = await uploadResponse.json();
 
-                if (uploadResponse.ok) {
-                console.log('Avatar uploaded successfully:', result);
-                
-                const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
-                if (widgetAvatar) {
-                    widgetAvatar.src = result.avatarUrl + '?t=' + new Date().getTime();
-                }
-                
-                const profileAvatar = document.getElementById('profileAvatar') as HTMLImageElement;
-                if (profileAvatar) {
-                    profileAvatar.src = result.avatarUrl + '?t=' + new Date().getTime();
-                }
-            } else {
-                    throw new Error(result.error || 'Failed to upload avatar');
-                }
-            } catch (error) {
-                console.error('Error uploading avatar:', error);
-            }
-            });
-        }
+				if (uploadResponse.ok) {
+					console.log('Avatar uploaded successfully:', result);
+					
+					const newAvatarUrl = result.avatarUrl + '?t=' + new Date().getTime();
+					
+					// Update widget avatar (navigation bar)
+					const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
+					if (widgetAvatar) {
+						widgetAvatar.src = newAvatarUrl;
+					}
+					
+					// Update profile page avatar
+					const profileAvatar = document.getElementById('profileAvatar') as HTMLImageElement;
+					if (profileAvatar) {
+						profileAvatar.src = newAvatarUrl;
+					}
+					
+					// Update currentUser object so tournament uses new avatar
+					if (appState.currentUser) {
+						appState.currentUser.avatarUrl = result.avatarUrl;
+						appState.currentUser.avatar_url = result.avatarUrl;
+					}
+					
+					// Update tournament UI if it exists and is active
+					if (appState.tournamentUI && appState.currentUser) {
+						appState.tournamentUI.setCurrentUser(appState.currentUser);
+					}
+					
+					// Show success notification
+					if (typeof showNotification === 'function') {
+						showNotification('Avatar updated successfully!', 'success');
+					}
+				} else {
+					throw new Error(result.error || 'Failed to upload avatar');
+				}
+			} catch (error) {
+				console.error('Error uploading avatar:', error);
+				if (typeof showNotification === 'function') {
+					showNotification('Failed to upload avatar', 'error');
+				}
+			}
+		});
+	}
 }
-
 
 export async function viewProfile(userId: number): Promise<void> {
     try {
