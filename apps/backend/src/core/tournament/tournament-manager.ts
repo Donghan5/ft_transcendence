@@ -401,6 +401,185 @@ export class TournamentManager {
         }
     }
 
+     /**
+     * Updates all in-memory tournament records after a user has been anonymized.
+     * This ensures that any cached finished tournaments reflect the user's new anonymous status.
+     * @param userId The ID of the user who was anonymized.
+     * @param newAnonymousNickname The new "Anonymous_XXXX" nickname.
+     */
+    public async anonymizeUserInTournaments(userId: string, newAnonymousNickname: string): Promise<void> {
+        console.log(`Anonymizing user ${userId} to "${newAnonymousNickname}" in all cached tournaments.`);
+
+        for (const [tournamentId, tournament] of this.tournaments.entries()) {
+            let wasUpdated = false;
+
+            // Anonymize the top-level winner, if applicable
+            if (tournament.winner?.id === userId) {
+                tournament.winner.nickname = newAnonymousNickname;
+                wasUpdated = true;
+            }
+
+            // Anonymize the user in the main players list
+            const player = tournament.players.find(p => p.id === userId);
+            if (player) {
+                player.nickname = newAnonymousNickname;
+                wasUpdated = true;
+            }
+
+            // Anonymize the user in every single bracket match (player1, player2, winner)
+            for (const match of tournament.bracket) {
+                if (match.player1?.id === userId) {
+                    match.player1.nickname = newAnonymousNickname;
+                    wasUpdated = true;
+                }
+                if (match.player2?.id === userId) {
+                    match.player2.nickname = newAnonymousNickname;
+                    wasUpdated = true;
+                }
+                if (match.winner?.id === userId) {
+                    match.winner.nickname = newAnonymousNickname;
+                    wasUpdated = true;
+                }
+            }
+
+            // If any part of this tournament was updated, notify connected clients.
+            if (wasUpdated) {
+                console.log(`Updated cached tournament ${tournamentId} with anonymized user data.`);
+                this.broadcastToTournament(tournamentId, {
+                    type: 'tournament_updated',
+                    tournament: tournament // Send the fully updated tournament object
+                });
+            }
+        }
+    }
+
+    /**
+     * Scrubs all historical records of a user after account deletion.
+     * This method is critical for ensuring data integrity after a hard delete.
+     * It updates the database AND invalidates any relevant in-memory caches.
+     * @param userId The ID of the user to scrub.
+     */
+    public async scrubUserFromHistory(userId: string): Promise<void> {
+        const userIdNum = parseInt(userId);
+        const DELETED_USER_ID = -99;
+
+        if (isNaN(userIdNum)) return;
+
+        console.log(`Scrubbing all historical records for deleted user ${userId}`);
+
+        // STEP 1: Invalidate any finished tournaments involving this user from the in-memory cache.
+        // This forces them to be re-fetched from the DB with the correct [Deleted User] data on next view.
+        // We find the IDs first, then delete, to avoid modifying the map while iterating.
+        const tournamentIdsToInvalidate: string[] = [];
+        for (const [id, tournament] of this.tournaments.entries()) {
+            if (tournament.status === 'finished') {
+                const isUserInvolved = 
+                    tournament.winner?.id === userId ||
+                    tournament.bracket.some(match => 
+                        match.player1?.id === userId ||
+                        match.player2?.id === userId ||
+                        match.winner?.id === userId
+                    );
+                
+                if (isUserInvolved) {
+                    tournamentIdsToInvalidate.push(id);
+                }
+            }
+        }
+
+        for (const id of tournamentIdsToInvalidate) {
+            this.tournaments.delete(id);
+            console.log(`Invalidated stale cache for finished tournament ${id}`);
+        }
+
+        // STEP 2: Update all historical database records to point to the sentinel [Deleted User].
+        await dbRun('UPDATE tournaments SET winner_id = ? WHERE winner_id = ?', [DELETED_USER_ID, userIdNum]);
+        await dbRun('UPDATE tournament_matches SET player1_id = ? WHERE player1_id = ?', [DELETED_USER_ID, userIdNum]);
+        await dbRun('UPDATE tournament_matches SET player2_id = ? WHERE player2_id = ?', [DELETED_USER_ID, userIdNum]);
+        await dbRun('UPDATE tournament_matches SET winner_id = ? WHERE winner_id = ?', [DELETED_USER_ID, userIdNum]);
+        
+        // Also update general game history
+        await dbRun('UPDATE games SET player1_id = ? WHERE player1_id = ?', [DELETED_USER_ID, userIdNum]);
+        await dbRun('UPDATE games SET player2_id = ? WHERE player2_id = ?', [DELETED_USER_ID, userIdNum]);
+        await dbRun('UPDATE games SET winner_id = ? WHERE winner_id = ?', [DELETED_USER_ID, userIdNum]);
+
+        console.log(`Finished scrubbing database records for user ${userId}`);
+    }
+
+    async forceDeleteTournament(tournamentId: string): Promise<void> {
+        try {
+            const tournament = this.tournaments.get(tournamentId);
+            const tournamentName = tournament ? tournament.name : 'Unknown Tournament';
+
+            console.log(`Force deleting tournament ${tournamentId} (${tournamentName}) due to administrative action.`);
+
+            // 1. Notify all connected clients that the tournament is being terminated
+            this.broadcastToTournament(tournamentId, {
+                type: 'tournament_deleted',
+                tournamentId: tournamentId,
+                tournamentName: tournamentName,
+                message: `This tournament has been canceled due to an administrative action (e.g., host account deletion).`
+            });
+
+            // Small delay to allow the message to be sent before sockets are closed
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // 2. Remove from in-memory state
+            this.tournaments.delete(tournamentId);
+            this.sockets.delete(tournamentId); // Also remove all associated websockets
+
+            // 3. Delete from the database (this now includes deleting games first)
+            await dbRun('DELETE FROM games WHERE tournament_id = ?', [tournamentId]);
+            await dbRun('DELETE FROM tournaments WHERE id = ?', [tournamentId]); // Cascade should handle participants/matches
+
+            // 4. Broadcast an update to the general "active tournaments" list for all users in the lobby
+            this.broadcastActiveTournamentsUpdate();
+
+            console.log(`Tournament ${tournamentId} successfully force-deleted from memory and database.`);
+        } catch (error) {
+            console.error(`Error during force-delete for tournament ${tournamentId}:`, error);
+        }
+    }
+
+    async removeParticipant(tournamentId: string, userId: string): Promise<boolean> {
+        const tournament = this.tournaments.get(tournamentId);
+
+        // This operation is only valid for tournaments in the 'waiting' state
+        if (!tournament || tournament.status !== 'waiting') {
+            return false;
+        }
+
+        const playerIndex = tournament.players.findIndex(p => p.id === userId);
+
+        // If player isn't in the tournament, consider it a success
+        if (playerIndex === -1) {
+            return true;
+        }
+
+        // 1. Remove the player from the in-memory players array
+        const removedPlayer = tournament.players.splice(playerIndex, 1)[0];
+        console.log(`Removed participant ${removedPlayer.nickname} (ID: ${userId}) from waiting tournament ${tournamentId}`);
+
+        // 2. Remove the player from the database
+        await dbRun('DELETE FROM tournament_participants WHERE tournament_id = ? AND user_id = ?', [tournamentId, userId]);
+
+        // 3. Notify all other clients in that specific tournament that the player has left
+        this.broadcastToTournament(tournamentId, {
+            type: 'player_left',
+            payload: {
+                tournamentId,
+                userId,
+                nickname: removedPlayer.nickname,
+                players: tournament.players // Send the updated player list
+            }
+        });
+
+        // 4. Broadcast an update to the main lobby so the player count updates there too
+        this.broadcastActiveTournamentsUpdate();
+
+        return true;
+    }
+
     async confirmMatch(tournamentId: string, matchId: string, userId: string): Promise<boolean> {
         const tournament = this.tournaments.get(tournamentId);
         if (!tournament) {

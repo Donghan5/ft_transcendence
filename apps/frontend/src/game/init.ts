@@ -16,7 +16,6 @@ export function initializeGame(
     const container = document.getElementById(containerId)
     if (!container) return null
     
-    
     container.innerHTML = `
         <div class="fixed top-0 left-0 w-screen h-screen bg-gray-900 overflow-hidden">
             <canvas id="game-canvas" tabindex="-1" class="block w-full h-full absolute top-0 left-0 touch-action-none"></canvas>

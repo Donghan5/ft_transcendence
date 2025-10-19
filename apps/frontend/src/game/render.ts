@@ -40,6 +40,8 @@ export class PongGame3D {
         this.engine = new Engine(canvas, true);
         this.scene = new Scene(this.engine);
 
+        canvas.focus();
+
         const sceneObjects: SceneObjects = createSceneAndGameObjects(this.scene, canvas);
         this.player1Paddle = sceneObjects.player1Paddle;
         this.player2Paddle = sceneObjects.player2Paddle;
@@ -53,6 +55,10 @@ export class PongGame3D {
 
         this.setupConnectionHandlers();
         this.connection.connect().catch(err => console.error('Connection failed:', err));
+
+        setTimeout(() => {
+            this.engine.resize();
+        }, 100);
 
         this.engine.runRenderLoop(() => {
             if (this.disposed) return;
@@ -115,6 +121,8 @@ export class PongGame3D {
         if (this.gameEndHandled) return;
         this.gameEndHandled = true;
         this.connection.disconnect();
+
+        this.uiManager.dispose();
 
         const modal = document.getElementById('gameOverModal');
         const modalContent = document.getElementById('gameOverModalContent');

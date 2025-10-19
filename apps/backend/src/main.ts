@@ -8,7 +8,7 @@ import cookie from '@fastify/cookie';
 import * as dotenv from 'dotenv';
 import { initializeDatabase } from './database/db';
 import multipart from '@fastify/multipart';
-
+import privacyRoute from './routes/api/user/privacy.controller';
 import profileRoute from './routes/api/user/profile.controller';
 
 dotenv.config({ path: path.resolve(__dirname, '../../../../.env')});
@@ -72,6 +72,7 @@ export async function buildServer(): Promise<FastifyInstance> {
     server.register(statusRoute, { prefix: '/api/user' });
     server.register(statsRoute, { prefix: '/api/user/stats' });
 	server.register(localLoginRoute, { prefix: '/api/users/login/local' });
+    server.register(privacyRoute, { prefix: '/api/user' });
     await server.register(tournamentRoutes, { prefix: '/api/tournament' });
 
     server.setErrorHandler((error, request, reply) => {

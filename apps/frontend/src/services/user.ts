@@ -4,6 +4,7 @@ import { appState } from '../state/state';
 import { showSection, showNotification } from './ui';
 import { StatsManager } from '../stats/stats-manager';
 import { UserStats } from '@/status/status-manager';
+import { PrivacyManagement } from '../../components/privacy-management';
 
 export async function showPublicProfileScreen(nickname: string) {
     showSection('publicProfile');
@@ -187,6 +188,12 @@ export async function showProfileScreen() {
                 new PasswordChangeForm(passwordChangeContainer);
             }
         }
+
+        // Privacy & Data Management section
+        const privacyContainer = document.createElement('div');
+        privacyContainer.id = 'privacyManagementContainer';
+        profileContent.appendChild(privacyContainer);
+        new PrivacyManagement(privacyContainer);
 
         attachAvatarFormListener();
 

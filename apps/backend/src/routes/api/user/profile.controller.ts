@@ -264,7 +264,7 @@ export default async function profileRoute(fastify: FastifyInstance) {
 		try {
 			const user = await dbGet('SELECT id, name, nickname, email, avatar_url FROM users WHERE nickname = ?', [nickname]);
 
-			if (!user) {
+			if (!user || user.id === -99) {
 				return reply.code(404).send({ error: 'User not found' });
 			}
 
