@@ -8,6 +8,39 @@ import { pushToNavigationHistory } from '../utils/navigation';
 let renderFriendLists: () => Promise<void> = async () => {};
 let friendsRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
+export function handleProfileUpdate(payload: any) {
+    console.log('Handling profile update:', payload);
+    
+    // Update current user if it's their own profile
+    if (appState.currentUser && appState.currentUser.id === payload.userId) {
+        if (payload.changeType === 'nickname' && payload.nickname) {
+            appState.currentUser.nickname = payload.nickname;
+            
+            // Update nickname widget
+            const widgetNickname = document.getElementById('widgetNickname');
+            if (widgetNickname) widgetNickname.textContent = payload.nickname;
+        }
+        
+        if (payload.changeType === 'avatar' && payload.avatarUrl) {
+            const newAvatarUrl = payload.avatarUrl + '?t=' + new Date().getTime();
+            appState.currentUser.avatarUrl = newAvatarUrl;
+            appState.currentUser.avatar_url = newAvatarUrl;
+            
+            // Update all avatar images
+            const widgetAvatar = document.getElementById('widgetAvatar') as HTMLImageElement;
+            if (widgetAvatar) widgetAvatar.src = newAvatarUrl;
+            
+            const profileAvatar = document.getElementById('profileAvatar') as HTMLImageElement;
+            if (profileAvatar) profileAvatar.src = newAvatarUrl;
+        }
+    }
+    
+    // If in friends section, refresh the friends list
+    if (appState.currentSection === 'friends') {
+        renderFriendLists();
+    }
+}
+
 /**
  * @param sectionId - The ID of the section to show
  * @param pushToHistory - Whether to push this navigation to the browser history

@@ -218,11 +218,14 @@ export class TournamentManager {
             VALUES (?, ?)
         `, [tournamentId, parseInt(userId)]);
 
-        // Notify all connected clients
+        // Notify all connected clients in this tournament
         this.broadcastToTournament(tournamentId, {
             type: 'player_joined',
             players: tournament.players
         });
+
+        // Broadcast update to the active tournaments list (for lobby/hero screen)
+        this.broadcastActiveTournamentsUpdate();
 
         console.log(`Player ${user.nickname} joined tournament ${tournament.name}`);
         return true;
@@ -260,11 +263,14 @@ export class TournamentManager {
         // Start first round matches
         await this.startRoundMatches(tournament, 1);
 
-        // Notify all clients
+        // Notify all clients in this tournament
         this.broadcastToTournament(tournamentId, {
             type: 'tournament_updated',
             tournament
         });
+
+        // Broadcast update to the active tournaments list (so FULL button changes to VIEW)
+        this.broadcastActiveTournamentsUpdate();
 
         console.log(`Tournament ${tournament.name} started with ${tournament.players.length} players`);
         return true;
@@ -333,26 +339,6 @@ export class TournamentManager {
         return bracket;
     }
 
-    async refreshPlayerAvatar(userId: string, newAvatarUrl: string): Promise<void> {
-        // Update avatar in all tournaments where this user is a participant
-        for (const [tournamentId, tournament] of this.tournaments) {
-            const playerIndex = tournament.players.findIndex(p => p.id === userId);
-            
-            if (playerIndex !== -1) {
-                // Update the player's avatar
-                tournament.players[playerIndex].avatarUrl = newAvatarUrl;
-                
-                // Broadcast the update to all connected clients
-                this.broadcastToTournament(tournamentId, {
-                    type: 'player_updated',
-                    players: tournament.players
-                });
-                
-                console.log(`Updated avatar for user ${userId} in tournament ${tournament.name}`);
-            }
-        }
-    }
-
     private async saveBracketToDb(tournament: Tournament) {
         // Clear existing matches
         await dbRun(`DELETE FROM tournament_matches WHERE tournament_id = ?`, [tournament.id]);
@@ -399,6 +385,127 @@ export class TournamentManager {
                 });
             }
         }
+        
+        //CHAT
+        const playersInThisRound = tournament.bracket
+            .filter(m => m.round === round && m.status === 'confirming')
+            .flatMap(m => [m.player1?.id, m.player2?.id])
+            .filter((id): id is string => id !== undefined && id !== null);
+        
+        if (playersInThisRound.length > 0) {
+            try {
+                await fetch('/api/chat/tournament/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        userIds: playersInThisRound.map(id => parseInt(id)),
+                        message: `🏆 Round ${round} is starting! Your match is ready - please confirm.`,
+                        tournamentId: tournament.id
+                    })
+                });
+                
+                console.log(`✅ Notifications sent to ${playersInThisRound.length} players for round ${round}`);
+            } catch (error) {
+                console.error('❌ Failed to send tournament notifications:', error);
+            }
+        }
+        //finCHAT
+    }
+
+    /**
+     * Updates player profile (nickname/avatar) across all tournaments
+     */
+    public async updatePlayerProfile(
+        userId: string, 
+        updates: { nickname?: string; avatarUrl?: string }
+    ): Promise<void> {
+        console.log(`Updating profile for user ${userId} in all tournaments:`, updates);
+
+        // Get ALL tournaments (finished and active) involving this user from database
+        const affectedTournaments = await dbAll(`
+            SELECT DISTINCT t.id
+            FROM tournaments t
+            LEFT JOIN tournament_participants tp ON t.id = tp.tournament_id
+            LEFT JOIN tournament_matches tm ON t.id = tm.tournament_id
+            WHERE tp.user_id = ? 
+            OR t.created_by = ? 
+            OR t.winner_id = ?
+            OR tm.player1_id = ? 
+            OR tm.player2_id = ? 
+            OR tm.winner_id = ?
+        `, [userId, userId, userId, userId, userId, userId]);
+
+        console.log(`Found ${affectedTournaments.length} tournaments affected by profile update`);
+
+        // Load and update each tournament
+        for (const row of affectedTournaments) {
+            let tournament = this.tournaments.get(row.id);
+            
+            // If not in cache, load it from database
+            if (!tournament) {
+                const tournamentData = await dbGet(`
+                    SELECT t.*, u.nickname as host_nickname
+                    FROM tournaments t
+                    LEFT JOIN users u ON t.created_by = u.id
+                    WHERE t.id = ?
+                `, [row.id]);
+                
+                if (tournamentData) {
+                    tournament = await this.buildTournamentFromDb(tournamentData);
+                    if (tournament) {
+                        this.tournaments.set(row.id, tournament);
+                    }
+                }
+            }
+
+            if (!tournament) continue;
+
+            let wasUpdated = false;
+
+            // Update in players list
+            const player = tournament.players.find(p => p.id === userId);
+            if (player) {
+                if (updates.nickname) player.nickname = updates.nickname;
+                if (updates.avatarUrl) player.avatarUrl = updates.avatarUrl;
+                wasUpdated = true;
+            }
+
+            // Update winner
+            if (tournament.winner?.id === userId) {
+                if (updates.nickname) tournament.winner.nickname = updates.nickname;
+                if (updates.avatarUrl) tournament.winner.avatarUrl = updates.avatarUrl;
+                wasUpdated = true;
+            }
+
+            // Update in all bracket matches
+            for (const match of tournament.bracket) {
+                if (match.player1?.id === userId) {
+                    if (updates.nickname) match.player1.nickname = updates.nickname;
+                    if (updates.avatarUrl) match.player1.avatarUrl = updates.avatarUrl;
+                    wasUpdated = true;
+                }
+                if (match.player2?.id === userId) {
+                    if (updates.nickname) match.player2.nickname = updates.nickname;
+                    if (updates.avatarUrl) match.player2.avatarUrl = updates.avatarUrl;
+                    wasUpdated = true;
+                }
+                if (match.winner?.id === userId) {
+                    if (updates.nickname) match.winner.nickname = updates.nickname;
+                    if (updates.avatarUrl) match.winner.avatarUrl = updates.avatarUrl;
+                    wasUpdated = true;
+                }
+            }
+
+            // Broadcast update if anyone is viewing this tournament
+            if (wasUpdated) {
+                console.log(`Broadcasting profile update for tournament ${row.id}`);
+                this.broadcastToTournament(row.id, {
+                    type: 'tournament_updated',
+                    tournament: tournament
+                });
+            }
+        }
     }
 
      /**
@@ -408,25 +515,63 @@ export class TournamentManager {
      * @param newAnonymousNickname The new "Anonymous_XXXX" nickname.
      */
     public async anonymizeUserInTournaments(userId: string, newAnonymousNickname: string): Promise<void> {
-        console.log(`Anonymizing user ${userId} to "${newAnonymousNickname}" in all cached tournaments.`);
+        console.log(`Anonymizing user ${userId} to "${newAnonymousNickname}" in all tournaments.`);
 
-        for (const [tournamentId, tournament] of this.tournaments.entries()) {
+        // Get ALL tournaments (finished and active) involving this user from database
+        const affectedTournaments = await dbAll(`
+            SELECT DISTINCT t.id
+            FROM tournaments t
+            LEFT JOIN tournament_participants tp ON t.id = tp.tournament_id
+            LEFT JOIN tournament_matches tm ON t.id = tm.tournament_id
+            WHERE tp.user_id = ? 
+            OR t.created_by = ? 
+            OR t.winner_id = ?
+            OR tm.player1_id = ? 
+            OR tm.player2_id = ? 
+            OR tm.winner_id = ?
+        `, [userId, userId, userId, userId, userId, userId]);
+
+        console.log(`Found ${affectedTournaments.length} tournaments affected by anonymization`);
+
+        // Load and update each tournament
+        for (const row of affectedTournaments) {
+            let tournament = this.tournaments.get(row.id);
+            
+            // If not in cache, load it from database
+            if (!tournament) {
+                const tournamentData = await dbGet(`
+                    SELECT t.*, u.nickname as host_nickname
+                    FROM tournaments t
+                    LEFT JOIN users u ON t.created_by = u.id
+                    WHERE t.id = ?
+                `, [row.id]);
+                
+                if (tournamentData) {
+                    tournament = await this.buildTournamentFromDb(tournamentData);
+                    if (tournament) {
+                        this.tournaments.set(row.id, tournament);
+                    }
+                }
+            }
+
+            if (!tournament) continue;
+
             let wasUpdated = false;
 
-            // Anonymize the top-level winner, if applicable
+            // Update winner
             if (tournament.winner?.id === userId) {
                 tournament.winner.nickname = newAnonymousNickname;
                 wasUpdated = true;
             }
 
-            // Anonymize the user in the main players list
+            // Update in players list
             const player = tournament.players.find(p => p.id === userId);
             if (player) {
                 player.nickname = newAnonymousNickname;
                 wasUpdated = true;
             }
 
-            // Anonymize the user in every single bracket match (player1, player2, winner)
+            // Update in bracket matches
             for (const match of tournament.bracket) {
                 if (match.player1?.id === userId) {
                     match.player1.nickname = newAnonymousNickname;
@@ -442,12 +587,12 @@ export class TournamentManager {
                 }
             }
 
-            // If any part of this tournament was updated, notify connected clients.
+            // Broadcast update if anyone is viewing this tournament
             if (wasUpdated) {
-                console.log(`Updated cached tournament ${tournamentId} with anonymized user data.`);
-                this.broadcastToTournament(tournamentId, {
+                console.log(`Broadcasting anonymization update for tournament ${row.id}`);
+                this.broadcastToTournament(row.id, {
                     type: 'tournament_updated',
-                    tournament: tournament // Send the fully updated tournament object
+                    tournament: tournament
                 });
             }
         }
@@ -467,32 +612,23 @@ export class TournamentManager {
 
         console.log(`Scrubbing all historical records for deleted user ${userId}`);
 
-        // STEP 1: Invalidate any finished tournaments involving this user from the in-memory cache.
-        // This forces them to be re-fetched from the DB with the correct [Deleted User] data on next view.
-        // We find the IDs first, then delete, to avoid modifying the map while iterating.
-        const tournamentIdsToInvalidate: string[] = [];
-        for (const [id, tournament] of this.tournaments.entries()) {
-            if (tournament.status === 'finished') {
-                const isUserInvolved = 
-                    tournament.winner?.id === userId ||
-                    tournament.bracket.some(match => 
-                        match.player1?.id === userId ||
-                        match.player2?.id === userId ||
-                        match.winner?.id === userId
-                    );
-                
-                if (isUserInvolved) {
-                    tournamentIdsToInvalidate.push(id);
-                }
-            }
-        }
+        // STEP 1: Get all tournaments involving this user
+        const affectedTournaments = await dbAll(`
+            SELECT DISTINCT t.id
+            FROM tournaments t
+            LEFT JOIN tournament_participants tp ON t.id = tp.tournament_id
+            LEFT JOIN tournament_matches tm ON t.id = tm.tournament_id
+            WHERE tp.user_id = ? 
+            OR t.created_by = ? 
+            OR t.winner_id = ?
+            OR tm.player1_id = ? 
+            OR tm.player2_id = ? 
+            OR tm.winner_id = ?
+        `, [userIdNum, userIdNum, userIdNum, userIdNum, userIdNum, userIdNum]);
 
-        for (const id of tournamentIdsToInvalidate) {
-            this.tournaments.delete(id);
-            console.log(`Invalidated stale cache for finished tournament ${id}`);
-        }
+        console.log(`Found ${affectedTournaments.length} tournaments affected by deletion`);
 
-        // STEP 2: Update all historical database records to point to the sentinel [Deleted User].
+        // STEP 2: Update all historical database records to point to the sentinel [Deleted User]
         await dbRun('UPDATE tournaments SET winner_id = ? WHERE winner_id = ?', [DELETED_USER_ID, userIdNum]);
         await dbRun('UPDATE tournament_matches SET player1_id = ? WHERE player1_id = ?', [DELETED_USER_ID, userIdNum]);
         await dbRun('UPDATE tournament_matches SET player2_id = ? WHERE player2_id = ?', [DELETED_USER_ID, userIdNum]);
@@ -502,6 +638,34 @@ export class TournamentManager {
         await dbRun('UPDATE games SET player1_id = ? WHERE player1_id = ?', [DELETED_USER_ID, userIdNum]);
         await dbRun('UPDATE games SET player2_id = ? WHERE player2_id = ?', [DELETED_USER_ID, userIdNum]);
         await dbRun('UPDATE games SET winner_id = ? WHERE winner_id = ?', [DELETED_USER_ID, userIdNum]);
+
+        // STEP 3: Reload and broadcast updates for affected tournaments
+        for (const row of affectedTournaments) {
+            // Remove from cache to force reload with [Deleted User]
+            this.tournaments.delete(row.id);
+            
+            // Reload from database with updated data
+            const tournamentData = await dbGet(`
+                SELECT t.*, u.nickname as host_nickname
+                FROM tournaments t
+                LEFT JOIN users u ON t.created_by = u.id
+                WHERE t.id = ?
+            `, [row.id]);
+            
+            if (tournamentData) {
+                const tournament = await this.buildTournamentFromDb(tournamentData);
+                if (tournament) {
+                    this.tournaments.set(row.id, tournament);
+                    
+                    // Broadcast update to anyone viewing this tournament
+                    console.log(`Broadcasting deletion update for tournament ${row.id}`);
+                    this.broadcastToTournament(row.id, {
+                        type: 'tournament_updated',
+                        tournament: tournament
+                    });
+                }
+            }
+        }
 
         console.log(`Finished scrubbing database records for user ${userId}`);
     }
@@ -627,6 +791,26 @@ export class TournamentManager {
             console.error('Cannot start match: missing players');
             return;
         }
+
+        //CHAT
+        if (match.player1 && match.player2) {
+            try {
+                await fetch('/api/chat/tournament/notify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        userIds: [parseInt(match.player1.id), parseInt(match.player2.id)],
+                        message: `🎮 Your match is starting NOW! ${match.player1.nickname} vs ${match.player2.nickname}`,
+                        tournamentId: tournament.id
+                    })
+                });
+                console.log(`✅ Match start notification sent to both players`);
+            } catch (error) {
+                console.error('❌ Failed to notify match start:', error);
+            }
+        }
+        //finCHAT
 
         try {
             // Create real game session using your existing game API

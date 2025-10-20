@@ -257,12 +257,22 @@ export function renderActiveTournamentsList(containerId: string, showCreateButto
                     `;
                 }
                 
-                // Always show VIEW button for spectators (when full or started and user is not participant)
-                if ((isFull || isActive) && !isUserParticipant) {
+                // Show VIEW button only when tournament is active or finished (not during waiting)
+                if (isActive && !isUserParticipant) {
                     buttonHtml += `
                         <button data-tournament-id="${tournament.id}" data-mode="spectator"
                                 class="tournament-action-btn flex-1 bg-purple-500 text-white py-3 px-4 font-black uppercase border-thick shadow-sharp hover-anarchy text-sm">
                             VIEW
+                        </button>
+                    `;
+                }
+
+                // Show FULL indicator when waiting and full (no action available)
+                if (isWaiting && isFull && !isUserParticipant) {
+                    buttonHtml += `
+                        <button disabled
+                                class="tournament-action-btn flex-1 bg-gray-400 text-white py-3 px-4 font-black uppercase border-thick opacity-60 cursor-not-allowed text-sm">
+                            FULL
                         </button>
                     `;
                 }

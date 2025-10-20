@@ -54,6 +54,70 @@ export class OnlineStatusManager {
     }
 
     /**
+     * @description Notifies friends and the user themselves about profile changes
+     * @param userId User whose profile changed
+     * @param changeType Type of change (nickname, avatar, anonymize, delete)
+     * @param data Additional data about the change
+     */
+    public async notifyProfileChange(
+        userId: number, 
+        changeType: 'nickname' | 'avatar' | 'anonymize' | 'delete',
+        data: { nickname?: string; avatarUrl?: string; anonymousNickname?: string }
+    ): Promise<void> {
+        try {
+            // Notify the user themselves (all their open sessions)
+            const userSocket = this.userSockets.get(userId);
+            if (userSocket && userSocket.readyState === WebSocket.OPEN) {
+                userSocket.send(JSON.stringify({
+                    type: 'profile_updated',
+                    payload: {
+                        userId,
+                        changeType,
+                        ...data
+                    }
+                }));
+            }
+
+            // Update the in-memory user data
+            const user = this.onlineUsers.get(userId);
+            if (user && changeType !== 'delete') {
+                if (data.nickname) user.nickname = data.nickname;
+                if (data.anonymousNickname) user.nickname = data.anonymousNickname;
+            }
+
+            // Notify all friends about the change
+            const friends = await dbAll(
+                `SELECT DISTINCT
+                    CASE
+                        WHEN uf.user_id = ? THEN uf.friend_id
+                        ELSE uf.user_id
+                    END as friend_id
+                FROM users_friends uf
+                WHERE (uf.user_id = ? OR uf.friend_id = ?)
+                AND uf.status = 'accepted'
+                `, [userId, userId, userId]
+            );
+
+            for (const friend of friends) {
+                const friendSocket = this.userSockets.get(friend.friend_id);
+                if (friendSocket && friendSocket.readyState === WebSocket.OPEN) {
+                    friendSocket.send(JSON.stringify({
+                        type: 'friend_profile_updated',
+                        payload: {
+                            userId,
+                            changeType,
+                            ...data
+                        }
+                    }));
+                    console.log(`Notified friend ${friend.friend_id} of ${changeType} change for user ${userId}`);
+                }
+            }
+        } catch (error) {
+            console.error(`Error notifying profile change for user ${userId}:`, error);
+        }
+    }
+
+    /**
      * @description Sets a user as online and sends their online status to their friends.
      * @param userId 
      * @param ws 

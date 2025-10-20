@@ -12,7 +12,7 @@ import { InputManager } from './input-manager';
 import { GameUIManager } from './ui-manager';
 import {
     PADDLE_DEPTH, BALL_RADIUS, PADDLE_COLLISION_X_LEFT, PADDLE_COLLISION_X_RIGHT,
-    WALL_COLLISION_Z_TOP, WALL_COLLISION_Z_BOTTOM
+    WALL_COLLISION_Z_TOP, WALL_COLLISION_Z_BOTTOM, PADDLE_Y_POSITION, GOAL_LINE_LEFT, GOAL_LINE_RIGHT
 } from "@trans/common-types";
 
 export class PongGame3D {
@@ -58,7 +58,7 @@ export class PongGame3D {
 
         setTimeout(() => {
             this.engine.resize();
-        }, 100);
+        }, 50); // change made here from 100 to 50 (modification)
 
         this.engine.runRenderLoop(() => {
             if (this.disposed) return;
@@ -81,6 +81,7 @@ export class PongGame3D {
             this.previousState = this.state ? { ...this.state } : newState;
             this.state = newState;
             this.uiManager.state = newState;
+            this.inputManager.state = newState;  // added to update input state
 
             if (this.state.status === 'countdown' && this.state.countdownValue !== undefined) {
                  const playerSide = this.state.player1Id === this.connection.playerId ? 'player1' : 'player2';
@@ -173,20 +174,41 @@ export class PongGame3D {
             interpolationFactor
         );
     }
-    
+
     private onScoreUpdate(): void {
         if (!this.state || !this.previousState) return;
-        if (this.spawnParticleSystem) {
-            this.spawnParticleSystem.manualEmitCount = 300;
-            this.spawnParticleSystem.start();
-            setTimeout(() => {
-                this.spawnParticleSystem?.stop();
-            }, 100);
+
+        let goalPosition: Vector3;
+        const ballZ = this.previousBallPosition ? this.previousBallPosition.z : 0;
+        
+        if (this.state.player1.score > this.previousState.player1.score) {
+            goalPosition = new Vector3(GOAL_LINE_RIGHT, PADDLE_Y_POSITION, ballZ);
+        } else {
+            goalPosition = new Vector3(GOAL_LINE_LEFT, PADDLE_Y_POSITION, ballZ);
         }
+
+        const dummyEmitter = MeshBuilder.CreateBox("tempEmitter", { size: 0.1 }, this.scene);
+        dummyEmitter.position = goalPosition.clone();
+        dummyEmitter.isVisible = false;
+
+        const originalEmitter = this.spawnParticleSystem.emitter;
+        this.spawnParticleSystem.emitter = dummyEmitter;
+        
+        this.spawnParticleSystem.manualEmitCount = 300;
+        this.spawnParticleSystem.start();
+        
+        setTimeout(() => {
+            this.spawnParticleSystem?.stop();
+            this.spawnParticleSystem.emitter = originalEmitter;
+            dummyEmitter.dispose();
+        }, 100);
+        
         this.createScreenShake(1.5);
+        
         const scoringPaddle = this.state.player1.score > this.previousState.player1.score
             ? this.player1Paddle
             : this.player2Paddle;
+            
         if (scoringPaddle) {
             this.createHitAnimation(scoringPaddle);
             const originalMat = scoringPaddle.material as StandardMaterial;
@@ -198,17 +220,20 @@ export class PongGame3D {
                 flashMat.dispose();
             }, 200);
         }
-        this.createComicTextEffect();
+        
+        this.createComicTextEffect(goalPosition);
     }
-    
-    private createComicTextEffect(): void {
+
+    private createComicTextEffect(effectPosition: Vector3): void {
         console.log('[DEBUG] createComicTextEffect called');
         const texts = ["POW!", "BAM!", "BOOM!", "WHAM!", "ZAP!", "SMASH!"];
         const randomText = texts[Math.floor(Math.random() * texts.length)];
-        const ballPos = this.ball.position.clone();
+        
         const textPlane = MeshBuilder.CreatePlane("comicText", { size: 9 }, this.scene);
-        textPlane.position = new Vector3(ballPos.x, ballPos.y + 1.5, ballPos.z);
+        textPlane.position = effectPosition.clone();
+        textPlane.position.y += 1.5;
         textPlane.billboardMode = Mesh.BILLBOARDMODE_ALL;
+        
         console.log('[DEBUG] Text plane created at position:', textPlane.position);
         const dynamicTexture = new DynamicTexture("comicTexture", 256, this.scene, true);
         dynamicTexture.hasAlpha = true;
@@ -224,6 +249,7 @@ export class PongGame3D {
         ctx.strokeText(randomText, 128, 128);
         ctx.fillText(randomText, 128, 128);
         dynamicTexture.update();
+        
         console.log('[DEBUG] Dynamic texture updated with text:', randomText);
         const textMat = new StandardMaterial("comicTextMat", this.scene);
         textMat.diffuseTexture = dynamicTexture;
@@ -233,9 +259,11 @@ export class PongGame3D {
         textMat.backFaceCulling = false;
         textMat.useAlphaFromDiffuseTexture = true;
         textPlane.material = textMat;
+        
         console.log('[DEBUG] Material applied, initial alpha:', textMat.alpha);
         const easingFunc = new ElasticEase(2, 3);
         easingFunc.setEasingMode(EasingFunction.EASINGMODE_EASEOUT);
+        
         const scaleAnim = new Animation(
             "comicScale",
             "scaling",
@@ -251,6 +279,7 @@ export class PongGame3D {
         ];
         scaleAnim.setKeys(scaleKeys);
         scaleAnim.setEasingFunction(easingFunc);
+        
         const alphaAnim = new Animation(
             "comicAlpha",
             "material.alpha",
@@ -266,6 +295,7 @@ export class PongGame3D {
         ];
         alphaAnim.setKeys(alphaKeys);
         alphaAnim.setEasingFunction(easingFunc);
+        
         const rotAnim = new Animation(
             "comicRot",
             "rotation.z",
@@ -280,14 +310,17 @@ export class PongGame3D {
         ];
         rotAnim.setKeys(rotKeys);
         rotAnim.setEasingFunction(easingFunc);
+        
         textPlane.animations = [scaleAnim, alphaAnim, rotAnim];
         console.log('[DEBUG] Animations assigned to textPlane:', textPlane.animations.length);
+        
         const animation = this.scene.beginAnimation(textPlane, 0, 30, false, 1.0, () => {
             console.log('[DEBUG] Comic text animation completed, disposing resources');
             textPlane.dispose();
             dynamicTexture.dispose();
             textMat.dispose();
         });
+        
         let debugFrameCount = 0;
         const debugObserver = this.scene.onBeforeRenderObservable.add(() => {
             if (textPlane.isDisposed() || debugFrameCount >= 30) {
@@ -297,6 +330,7 @@ export class PongGame3D {
             console.log(`[DEBUG] Animation progress: scale=${textPlane.scaling.x.toFixed(2)}, alpha=${textMat.alpha.toFixed(2)}, rotation.z=${textPlane.rotation.z.toFixed(2)}`);
             debugFrameCount++;
         });
+        
         setTimeout(() => {
             if (!textPlane.isDisposed()) {
                 console.warn('[DEBUG] Fallback cleanup triggered for comic text');

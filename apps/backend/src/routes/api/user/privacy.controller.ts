@@ -5,6 +5,7 @@ import jwt from 'jsonwebtoken';
 import { dbGet, dbAll, dbRun, getDatabase } from '../../../database/helpers';
 import crypto from 'crypto';
 import { tournamentManager } from '../../../core/tournament/tournament-manager';
+import { OnlineStatusManager } from '../../../core/status/online-status-manager';
 
 // --- DEFINE THE SENTINEL USER ID ---
 const DELETED_USER_ID = -99;
@@ -111,10 +112,14 @@ export default async function privacyRoute(fastify: FastifyInstance) {
                     WHERE id = ?
                 `, [`anonymized_${userId}@deleted.local`, anonymousId, anonymousId, userId]);
 
-                // --- MODIFIED SECTION START ---
                 // STEP 4: Synchronize the in-memory cache with the new anonymous nickname.
                 await tournamentManager.anonymizeUserInTournaments(userId.toString(), anonymousId);
-                // --- MODIFIED SECTION END ---
+
+                // Notify about anonymization via WebSocket
+                const statusManager = OnlineStatusManager.getInstance();
+                await statusManager.notifyProfileChange(userId, 'anonymize', {
+                    anonymousNickname: anonymousId
+                });
 
                 // STEP 5: Delete social connections
                 await dbRun('DELETE FROM users_friends WHERE user_id = ? OR friend_id = ?', [userId, userId]);
@@ -179,6 +184,10 @@ export default async function privacyRoute(fastify: FastifyInstance) {
                 // STEP 2: Use the manager to scrub the user from all historical records.
                 await tournamentManager.scrubUserFromHistory(userId.toString());
 
+                // Notify about account deletion via WebSocket
+                const statusManager = OnlineStatusManager.getInstance();
+                await statusManager.notifyProfileChange(userId, 'delete', {});
+                
                 // STEP 3: Delete all remaining direct, non-historical associations
                 await dbRun('DELETE FROM tournament_participants WHERE user_id = ?', [userId]);
                 await dbRun('DELETE FROM users_friends WHERE user_id = ? OR friend_id = ?', [userId, userId]);

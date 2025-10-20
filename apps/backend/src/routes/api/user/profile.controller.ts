@@ -4,6 +4,7 @@ import { dbGet, dbAll, dbRun, getDatabase } from '../../../database/helpers';
 import path from 'path';
 import { promises as fs } from 'fs';
 import { UserStatsManager } from '../../../core/stats/user-stats-manager';
+import { OnlineStatusManager } from '../../../core/status/online-status-manager';
 import { tournamentManager } from '../../../core/tournament/tournament-manager';
 
 /**
@@ -134,6 +135,35 @@ export default async function profileRoute(fastify: FastifyInstance) {
 		}
 	});
 
+	//CHAT
+	fastify.get('/profile-by-id/:userId', { preHandler: [verifyJwt] }, async (request: FastifyRequest, reply: FastifyReply) => {
+		const { userId } = request.params as { userId: string };
+		
+		try {
+			const user = await dbGet(
+				'SELECT id, nickname, avatar_url, rating FROM users WHERE id = ?',
+				[parseInt(userId)]
+			);
+			
+			if (!user) {
+				return reply.code(404).send({ error: 'User not found' });
+			}
+			
+			return reply.send({ 
+				success: true, 
+				user: user 
+			});
+			
+		} catch (error) {
+			fastify.log.error('Error fetching user by ID:', error);
+			return reply.code(500).send({ 
+				success: false, 
+				error: 'Failed to fetch user' 
+			});
+		}
+	});
+	//FIN CHAT
+
 	/**
 	 * @description Route to complete user profile setup
 	 * @param request: FastifyRequest
@@ -209,6 +239,161 @@ export default async function profileRoute(fastify: FastifyInstance) {
 	});
 
 	/**
+	 * @description Route to update user profile (nickname, name, and email for local users)
+	 * @param request: FastifyRequest
+	 * @param reply: FastifyReply
+	 * @throws 400 Bad Request if validation fails
+	 * @throws 401 Unauthorized if password is incorrect
+	 * @throws 409 Conflict if nickname or email already exists
+	 * @throws 500 Internal Server Error
+	 */
+	fastify.patch('/update', { preHandler: [verifyJwt] }, async (request: FastifyRequest, reply: FastifyReply) => {
+		const userId = request.user?.userId;
+		const { nickname, name, email, password } = request.body as { 
+			nickname?: string; 
+			name?: string; 
+			email?: string;
+			password?: string;
+		};
+
+		if (!userId) {
+			return reply.code(401).send({ error: 'Unauthorized' });
+		}
+
+		try {
+			// Get current user data
+			const currentUser = await dbGet('SELECT * FROM users WHERE id = ?', [userId]);
+			
+			if (!currentUser) {
+				return reply.code(404).send({ error: 'User not found' });
+			}
+
+			// Validate inputs
+			if (nickname !== undefined) {
+				if (nickname.length < 3) {
+					return reply.code(400).send({ error: 'Nickname must be at least 3 characters.' });
+				}
+
+				// Check if nickname is already taken by another user
+				const existingUser = await dbGet(
+					'SELECT id FROM users WHERE nickname = ? AND id != ?',
+					[nickname, userId]
+				);
+
+				if (existingUser) {
+					return reply.code(409).send({ error: 'Nickname already exists.' });
+				}
+
+				const statusManager = OnlineStatusManager.getInstance();
+				await statusManager.notifyProfileChange(userId, 'nickname', {
+					nickname: nickname
+				});
+			}
+
+			if (name !== undefined && name.length === 0) {
+				return reply.code(400).send({ error: 'Name cannot be empty.' });
+			}
+
+			// Handle email change for local users only
+			if (email !== undefined) {
+				// Only allow email change for local auth users
+				if (currentUser.auth_provider !== 'local') {
+					return reply.code(403).send({ 
+						error: `Email cannot be changed for ${currentUser.auth_provider} authentication.` 
+					});
+				}
+
+				// Require password confirmation for email change
+				if (!password) {
+					return reply.code(400).send({ 
+						error: 'Password is required to change email.' 
+					});
+				}
+
+				// Verify password
+				const bcrypt = require('bcrypt');
+				const isPasswordValid = await bcrypt.compare(password, currentUser.password_hash);
+				
+				if (!isPasswordValid) {
+					return reply.code(401).send({ error: 'Incorrect password.' });
+				}
+
+				// Validate email format
+				const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+				if (!emailRegex.test(email)) {
+					return reply.code(400).send({ error: 'Invalid email format.' });
+				}
+
+				// Check if email is already taken
+				const existingEmail = await dbGet(
+					'SELECT id FROM users WHERE email = ? AND id != ?',
+					[email, userId]
+				);
+
+				if (existingEmail) {
+					return reply.code(409).send({ error: 'Email already in use.' });
+				}
+			}
+
+			// Build dynamic update query based on provided fields
+			const updates: string[] = [];
+			const params: any[] = [];
+
+			if (nickname !== undefined) {
+				updates.push('nickname = ?');
+				params.push(nickname);
+			}
+
+			if (name !== undefined) {
+				updates.push('name = ?');
+				params.push(name);
+			}
+
+			if (email !== undefined) {
+				updates.push('email = ?');
+				params.push(email);
+			}
+
+			if (updates.length === 0) {
+				return reply.code(400).send({ error: 'No fields to update.' });
+			}
+
+			params.push(userId);
+			const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+
+			await dbRun(query, params);
+			
+			// Fetch updated user data
+			const updatedUser = await dbGet(
+				'SELECT id, name, email, nickname, avatar_url, profile_setup_complete, auth_provider FROM users WHERE id = ?',
+				[userId]
+			);
+
+			// Notify about profile changes via WebSocket
+			if (nickname !== undefined) {
+				const statusManager = OnlineStatusManager.getInstance();
+				await statusManager.notifyProfileChange(userId, 'nickname', {
+					nickname: nickname
+				});
+				
+				// Update tournaments
+				await tournamentManager.updatePlayerProfile(userId.toString(), {
+					nickname: nickname
+				});
+			}
+
+			return reply.send({ 
+				success: true, 
+				message: 'Profile updated successfully.',
+				user: updatedUser
+			});
+		} catch (error: any) {
+			fastify.log.error('Update profile error:', error);
+			return reply.code(500).send({ error: 'Internal Server Error: ' + error.message });
+		}
+	});
+
+	/**
 	 * @description Route to upload user avatar
 	 * @param request: FastifyRequest
 	 * @param reply: FastifyReply
@@ -249,11 +434,16 @@ export default async function profileRoute(fastify: FastifyInstance) {
 			[avatarUrl, userId]
 		);
 
-		try {
-			await tournamentManager.refreshPlayerAvatar(userId.toString(), avatarUrl);
-		} catch (error) {
-			fastify.log.error('Error refreshing tournament avatars:', error);
-		}
+		// Notify about avatar change via WebSocket
+		const statusManager = OnlineStatusManager.getInstance();
+		await statusManager.notifyProfileChange(userId, 'avatar', {
+			avatarUrl: avatarUrl
+		});
+
+		// Update tournaments with new avatar
+		await tournamentManager.updatePlayerProfile(userId.toString(), {
+			avatarUrl: avatarUrl
+		});
 
 		return { success: true, avatarUrl };
 	});

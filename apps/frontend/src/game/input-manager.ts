@@ -5,7 +5,7 @@ import { Connection } from './connection';
 
 
 export class InputManager {
-    private state: GameState | null = null;
+    public state: GameState | null = null;
     private scene: Scene;
     private localPlayerId: string;
     private connection: Connection;

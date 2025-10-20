@@ -151,20 +151,35 @@ export class StatusManager {
             case 'pong':
                 // Heartbeat response
                 break;
+            case 'profile_updated':
+            case 'friend_profile_updated':
+                // Handle profile updates
+                this.handleProfileUpdateMessage(data.payload);
+                break;
             case 'friend_request_received':
             case 'friend_request_accepted':
-            case 'friend_removed':
+            case 'friend_removed':  // This should trigger reload
             case 'friends_list_updated':
+                // Reload friends and trigger UI update
                 this.loadFriendsStatus().then(() => {
-                this.notifyFriendUpdate();
+                    this.notifyFriendUpdate();
                 }).catch(err => {
                     console.error('Failed to reload friend statuses:', err);
-                    this.notifyFriendUpdate();
+                    this.notifyFriendUpdate(); // Still notify even if reload fails
                 });
                 break;
             default:
                 console.log('StatusManager: Unknown message type:', data.type);
         }
+    }
+
+    private handleProfileUpdateMessage(payload: any): void {
+        // Dynamically import the handler to avoid circular dependencies
+        import('../services/ui').then(({ handleProfileUpdate }) => {
+            handleProfileUpdate(payload);
+        }).catch(err => {
+            console.error('Failed to handle profile update:', err);
+        });
     }
 
     private notifyFriendUpdate(): void {

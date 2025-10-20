@@ -166,6 +166,9 @@ export async function handleLocalLogin(e: Event) {
                 } else {
                     showAppScreen(userData);
                 }
+
+                //CHAT - Déclencher l'événement de connexion
+                document.dispatchEvent(new Event('userLoggedIn'));
             } else {
                 throw new Error('Failed to fetch user data');
             }
@@ -290,6 +293,9 @@ export async function updateLoginStatus() {
         } else {
             showAppScreen(user);
         }
+
+        //CHAT - Déclencher l'événement de connexion
+        document.dispatchEvent(new Event('userLoggedIn'));
         
     } catch (error) {
         console.error('Not logged in or session expired');

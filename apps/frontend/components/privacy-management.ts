@@ -44,7 +44,7 @@ export class PrivacyManagement {
                     <!-- Anonymize Account -->
                     <div class="bg-yellow-50 border-thick p-4">
                         <h3 class="text-xl uppercase mb-2 text-black font-teko">👤 Anonymize</h3>
-                        <p class="text-sm mb-3 text-gray-700">⚠️ Remove personal info. Keep game history. <strong class="text-red-600">Cannot login again!</strong></p>
+                        <p class="text-sm mb-3 text-gray-700">Remove personal info. Keep game history. <strong class="text-red-600">Cannot login again!</strong></p>
                         <button id="anonymizeAccountBtn" 
                                 class="w-full bg-yellow-500 text-white px-4 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy font-teko">
                             Anonymize Forever
@@ -54,7 +54,7 @@ export class PrivacyManagement {
                     <!-- Delete Account -->
                     <div class="bg-red-50 border-thick p-4">
                         <h3 class="text-xl uppercase mb-2 text-black font-teko">🗑️ Delete</h3>
-                        <p class="text-sm mb-3 text-gray-700">🗑️ Erase everything permanently. <strong class="text-red-600">All data gone!</strong></p>
+                        <p class="text-sm mb-3 text-gray-700">Erase everything permanently. <strong class="text-red-600">All data gone!</strong></p>
                         <button id="deleteAccountBtn" 
                                 class="w-full bg-red-600 text-white px-4 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy font-teko">
                             Delete Everything

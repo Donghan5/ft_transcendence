@@ -135,29 +135,32 @@ export default async function friendsRoute(fastify: FastifyInstance) {
         }
     });
 
-	/**
-	 * HERE!!!! FRIENDS DELETE NOT WORKING
-	 */
-    fastify.delete<FriendIdParam>('/friends/:friendId', opts, async (request, reply) => {
+	fastify.delete<FriendIdParam>('/friends/:friendId', opts, async (request, reply) => {
         const userId = request.user?.userId;
         const { friendId } = request.params;
         if (!userId) return reply.code(401).send({ error: 'Unauthorized' });
 
+        // Parse friendId to number (URL params are always strings!)
+        const friendIdNum = parseInt(friendId as any, 10);
+        
+        if (isNaN(friendIdNum)) {
+            return reply.code(400).send({ error: 'Invalid friend ID' });
+        }
+
         try {
             await dbRun('BEGIN TRANSACTION');
-            await dbRun('DELETE FROM users_friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)', [userId, friendId, friendId, userId]);
-            await dbRun('DELETE FROM friend_requests WHERE (requester_id = ? AND receiver_id = ?) OR (requester_id = ? AND receiver_id = ?)', [userId, friendId, friendId, userId]);
+            await dbRun('DELETE FROM users_friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)', [userId, friendIdNum, friendIdNum, userId]);
+            await dbRun('DELETE FROM friend_requests WHERE (requester_id = ? AND receiver_id = ?) OR (requester_id = ? AND receiver_id = ?)', [userId, friendIdNum, friendIdNum, userId]);
             await dbRun('COMMIT');
 
-            statusManager.sendFriendUpdate(friendId, 'friend_removed', { friendId: userId });
-
-            statusManager.sendFriendUpdate(userId, 'friends_list_updated', {});
+            statusManager.sendFriendUpdate(friendIdNum, 'friend_removed', { friendId: userId });
+            statusManager.sendFriendUpdate(userId, 'friend_removed', { friendId: friendIdNum });
 
             return reply.send({ message: 'Friend removed' });
         } catch (error) {
             await dbRun('ROLLBACK');
             fastify.log.error(error);
-            return reply.code(500).send({ error: 'Internal Server Error1' });
+            return reply.code(500).send({ error: 'Internal Server Error' });
         }
     });
 }

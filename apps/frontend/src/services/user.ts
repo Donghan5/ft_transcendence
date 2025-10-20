@@ -5,6 +5,7 @@ import { showSection, showNotification } from './ui';
 import { StatsManager } from '../stats/stats-manager';
 import { UserStats } from '@/status/status-manager';
 import { PrivacyManagement } from '../../components/privacy-management';
+import { ProfileEditForm } from '../../components/profile-edit-form';
 
 export async function showPublicProfileScreen(nickname: string) {
     showSection('publicProfile');
@@ -101,13 +102,24 @@ export async function showProfileScreen() {
         const data = await response.json();
 
          profileContent.innerHTML = `
-            <div class="flex flex-col md:flex-row items-center gap-x-6 mb-6">
-                <img id="profileAvatar" src="${data.user.avatar_url || '/default-avatar.png'}" alt="User Avatar" class="w-24 h-24 rounded-full border-thick shadow-sharp mb-4 md:mb-0">
-                <div class="text-center md:text-left">
-                    <h2 class="text-5xl uppercase">${data.user.nickname}</h2>
-                    <p class="font-teko text-2xl text-black/80">${data.user.name} (${data.user.email})</p>
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 mb-6 pb-4 border-b-4 border-black">
+                <div class="flex flex-col md:flex-row items-center gap-x-6">
+                    <img id="profileAvatar" src="${data.user.avatar_url || '/default-avatar.png'}" alt="User Avatar" class="w-24 h-24 rounded-full border-thick shadow-sharp mb-4 md:mb-0">
+                    <div class="text-center md:text-left">
+                        <h2 class="text-5xl uppercase">${data.user.nickname}</h2>
+                        <p class="font-teko text-2xl text-black/80">${data.user.name} (${data.user.email})</p>
+                        ${data.user.auth_provider ? `<p class="text-sm text-gray-700 uppercase mt-1">Auth: ${data.user.auth_provider}</p>` : ''}
+                    </div>
                 </div>
+                
+                <button id="editProfileBtn" 
+                        class="bg-blue-500 text-white px-6 py-2 text-lg uppercase border-thick shadow-sharp hover-anarchy font-teko">
+                    Edit Profile
+                </button>
             </div>
+
+            <!-- Edit Form Container -->
+            <div id="profileEditContainer"></div>
 
             <div class="bg-white p-4 border-thick shadow-sharp mb-6">
                  <h3 class="text-2xl uppercase mb-2">Upload Avatar</h3>
@@ -180,6 +192,24 @@ export async function showProfileScreen() {
                 </ul>
             </div>
         `;
+
+        const editBtn = document.getElementById('editProfileBtn');
+        editBtn?.addEventListener('click', () => {
+            const editContainer = document.getElementById('profileEditContainer');
+            if (editContainer) {
+                if (editContainer.innerHTML.trim() !== '') {
+                    // Hide the form
+                    editContainer.innerHTML = '';
+                    editBtn.textContent = 'Edit Profile';
+                } else {
+                    // Show the form
+                    editBtn.textContent = 'Cancel Edit';
+                    new ProfileEditForm(editContainer, data.user, async () => {
+                        await showProfileScreen();
+                    });
+                }
+            }
+        });
 
         if (data.user.auth_provider === 'local') {
             const passwordChangeContainer = document.getElementById('password-change-container');
@@ -351,3 +381,28 @@ function showUserStatsModal(stats: UserStats): void {
         }
     });
 }
+
+// CHAT - Écouter l'événement de visualisation de profil depuis le chat
+window.addEventListener('viewUserProfile', async (event: Event) => {
+  const customEvent = event as CustomEvent<{ userId: number }>;
+  const { userId } = customEvent.detail;
+  console.log('Opening profile for user ID:', userId);
+  
+  try {
+    // Récupérer le nickname depuis l'ID
+    const response = await fetch(`/api/user/profile-by-id/${userId}`, { 
+      credentials: 'include' 
+    });
+    
+    if (!response.ok) throw new Error('Failed to fetch user');
+    
+    const data = await response.json();
+    
+    // Utiliser ta fonction existante showPublicProfileScreen
+    await showPublicProfileScreen(data.user.nickname);
+    
+  } catch (error) {
+    console.error('Error opening profile:', error);
+    alert('Failed to load user profile');
+  }
+});

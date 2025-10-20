@@ -7,6 +7,31 @@ import { setupLocalAuthHandlers, updateLoginStatus } from './src/services/auth';
 import { cleanupTournamentUI } from './src/tournament/tournament-services';
 import { StatusManager } from './src/status/status-manager';
 import { navigateBack } from './src/utils/navigation';
+// CHAT - Import du widget
+import { ChatWidget } from './components/chat-widget';
+
+// CHAT - Variable globale
+let chatWidget: ChatWidget | null = null;
+
+// CHAT - Initialiser le chat
+function initChatWidget() {
+	if (chatWidget) {
+		chatWidget.destroy();
+	}
+	chatWidget = new ChatWidget();
+	(window as any).chatWidget = chatWidget;
+	console.log('Chat widget initialized');
+}
+
+// CHAT - Détruire le chat
+function destroyChatWidget() {
+	if (chatWidget) {
+		chatWidget.destroy();
+		chatWidget = null;
+		(window as any).chatWidget = null;
+		console.log('Chat widget destroyed');
+	}
+}
 
 // --- MAIN SCRIPT LOGIC ---
 
@@ -40,7 +65,24 @@ document.addEventListener('DOMContentLoaded', () => {
 	updateLoginStatus();
 	console.log('Start beautiful PONG game!');
 	setupEventListeners();
+	
+	// ✅ CHAT - Initialiser si déjà connecté
+	if (appState.currentUser && appState.currentUser.id) {
+		initChatWidget();
+	}
 })
+
+// ✅ CHAT - Écouter la connexion
+document.addEventListener('userLoggedIn', () => {
+	console.log('🔐 User logged in - initializing chat');
+	initChatWidget();
+});
+
+// ✅ CHAT - Écouter la déconnexion
+document.addEventListener('userLoggedOut', () => {
+	console.log('🚪 User logged out - destroying chat');
+	destroyChatWidget();
+});
 
 document.addEventListener('requestReturnToMainMenu', () => {
 	returnToMainMenu();
@@ -243,6 +285,9 @@ window.addEventListener('beforeunload', () => {
 	if (appState.statusManager) {
 		appState.statusManager.disconnect();
 	}
+	
+	// ✅ CHAT - Nettoyer à la fermeture
+	destroyChatWidget();
 });
 
 console.log('Frontend main.ts loaded successfully')

@@ -21,6 +21,8 @@ import localLoginRoute from './routes/api/user/login/local.controller';
 import statusRoute from './routes/api/user/status.controller';
 import statsRoute from './routes/api/user/stats.controller';
 import tournamentRoutes from './routes/api/tournament';
+//CHAT
+import chatRoutes from './routes/api/chat';
 
 export async function buildServer(): Promise<FastifyInstance> {
     const server = fastify({ logger: true, trustProxy: true });
@@ -74,6 +76,8 @@ export async function buildServer(): Promise<FastifyInstance> {
 	server.register(localLoginRoute, { prefix: '/api/users/login/local' });
     server.register(privacyRoute, { prefix: '/api/user' });
     await server.register(tournamentRoutes, { prefix: '/api/tournament' });
+    //CHAT
+    await server.register(chatRoutes, { prefix: '/api/chat' });
 
     server.setErrorHandler((error, request, reply) => {
         request.log.error(error);

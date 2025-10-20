@@ -313,12 +313,12 @@ export class TournamentUI {
         this.setupTournamentViewListeners(tournament);
 
         this.setupPlayerNameClickHandlers();
-        
-        if (!appState.isSpectatorMode || tournament.status === 'active') {
-            connectWebSocketTournament(tournament.id, (data) => {
-                this.handleWebSocketMessage(data)
-            });
-        }
+
+        // Always connect to WebSocket to receive real-time updates
+        // (nickname changes, avatar updates, anonymization, deletion)
+        connectWebSocketTournament(tournament.id, (data) => {
+            this.handleWebSocketMessage(data)
+        });
     }
 
     getCurrentTournamentId(): string | null {
@@ -451,7 +451,22 @@ export class TournamentUI {
                 if (this.currentTournament && data.tournament.id === this.currentTournament.id) {
                     console.log('Updating tournament view with new data');
                     this.currentTournament = data.tournament;
-                    this.showTournamentView(data.tournament);
+                    
+                    // Force a full re-render to show updated avatars/nicknames
+                    const contentDiv = document.getElementById('tournament-content');
+                    if (contentDiv && this.currentTournament) {
+                        if (this.currentTournament.status === 'waiting') {
+                            contentDiv.innerHTML = renderPlayersView(this.currentTournament);
+                        } else {
+                            contentDiv.innerHTML = renderBracketView(this.currentTournament);
+                        }
+                        
+                        // Re-attach event listeners after re-render
+                        this.setupPlayerNameClickHandlers();
+                        if (this.currentTournament) {
+                            this.setupTournamentViewListeners(this.currentTournament);
+                        }
+                    }
                 }
                 break;
                 
