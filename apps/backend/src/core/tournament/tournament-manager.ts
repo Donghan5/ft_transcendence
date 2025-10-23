@@ -3,6 +3,7 @@
 import { Tournament, BracketMatch, TournamentPlayer, TournamentHistory } from '../../../../../packages/common-types/src/tournament';
 import { dbGet, dbRun, dbAll } from '../../database/helpers';
 import { WebSocket } from 'ws';
+import { sendTournamentNotification } from '../../routes/api/chat';
 
 export class TournamentManager {
     private tournaments = new Map<string, Tournament>();
@@ -364,6 +365,7 @@ export class TournamentManager {
         }
     }
 
+    //CHAT Version avec notifications via WebSocket
     private async startRoundMatches(tournament: Tournament, round: number) {
         const roundMatches = tournament.bracket.filter(m => m.round === round && m.status === 'waiting');
         
@@ -386,31 +388,26 @@ export class TournamentManager {
             }
         }
         
-        //CHAT
+        //CHAT Envoyer des notifications via WebSocket du chat
         const playersInThisRound = tournament.bracket
             .filter(m => m.round === round && m.status === 'confirming')
             .flatMap(m => [m.player1?.id, m.player2?.id])
-            .filter((id): id is string => id !== undefined && id !== null);
+            .filter((id): id is string => id !== undefined && id !== null)
+            .map(id => parseInt(id));
         
         if (playersInThisRound.length > 0) {
             try {
-                await fetch('/api/chat/tournament/notify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        userIds: playersInThisRound.map(id => parseInt(id)),
-                        message: `🏆 Round ${round} is starting! Your match is ready - please confirm.`,
-                        tournamentId: tournament.id
-                    })
-                });
+                const notifiedCount = sendTournamentNotification(
+                    playersInThisRound,
+                    `Round ${round} is starting! Your match is ready - please confirm.`,
+                    tournament.id
+                );
                 
-                console.log(`✅ Notifications sent to ${playersInThisRound.length} players for round ${round}`);
+                console.log(`Notifications sent to ${notifiedCount}/${playersInThisRound.length} players for round ${round}`);
             } catch (error) {
-                console.error('❌ Failed to send tournament notifications:', error);
+                console.error('Failed to send tournament notifications:', error);
             }
         }
-        //finCHAT
     }
 
     /**
@@ -786,31 +783,26 @@ export class TournamentManager {
         return true;
     }
 
+    //CHAT Version avec notifications via WebSocket
     private async startMatch(tournament: Tournament, match: BracketMatch) {
         if (!match.player1 || !match.player2) {
             console.error('Cannot start match: missing players');
             return;
         }
 
-        //CHAT
+        //CHAT Notifier les joueurs que le match commence
         if (match.player1 && match.player2) {
             try {
-                await fetch('/api/chat/tournament/notify', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        userIds: [parseInt(match.player1.id), parseInt(match.player2.id)],
-                        message: `🎮 Your match is starting NOW! ${match.player1.nickname} vs ${match.player2.nickname}`,
-                        tournamentId: tournament.id
-                    })
-                });
-                console.log(`✅ Match start notification sent to both players`);
+                sendTournamentNotification(
+                    [parseInt(match.player1.id), parseInt(match.player2.id)],
+                    `Your match is starting NOW! ${match.player1.nickname} vs ${match.player2.nickname}`,
+                    tournament.id
+                );
+                console.log(`Match start notification sent to both players`);
             } catch (error) {
-                console.error('❌ Failed to notify match start:', error);
+                console.error('Failed to notify match start:', error);
             }
         }
-        //finCHAT
 
         try {
             // Create real game session using your existing game API

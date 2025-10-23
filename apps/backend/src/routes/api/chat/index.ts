@@ -2,7 +2,32 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { dbGet, dbAll, dbRun } from '../../../database/helpers';
 import jwt from 'jsonwebtoken';
 
-const chatConnections = new Map<number, any>();
+//Exporter chatConnections pour les notifications tournoi
+export const chatConnections = new Map<number, any>();
+
+// Pending notifications queue (auto-cleanup after 5 minutes)
+interface PendingNotification {
+  message: string;
+  timestamp: Date;
+  tournamentId?: string;
+}
+
+const pendingNotifications = new Map<number, PendingNotification[]>();
+
+// Cleanup old notifications every minute
+setInterval(() => {
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  
+  for (const [userId, notifications] of pendingNotifications.entries()) {
+    const filtered = notifications.filter(n => n.timestamp > fiveMinutesAgo);
+    
+    if (filtered.length === 0) {
+      pendingNotifications.delete(userId);
+    } else if (filtered.length !== notifications.length) {
+      pendingNotifications.set(userId, filtered);
+    }
+  }
+}, 60000);
 
 async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
   try {
@@ -15,6 +40,85 @@ async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
   } catch (err) {
     return reply.code(401).send({ error: 'Unauthorized' });
   }
+}
+
+// Queue a notification for later delivery
+function queueNotification(userId: number, notification: PendingNotification) {
+  const existing = pendingNotifications.get(userId) || [];
+  existing.push(notification);
+  pendingNotifications.set(userId, existing);
+  console.log(`📬 Queued notification for user ${userId}. Total pending: ${existing.length}`);
+}
+
+// Send all pending notifications to a user
+function sendPendingNotifications(userId: number, connection: any) {
+  const pending = pendingNotifications.get(userId);
+  
+  if (!pending || pending.length === 0) {
+    return;
+  }
+  
+  console.log(`📮 Sending ${pending.length} pending notifications to user ${userId}`);
+  
+  let sentCount = 0;
+  for (const notification of pending) {
+    try {
+      connection.send(JSON.stringify({
+        type: 'tournament_notification',
+        message: notification.message,
+        tournamentId: notification.tournamentId,
+        timestamp: notification.timestamp.toISOString()
+      }));
+      sentCount++;
+    } catch (error) {
+      console.error(`❌ Failed to send pending notification to user ${userId}:`, error);
+      break;
+    }
+  }
+  
+  if (sentCount > 0) {
+    pendingNotifications.delete(userId);
+    console.log(`✅ Sent ${sentCount}/${pending.length} pending notifications to user ${userId}`);
+  }
+}
+
+// Fonction utilitaire pour envoyer des notifications tournoi
+export function sendTournamentNotification(userIds: number[], message: string, tournamentId?: string) {
+  let notifiedCount = 0;
+  
+  userIds.forEach(userId => {
+    const conn = chatConnections.get(userId);
+    
+    const notification = {
+      message,
+      timestamp: new Date(),
+      tournamentId
+    };
+    
+    if (conn && conn.readyState === 1) { // WebSocket.OPEN
+      try {
+        conn.send(JSON.stringify({
+          type: 'tournament_notification',
+          message: message,
+          tournamentId: tournamentId,
+          timestamp: new Date().toISOString()
+        }));
+        notifiedCount++;
+        console.log(`✅ Tournament notification sent to user ${userId}`);
+      } catch (error) {
+        console.error(`❌ Failed to send notification to user ${userId}:`, error);
+        // If send fails, queue it
+        queueNotification(userId, notification);
+      }
+    } else {
+      // User not connected, queue the notification
+      console.log(`⚠️ User ${userId} not connected, queueing notification`);
+      queueNotification(userId, notification);
+    }
+  });
+  
+  console.log(`📢 Sent tournament notifications to ${notifiedCount}/${userIds.length} users, queued for ${userIds.length - notifiedCount}`);
+  return notifiedCount;
 }
 
 export default async function chatRoutes(fastify: FastifyInstance) {
@@ -69,7 +173,9 @@ export default async function chatRoutes(fastify: FastifyInstance) {
       return;
     }
     
+    //Stocker la connexion dans chatConnections (exporté)
     chatConnections.set(userId, connection);
+    sendPendingNotifications(userId, connection);
     fastify.log.info(`📌 User ${userId} connected to chat WebSocket`);
     
     const onlineUsers = Array.from(chatConnections.keys());
@@ -104,6 +210,10 @@ export default async function chatRoutes(fastify: FastifyInstance) {
             
           case 'game_invite':
             await handleGameInvite(userId, message, fastify);
+            break;
+
+          case 'mark_read':
+            await handleMarkRead(userId, message);
             break;
             
           case 'ping':
@@ -363,8 +473,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
     }
   });
 
-  //CHAT
-  // ✅ NOUVELLE ROUTE : Notifications de tournoi
+  //Route POST pour les notifications tournoi (gardée pour compatibilité)
   fastify.post('/tournament/notify', { preHandler: [verifyJwt] }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { userIds, message, tournamentId } = request.body as { 
       userIds: number[], 
@@ -373,21 +482,7 @@ export default async function chatRoutes(fastify: FastifyInstance) {
     };
     
     try {
-      const notifications = {
-        type: 'tournament_notification',
-        message: message,
-        tournamentId: tournamentId,
-        timestamp: new Date().toISOString()
-      };
-      
-      let notifiedCount = 0;
-      userIds.forEach(userId => {
-        const conn = chatConnections.get(userId);
-        if (conn) {
-          conn.send(JSON.stringify(notifications));
-          notifiedCount++;
-        }
-      });
+      const notifiedCount = sendTournamentNotification(userIds, message, tournamentId?.toString());
       
       reply.send({ 
         success: true, 
@@ -502,8 +597,16 @@ async function handleStopTyping(senderId: number, message: any) {
   }
 }
 
-//CHAT
-// ✅ FIX : Envoyer confirmation au sender + gérer offline
+async function handleMarkRead(userId: number, message: any) {
+  const { senderId } = message;
+  
+  await dbRun(
+    'UPDATE chat_messages SET is_read = 1 WHERE sender_id = ? AND receiver_id = ? AND is_read = 0',
+    [senderId, userId]
+  );
+}
+
+//Envoyer confirmation au sender + gérer offline
 async function handleGameInvite(senderId: number, message: any, fastify: FastifyInstance) {
   const { receiverId } = message;
   
@@ -517,7 +620,6 @@ async function handleGameInvite(senderId: number, message: any, fastify: Fastify
     [receiverId]
   );
   
-  // Envoyer au receiver
   const receiverConn = chatConnections.get(receiverId);
   if (receiverConn) {
     receiverConn.send(JSON.stringify({
@@ -528,8 +630,7 @@ async function handleGameInvite(senderId: number, message: any, fastify: Fastify
     }));
     fastify.log.info(`✅ Game invite sent: ${senderId} -> ${receiverId}`);
     
-    //CHAT
-    // ✅ NOUVEAU : Confirmer au sender que l'invitation est partie
+    //Confirmer au sender que l'invitation est partie
     const senderConn = chatConnections.get(senderId);
     if (senderConn) {
       senderConn.send(JSON.stringify({
@@ -540,8 +641,7 @@ async function handleGameInvite(senderId: number, message: any, fastify: Fastify
       }));
     }
   } else {
-    //CHAT
-    // ✅ AMÉLIORATION : Notifier le sender que le receiver est offline
+    //Notifier le sender que le receiver est offline
     const senderConn = chatConnections.get(senderId);
     if (senderConn) {
       senderConn.send(JSON.stringify({
@@ -565,8 +665,6 @@ function broadcastToOthers(message: any, exceptUserId: number) {
       }
     }
   });
-
-  
 }
 
 async function handleGameInviteAccepted(receiverId: number, message: any, fastify: FastifyInstance) {

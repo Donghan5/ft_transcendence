@@ -13,6 +13,9 @@ import { ChatWidget } from './components/chat-widget';
 // CHAT - Variable globale
 let chatWidget: ChatWidget | null = null;
 
+// CHAT - Exposer handleGameStart globalement pour le chat widget
+(window as any).handleGameStart = handleGameStart;
+
 // CHAT - Initialiser le chat
 function initChatWidget() {
 	if (chatWidget) {
@@ -215,6 +218,16 @@ function setupEventListeners() {
 		}
 	});
 
+	//CHAT  Écouter l'événement personnalisé pour lancer le jeu depuis le chat widget
+	window.addEventListener('startGame', (event: any) => {
+		const detail = event.detail;
+		console.log('🎮 Custom startGame event received from chat:', detail);
+		
+		if (detail && detail.mode) {
+			handleGameStart(detail.mode);
+		}
+	});
+
 	setupPongLogoRedirect();
 }
 
@@ -286,7 +299,7 @@ window.addEventListener('beforeunload', () => {
 		appState.statusManager.disconnect();
 	}
 	
-	// ✅ CHAT - Nettoyer à la fermeture
+	// CHAT - Nettoyer à la fermeture
 	destroyChatWidget();
 });
 

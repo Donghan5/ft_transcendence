@@ -430,31 +430,49 @@ export function setupPongLogoRedirect(): void {
 }
 
 export function showNotification(message: string, type: 'success' | 'error' | 'info' = 'info') {
+	let container = document.getElementById('notification-container');
+	if (!container) {
+		container = document.createElement('div');
+		container.id = 'notification-container';
+		container.className = 'fixed top-4 left-4 z-[9999] flex flex-col gap-3 pointer-events-none';
+		container.style.maxWidth = '320px';
+		document.body.appendChild(container);
+	}
+
 	const notification = document.createElement('div');
-	notification.className = `fixed top-4 right-4 z-50 p-4 border-thick shadow-sharp animate-pop max-w-sm ${
+	notification.className = `p-4 border-thick shadow-sharp animate-pop pointer-events-auto ${
 		type === 'success' ? 'bg-green-500 text-white' :
 		type === 'error' ? 'bg-red-500 text-white' :
 		'bg-blue-500 text-white'
 	}`;
 	notification.innerHTML = `
-		<div class="flex justify-between items-center">
-			<span class="font-teko text-lg uppercase">${message}</span>
-			<button class="ml-4 text-white hover:text-gray-200 text-xl">&times;</button>
+		<div class="flex justify-between items-center gap-2">
+			<span class="font-teko text-lg uppercase font-black">${message}</span>
+			<button class="ml-2 text-white hover:text-yellow-300 text-xl font-black leading-none">&times;</button>
 		</div>
 	`;
 	
-	document.body.appendChild(notification);
+	// Append to container (stacks vertically)
+	container.appendChild(notification);
 	
 	// Auto remove after 4 seconds
-	setTimeout(() => {
+	const timeout = setTimeout(() => {
 		if (notification.parentNode) {
 			notification.remove();
+			// Remove container if empty
+			if (container && container.children.length === 0) {
+				container.remove();
+			}
 		}
 	}, 4000);
 	
 	// Manual close
 	notification.querySelector('button')?.addEventListener('click', () => {
+		clearTimeout(timeout);
 		notification.remove();
+		if (container && container.children.length === 0) {
+			container.remove();
+		}
 	});
 }
 
