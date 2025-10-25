@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { dbGet, dbAll, dbRun } from '../../../database/helpers';
 import jwt from 'jsonwebtoken';
+import { OnlineStatusManager } from '../../../core/status/online-status-manager';
 
 //Exporter chatConnections pour les notifications tournoi
 export const chatConnections = new Map<number, any>();
@@ -28,6 +29,30 @@ setInterval(() => {
     }
   }
 }, 60000);
+
+/**
+ * Broadcast profile change to all connected chat users
+ */
+function broadcastProfileChange(userId: number, changeType: string, data: any): void {
+  const message = JSON.stringify({
+    type: 'friend_profile_updated',
+    payload: {
+      userId,
+      changeType,
+      ...data
+    }
+  });
+  
+  chatConnections.forEach((connection, connectedUserId) => {
+    if (connection.readyState === connection.OPEN) {
+      connection.send(message);
+    }
+  });
+  
+  console.log(`📢 Broadcasted ${changeType} change for user ${userId} to all chat connections`);
+}
+
+export { broadcastProfileChange };
 
 async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
   try {
@@ -533,6 +558,34 @@ async function handleSendMessage(senderId: number, message: any, fastify: Fastif
     }));
     return;
   }
+
+  const receiverUser = await dbGet(
+    'SELECT auth_provider FROM users WHERE id = ?',
+    [receiverId]
+  );
+  
+  if (receiverUser && receiverUser.auth_provider === 'anonymized') {
+    const senderConn = chatConnections.get(senderId);
+    senderConn?.send(JSON.stringify({
+      type: 'error',
+      message: 'Cannot send messages to anonymized users'
+    }));
+    return;
+  }
+  
+  const senderUser = await dbGet(
+    'SELECT auth_provider FROM users WHERE id = ?',
+    [senderId]
+  );
+  
+  if (senderUser && senderUser.auth_provider === 'anonymized') {
+    const senderConn = chatConnections.get(senderId);
+    senderConn?.send(JSON.stringify({
+      type: 'error',
+      message: 'Anonymized users cannot send messages'
+    }));
+    return;
+  }
   
   const result = await dbRun(
     'INSERT INTO chat_messages (sender_id, receiver_id, message) VALUES (?, ?, ?)',
@@ -619,6 +672,22 @@ async function handleGameInvite(senderId: number, message: any, fastify: Fastify
     'SELECT nickname FROM users WHERE id = ?',
     [receiverId]
   );
+
+  const statusManager = OnlineStatusManager.getInstance();
+  const receiverStatus = statusManager.getUserStatus(receiverId);
+  
+  if (receiverStatus && receiverStatus.status === 'in_game') {
+    // Notify sender that receiver is in a game
+    const senderConn = chatConnections.get(senderId);
+    if (senderConn) {
+      senderConn.send(JSON.stringify({
+        type: 'error',
+        message: `${receiverInfo?.nickname || 'User'} is currently in a game`
+      }));
+    }
+    fastify.log.info(`❌ Cannot send invite to ${receiverId} - player is in a game`);
+    return;
+  }
   
   const receiverConn = chatConnections.get(receiverId);
   if (receiverConn) {

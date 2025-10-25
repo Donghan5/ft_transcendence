@@ -141,7 +141,7 @@ export default async function profileRoute(fastify: FastifyInstance) {
 		
 		try {
 			const user = await dbGet(
-				'SELECT id, nickname, avatar_url, rating FROM users WHERE id = ?',
+            	'SELECT id, nickname, avatar_url, rating, auth_provider FROM users WHERE id = ?',
 				[parseInt(userId)]
 			);
 			

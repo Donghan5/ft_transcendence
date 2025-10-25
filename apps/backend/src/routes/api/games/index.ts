@@ -6,10 +6,8 @@ import { OnlineStatusManager } from '../../../core/status/online-status-manager'
 
 import createGameRoutes from './create';
 import gameStatusRoutes from './status';
-import cancelRoutes from './cancel'; // Uncomment if added later
+import cancelRoutes from './cancel';
 import matchmakingRoutes from './matchmaking';
-
-
 
 export default async function gameRoutes(fastify: FastifyInstance) {
 	const statusManager = OnlineStatusManager.getInstance();
@@ -36,10 +34,10 @@ export default async function gameRoutes(fastify: FastifyInstance) {
 				return reply.code(404).send({ error: 'Game not found' });
 			}
 
-			console.log('=== FORFEIT DEBUG ===');
-			console.log('Forfeiting player:', playerId);
-			console.log('Player1:', game.player1Id, game.player1.nickname);
-			console.log('Player2:', game.player2Id, game.player2.nickname);
+			// console.log('=== FORFEIT DEBUG ===');
+			// console.log('Forfeiting player:', playerId);
+			// console.log('Player1:', game.player1Id, game.player1.nickname);
+			// console.log('Player2:', game.player2Id, game.player2.nickname);
 
 			// Determine winner (the OTHER player who didn't forfeit)
 			let winnerId: string;

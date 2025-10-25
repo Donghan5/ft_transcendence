@@ -28,7 +28,7 @@ export interface GameState {
   gameId: string;
   player1Id: string;
   player2Id: string;
-  status: 'waiting' | 'countdown' | 'playing' | 'finished';
+  status: 'waiting' | 'countdown' | 'playing' | 'finished' | 'resuming';
   startTime?: number;
   lastUpdate: number;
   aiStrategy?: 'Defensive' | 'Aggressive' | 'Trickshot';

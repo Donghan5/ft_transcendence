@@ -536,6 +536,9 @@ export function showNicknameSetupScreen() {
 				
 				if (userData.profileComplete) {
 					showAppScreen(userData);
+
+                    //CHAT - Déclencher l'événement de connexion
+                    document.dispatchEvent(new Event('userLoggedIn'));
 				} else {
 					alert('Profile setup failed. Please try again.');
 				}

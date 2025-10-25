@@ -5,7 +5,7 @@ import { dbRun } from '../../database/helpers';
 import { OnlineStatusManager } from '../../core/status/online-status-manager';
 import { UserStatsManager } from '../../core/stats/user-stats-manager';
 import { gameLogger, logGameEvent, logUserActivity } from '../../utils/logger';
-
+import { ReconnectionManager } from './reconnection-manager';
 
 class Enhanced3DPongGame {
 	private games = new Map<string, GameState>();
@@ -13,6 +13,9 @@ class Enhanced3DPongGame {
 	private connectedPlayers = new Map<string, Map<string, WebSocket>>();
 	private matchmakingSockets = new Map<string, WebSocket>();
 	public waitingPlayer: { playerId: string } | null = null;
+
+	private reconnectionManager: ReconnectionManager;
+	private pausedGames: Map<string, { pausedAt: number, reason: string }> = new Map();
 
 	private statusManager: OnlineStatusManager;
 	private statsManager: UserStatsManager;
@@ -31,6 +34,73 @@ class Enhanced3DPongGame {
 
 		this.statusManager = OnlineStatusManager.getInstance();
 		this.statsManager = UserStatsManager.getInstance();
+		this.reconnectionManager = ReconnectionManager.getInstance();
+	}
+
+	/**
+	 * Pause a game (when player disconnects)
+	 */
+	public pauseGame(gameId: string, playerId: string): void {
+		const game = this.games.get(gameId);
+		if (!game) return;
+
+		console.log(`⏸️ Pausing game ${gameId} - player ${playerId} disconnected`);
+		
+		// Store pause state
+		this.pausedGames.set(gameId, {
+			pausedAt: Date.now(),
+			reason: `Player ${playerId} disconnected`
+		});
+
+		this.stopGameLoop(gameId);
+
+		// Get opponent's ID
+		const opponentId = game.player1Id === playerId ? game.player2Id : game.player1Id;
+		
+		// Notify opponent about pause
+		this.broadcastToGame(gameId, 'gamePaused', {
+			message: 'Opponent disconnected. Waiting for reconnection...',
+			disconnectedPlayerId: playerId,
+			remainingTime: 20
+		});
+	}
+
+	/**
+	 * Resume a game (when player reconnects)
+	 */
+	public resumeGame(gameId: string): void {
+		const game = this.games.get(gameId);
+		if (!game) return;
+
+		console.log(`▶️ Resuming game ${gameId}`);
+		this.pausedGames.delete(gameId);
+		
+		// Set to 'resuming' (not 'playing' yet!)
+		game.status = 'resuming';
+
+		// Notify players about reconnection with countdown
+		this.broadcastToGame(gameId, 'gameResumed', {
+			message: 'Player reconnected. Game resuming...',
+			countdown: 3
+		});
+
+		setTimeout(() => {
+			const currentGame = this.games.get(gameId);
+			if (currentGame && currentGame.status === 'resuming') {
+				currentGame.status = 'playing';
+				
+				this.startGameLoop(gameId);
+				
+				console.log(`✅ Game ${gameId} fully resumed - loop restarted`);
+			}
+		}, 3000);
+	}
+
+	/**
+	 * Check if game is paused
+	 */
+	public isGamePaused(gameId: string): boolean {
+		return this.pausedGames.has(gameId);
 	}
 
 	public setTournamentInfo(gameId: string, tournamentId: string, matchId: string): void {
@@ -143,65 +213,90 @@ class Enhanced3DPongGame {
 			this.connectedPlayers.set(gameId, new Map());
 		}
 
-		this.connectedPlayers.get(gameId)!.set(playerId, ws);
-
-		gameLogger.info(`Player ${playerId} joined game ${gameId}`);
-		logGameEvent(gameId, 'player_connect', {
-			player_id: playerId,
-			total_players: this.connectedPlayers.get(gameId)?.size || 0
-		});
-
-		const players = this.connectedPlayers.get(gameId);
+		const players = this.connectedPlayers.get(gameId)!;
 		const game = this.games.get(gameId);
-
-		if (players && game) {
-			players.set(playerId, ws);
-			console.log(`Player ${playerId} joined game ${gameId}`);
-
-			this.statusManager.setUserInGame(parseInt(playerId), gameId);
-
-			const isTournamentOrPvP = game.gameMode === 'TOURNAMENT' || game.gameMode === 'PVP';
-			const isAIGame = game.player2Id === 'AI';
-			const isLocalGame = game.gameMode === 'LOCAL_PVP';
-			
-			const actualPlayers = Array.from(players.keys()).filter(pid => 
-				pid === game.player1Id || pid === game.player2Id
-			);
-			
-			const isReadyToStart = 
-				(isTournamentOrPvP && actualPlayers.length === 2) ||
-				(isAIGame && players.size === 1) ||
-				(isLocalGame);
-
-			if (ws.readyState === WebSocket.OPEN) {
-				const message = JSON.stringify({
-					type: 'gameState',
-					payload: game
-				});
-				ws.send(message);
-			}
-
-			if (isTournamentOrPvP && !isReadyToStart && game.status === 'waiting') {
-				const playerSide = playerId === game.player1Id ? 'player1' : 'player2';
-				
-				if (ws.readyState === WebSocket.OPEN) {
-					ws.send(JSON.stringify({
-						type: 'waitingForOpponent',
-						playerSide: playerSide
-					}));
-				}
-				
-				console.log(`Game ${gameId}: Waiting for opponent. ${actualPlayers.length}/2 players connected.`);
-			} else if (isReadyToStart && game.status === 'waiting') {
-				console.log(`Game ${gameId}: All players connected, starting countdown!`);
-				
-				this.broadcastToGame(gameId, 'playerJoined', { playerId: playerId });
-				
-				this.startCountdown(gameId);
-			}
-		} else {
+		
+		if (!game) {
 			console.warn(`Game ${gameId} not found for player ${playerId}`);
 			ws.close();
+			return;
+		}
+		
+		const wasDisconnected = game.status === 'playing' && 
+							this.reconnectionManager.isPlayerDisconnected(gameId, playerId);
+		
+		if (wasDisconnected) {
+			console.log(`🔄 Player ${playerId} RECONNECTING to game ${gameId}`);
+			
+			// Cancel the timeout
+			this.reconnectionManager.handleReconnection(gameId, playerId);
+			
+			// Re-add player
+			players.set(playerId, ws);
+			
+			// Resume the game
+			this.resumeGame(gameId);
+			
+			// Send reconnection confirmation to player
+			ws.send(JSON.stringify({
+				type: 'reconnected',
+				message: 'Successfully reconnected to game'
+			}));
+			
+			// Game state will be sent automatically by the game loop
+			return;
+		}
+
+		players.set(playerId, ws);
+		console.log(`✅ Player ${playerId} added to game ${gameId} (total players: ${players.size})`);
+
+		gameLogger.info(`Player ${playerId} connected to game ${gameId}`);
+		logGameEvent(gameId, 'player_connect', {
+			player_id: playerId,
+			total_players: players.size
+		});
+
+		this.statusManager.setUserInGame(parseInt(playerId), gameId);
+
+		// Send current game state to new player
+		if (ws.readyState === WebSocket.OPEN) {
+			const message = JSON.stringify({
+				type: 'gameState',
+				payload: game
+			});
+			ws.send(message);
+		}
+
+		const isTournamentOrPvP = game.gameMode === 'TOURNAMENT' || game.gameMode === 'PVP';
+		const isAIGame = game.player2Id === 'AI';
+		const isLocalGame = game.gameMode === 'LOCAL_PVP';
+		
+		const actualPlayers = Array.from(players.keys()).filter(pid => 
+			pid === game.player1Id || pid === game.player2Id
+		);
+		
+		const isReadyToStart = 
+			(isTournamentOrPvP && actualPlayers.length === 2) ||
+			(isAIGame && players.size === 1) ||
+			(isLocalGame);
+
+		if (isTournamentOrPvP && !isReadyToStart && game.status === 'waiting') {
+			const playerSide = playerId === game.player1Id ? 'player1' : 'player2';
+			
+			if (ws.readyState === WebSocket.OPEN) {
+				ws.send(JSON.stringify({
+					type: 'waitingForOpponent',
+					playerSide: playerSide
+				}));
+			}
+			
+			console.log(`Game ${gameId}: Waiting for opponent. ${actualPlayers.length}/2 players connected.`);
+		} else if (isReadyToStart && game.status === 'waiting') {
+			console.log(`Game ${gameId}: All players connected, starting countdown!`);
+			
+			this.broadcastToGame(gameId, 'playerJoined', { playerId: playerId });
+			
+			this.startCountdown(gameId);
 		}
 	}
 
@@ -368,25 +463,61 @@ class Enhanced3DPongGame {
 	 */
 	public removePlayer(gameId: string, playerId: string): void {
 		const players = this.connectedPlayers.get(gameId);
-		if (players?.has(playerId)) {
-			players.delete(playerId);
+		if (!players?.has(playerId)) {
+			console.log(`Player ${playerId} not found in game ${gameId}`);
+			return;
+		}
 
-			// Log player leave event
+		const game = this.games.get(gameId);
+			
+		if (game && (game.status === 'playing' || game.status === 'countdown')) {
+			console.log(`Player ${playerId} disconnected from ACTIVE game ${gameId} (status: ${game.status})`);
+			
+			// Remove player temporarily
+			players.delete(playerId);
+			
+			const gameInputs = this.currentInputStates.get(gameId);
+			if (gameInputs?.has(playerId)) {
+				gameInputs.delete(playerId);
+			}
+
+			// Start reconnection countdown
+			this.reconnectionManager.handleDisconnection(
+				gameId,
+				playerId,
+				// On timeout (player didn't reconnect)
+				async (gId, pId) => {
+					console.log(`💀 Player ${pId} failed to reconnect, forfeiting game ${gId}`);
+					
+					// Determine winner (the other player)
+					const g = this.games.get(gId);
+					if (g) {
+						const winnerId = g.player1Id === pId ? g.player2Id : g.player1Id;
+						await this.endGame(gId, winnerId);
+					}
+				},
+				// On pause
+				(gId, pId) => {
+					this.pauseGame(gId, pId);
+				}
+			);
+		} else {
+			// For non-active games (waiting, finished), remove player normally
+			players.delete(playerId);
+			
 			gameLogger.info(`Player ${playerId} removed from game ${gameId}`);
 			logGameEvent(gameId, 'player_disconnect', {
 				player_id: playerId,
 				remaining_players: this.connectedPlayers.get(gameId)?.size || 0
 			});
-			console.log(`Player ${playerId} removed from game ${gameId}`);
-		}
 
-		const gameInputs = this.currentInputStates.get(gameId);
-		if (gameInputs?.has(playerId)) {
-			gameInputs.delete(playerId);
-			console.log(`Input state for player ${playerId} removed from game ${gameId}`);
-		}
+			const gameInputs = this.currentInputStates.get(gameId);
+			if (gameInputs?.has(playerId)) {
+				gameInputs.delete(playerId);
+			}
 
-		this.statusManager.setUserBackOnline(parseInt(playerId));
+			this.statusManager.setUserBackOnline(parseInt(playerId));
+		}
 	}
 
 	/**
@@ -421,13 +552,10 @@ class Enhanced3DPongGame {
 
 		let updateCounter = 0;
 		const gameLoop = () => {
-			if (!this.gameLoopRunning.get(gameId)) {
-				return;
-			}
+			if (!this.gameLoopRunning.get(gameId)) return;
 
 			const currentGame = this.games.get(gameId);
 			if (!currentGame || currentGame.status === 'finished') {
-				console.log(`Game ${gameId} not found or finished, stopping loop`);
 				this.stopGameLoop(gameId);
 				return;
 			}
@@ -438,32 +566,30 @@ class Enhanced3DPongGame {
 				logGameEvent(gameId, 'performance_metric', {
 					update_count: updateCounter,
 					active_players: this.connectedPlayers.get(gameId)?.size || 0,
-					game_status: currentGame.status,  // ← Use currentGame, not game
-					timestamp: new Date().toISOString()
-				});
-			}
-
-			if (currentGame.status === 'playing') {
-				// Send active player count for debugging
-				this.broadcastToGame(gameId, 'debug', {
-					active_players: this.connectedPlayers.get(gameId)?.size || 0,
 					game_status: currentGame.status,
 					timestamp: new Date().toISOString()
 				});
 			}
 
-			const currentTime = Date.now();
-			const deltaTime = (currentTime - lastFrameTime) / 1000;
-			lastFrameTime = currentTime;
+			// if (currentGame.status === 'resuming') {
+			// 	gameLogics.broadcastGameState(gameId);
+			// 	return;
+			// }
 
-			const gameInputs = this.currentInputStates.get(gameId);
-			if (gameInputs) {
-				gameInputs.forEach((direction, playerId) => {
-					gameLogics.processPlayerInput(currentGame, playerId, direction);
-				});
+			if (currentGame.status === 'playing') {
+				const currentTime = Date.now();
+				const deltaTime = (currentTime - lastFrameTime) / 1000;
+				lastFrameTime = currentTime;
+
+				const gameInputs = this.currentInputStates.get(gameId);
+				if (gameInputs) {
+					gameInputs.forEach((direction, playerId) => {
+						gameLogics.processPlayerInput(currentGame, playerId, direction);
+					});
+				}
+
+				gameLogics.updatePhysics(currentGame, deltaTime);
 			}
-
-			gameLogics.updatePhysics(currentGame, deltaTime);
 			
 			gameLogics.broadcastGameState(gameId);
 		};
@@ -515,6 +641,8 @@ class Enhanced3DPongGame {
 	}
 
 	public async endGame(gameId: string, predeterminedWinner?: string): Promise<void> {
+		this.reconnectionManager.cleanupGame(gameId);
+		this.pausedGames.delete(gameId);
 		console.log(`Ending game ${gameId}`, predeterminedWinner ? `with predetermined winner: ${predeterminedWinner}` : 'determining winner by score');
 		
 		this.stopGameLoop(gameId);

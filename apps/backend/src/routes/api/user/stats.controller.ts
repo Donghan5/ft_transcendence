@@ -57,8 +57,7 @@ export default async function statsRoute(fastify: FastifyInstance) {
             const systemMetrics = await statsManager.getSystemMetrics();
             
             const metrics = {
-                ...systemMetrics,
-                // add any additional metrics you want to expose
+                ...systemMetrics
             };
             
             return reply.send({ metrics });

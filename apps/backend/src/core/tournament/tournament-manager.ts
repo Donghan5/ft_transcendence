@@ -73,22 +73,27 @@ export class TournamentManager {
         try {
             // Get players
             const players = await dbAll(`
-                SELECT u.id, u.nickname, u.rating, u.avatar_url
+                SELECT
+                    u.id,
+                    u.nickname,
+                    u.avatar_url,
+                    COALESCE(us.rank_points, 1000) as rank_points -- users 테이블의 rating 대신 user_stats의 rank_points 가져오기 (없으면 1000)
                 FROM tournament_participants tp
                 JOIN users u ON tp.user_id = u.id
+                LEFT JOIN user_stats us ON u.id = us.user_id -- user_stats 테이블 조인
                 WHERE tp.tournament_id = ?
             `, [tournamentData.id]);
 
             // Get bracket matches
             const matches = await dbAll(`
-                SELECT tm.*, 
-                    p1.nickname as player1_nickname, p1.rating as player1_rating, p1.avatar_url as player1_avatar,
-                    p2.nickname as player2_nickname, p2.rating as player2_rating, p2.avatar_url as player2_avatar,
-                    w.nickname as winner_nickname, w.rating as winner_rating, w.avatar_url as winner_avatar
+                SELECT tm.*,
+                    p1.nickname as player1_nickname, p1.avatar_url as player1_avatar, COALESCE(us1.rank_points, 1000) as player1_rank_points,
+                    p2.nickname as player2_nickname, p2.avatar_url as player2_avatar, COALESCE(us2.rank_points, 1000) as player2_rank_points,
+                    w.nickname as winner_nickname, w.avatar_url as winner_avatar, COALESCE(usw.rank_points, 1000) as winner_rank_points
                 FROM tournament_matches tm
-                LEFT JOIN users p1 ON tm.player1_id = p1.id
-                LEFT JOIN users p2 ON tm.player2_id = p2.id
-                LEFT JOIN users w ON tm.winner_id = w.id
+                LEFT JOIN users p1 ON tm.player1_id = p1.id LEFT JOIN user_stats us1 ON p1.id = us1.user_id
+                LEFT JOIN users p2 ON tm.player2_id = p2.id LEFT JOIN user_stats us2 ON p2.id = us2.user_id
+                LEFT JOIN users w ON tm.winner_id = w.id LEFT JOIN user_stats usw ON w.id = usw.user_id
                 WHERE tm.tournament_id = ?
                 ORDER BY tm.round, tm.position
             `, [tournamentData.id]);
@@ -100,7 +105,7 @@ export class TournamentManager {
                 players: players.map(p => ({
                     id: p.id.toString(),
                     nickname: p.nickname,
-                    rating: p.rating,
+                    rankPoints: p.rank_points,
                     avatarUrl: p.avatar_url || '/default-avatar.png'
                 })),
                 bracket: matches.map(m => ({
@@ -108,19 +113,19 @@ export class TournamentManager {
                     player1: m.player1_id ? {
                         id: m.player1_id.toString(),
                         nickname: m.player1_nickname,
-                        rating: m.player1_rating,
+                        rankPoints: m.player1_rank_points,
                         avatarUrl: m.player1_avatar || '/default-avatar.png'
                     } : null,
                     player2: m.player2_id ? {
                         id: m.player2_id.toString(),
                         nickname: m.player2_nickname,
-                        rating: m.player2_rating,
+                        rankPoints: m.player2_rank_points,
                         avatarUrl: m.player2_avatar || '/default-avatar.png'
                     } : null,
                     winner: m.winner_id ? {
                         id: m.winner_id.toString(),
                         nickname: m.winner_nickname,
-                        rating: m.winner_rating,
+                        rankPoints: m.winner_rank_points,
                         avatarUrl: m.winner_avatar || '/default-avatar.png'
                     } : null,
                     round: m.round,
@@ -198,7 +203,12 @@ export class TournamentManager {
         }
 
         // Get user info
-        const user = await dbGet(`SELECT id, nickname, rating, avatar_url FROM users WHERE id = ?`, [parseInt(userId)]);
+        const user = await dbGet(`
+            SELECT u.id, u.nickname, u.avatar_url, COALESCE(us.rank_points, 1000) as rank_points
+            FROM users u
+            LEFT JOIN user_stats us ON u.id = us.user_id
+            WHERE u.id = ?
+        `, [parseInt(userId)]);
         if (!user) {
             return false;
         }
@@ -206,7 +216,7 @@ export class TournamentManager {
         const player: TournamentPlayer = {
             id: userId,
             nickname: user.nickname,
-            rating: user.rating,
+            rankPoints: user.rank_points,
             avatarUrl: user.avatar_url || '/default-avatar.png'
         };
 

@@ -8,12 +8,17 @@ export interface ConnectionEvenets {
 	'connectionLost': () => void;
 	'connectionRestored': () => void;
 	'error': (error: string) => void;
+	'gamePaused': (data: { message: string, disconnectedPlayerId: string, remainingTime: number }) => void;
+	'gameResumed': (data: { message: string, countdown: number }) => void;
+	'gameFullyResumed': (data: {}) => void;
+	'reconnected': (data: { message: string, gameState: any }) => void;
+	'session_replaced': (data: { message: string }) => void;
 }
 
 export class Connection {
 	private ws: WebSocket | null = null
-	public gameId: string	// changed from private to public for easier access
-	public playerId: string // changed from private to public for easier access
+	public gameId: string
+	public playerId: string
 	private reconnectAttempts: number = 0
 	private maxReconnectAttempts: number = 5
 	private reconnectDelay: number = 1000
@@ -122,6 +127,24 @@ export class Connection {
 				break;
 			case 'pong':
 				console.log('Heartbeat response received');
+				break;
+			case 'gamePaused':
+				this.emit('gamePaused', data);
+				break;
+			case 'gameResumed':
+				this.emit('gameResumed', data);
+				break;
+			case 'gameFullyResumed':
+				this.emit('gameFullyResumed', data);
+				break;
+			case 'reconnected':
+				this.emit('reconnected', data);
+				console.log('✅ Reconnected successfully:', data.message);
+				break;
+			case 'session_replaced':
+				this.emit('session_replaced', data);
+				alert(data.message);
+				window.location.href = '/login';
 				break;
 			default:
 				console.log('Unknown message type:', data.type);

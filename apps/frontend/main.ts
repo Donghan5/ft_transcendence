@@ -1,6 +1,6 @@
 import { appState } from './src/state/state';
 import { showSection, setupPongLogoRedirect, showFriendsScreen, showNicknameSetupScreen, showAppScreen, showNotification } from './src/services/ui';
-import { handleGameStart, cancelMatchmaking, cleanupCurrentGame, forfeitCurrentGame, showGameScreen, startGame, triggerGameEnd } from './src/game/game-manager';
+import { handleGameStart, cancelMatchmaking, cleanupCurrentGame, forfeitCurrentGame, showGameScreen, startGame, triggerGameEnd, getActiveGame, clearActiveGame } from './src/game/game-manager';
 import { returnToMainMenu, toggleFullscreen } from './src/utils/tools';
 import { showProfileScreen } from './src/services/user';
 import { setupLocalAuthHandlers, updateLoginStatus } from './src/services/auth';
@@ -66,6 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 	setupLocalAuthHandlers(); // Single call to set up all auth UI and logic
 	updateLoginStatus();
+
+	setTimeout(() => {
+        checkAndRejoinGame();
+    }, 1000);
+
 	console.log('Start beautiful PONG game!');
 	setupEventListeners();
 	
@@ -79,6 +84,10 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('userLoggedIn', () => {
 	console.log('🔐 User logged in - initializing chat');
 	initChatWidget();
+
+	setTimeout(() => {
+        checkAndRejoinGame();
+    }, 1000);
 });
 
 // ✅ CHAT - Écouter la déconnexion
@@ -231,7 +240,61 @@ function setupEventListeners() {
 	setupPongLogoRedirect();
 }
 
+/**
+ * Check if user was in a game and attempt to reconnect
+ */
+async function checkAndRejoinGame() {
+    console.log('🔍 checkAndRejoinGame called');
+    
+    if (!appState.currentUser?.id) {
+        console.log('❌ No user logged in');
+        // ✅ Clear stale data if no user
+        const stored = getActiveGame();
+        if (stored) {
+            console.log('🗑️ Clearing stale game data (no user)');
+            clearActiveGame();
+        }
+        return;
+    }
 
+    const activeGame = getActiveGame();
+    if (!activeGame) {
+        console.log('❌ No active game to rejoin');
+        return;
+    }
+
+    console.log('🔄 Found active game:', activeGame);
+
+    try {
+        const response = await fetch(`/api/games/status/${activeGame.gameId}`, {
+            credentials: 'include'
+        });
+
+        if (!response.ok) {
+            console.log('❌ Game not found, clearing storage');
+            clearActiveGame();
+            return;
+        }
+
+        const gameStatus = await response.json();
+        
+        if (gameStatus.canRejoin) {
+            console.log('✅ Rejoining game!');
+            showGameScreen();
+            await startGame(
+                activeGame.gameId,
+                String(appState.currentUser.id),
+                activeGame.gameMode
+            );
+        } else {
+            console.log('❌ Cannot rejoin, clearing storage');
+            clearActiveGame();
+        }
+    } catch (error) {
+        console.error('💥 Error checking game:', error);
+        clearActiveGame();
+    }
+}
 
 document.addEventListener('DOMContentLoaded', () => {
 	document.addEventListener('click', (e) => {

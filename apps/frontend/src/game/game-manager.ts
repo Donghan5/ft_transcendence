@@ -4,6 +4,14 @@ import { returnToMainMenu } from '../utils/tools';
 import { showSection, showNotification } from '../services/ui';
 import { updateConnectionStatus } from '../game/connection';
 
+let isPageUnloading = false;
+
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => {
+        isPageUnloading = true;
+    });
+}
+
 /**
  *
  * @param gameMode: string - The game mode to create (e.g., 'quick', 'ai', 'tournament')
@@ -91,6 +99,59 @@ export async function createNewGame(gameMode: string) {
     }
 }
 
+/**
+ * Store active game info for reconnection
+ */
+export function storeActiveGame(gameId: string, playerId: string, gameMode: string) {
+    console.log('💾 storeActiveGame called with:', { gameId, playerId, gameMode });
+    
+    const gameInfo = {
+        gameId,
+        playerId,
+        gameMode,
+        timestamp: Date.now()
+    };
+    
+    console.log('💾 Storing to localStorage:', gameInfo);
+    localStorage.setItem('activeGame', JSON.stringify(gameInfo));
+    
+    // Verify it was stored
+    const stored = localStorage.getItem('activeGame');
+    console.log('💾 Verification - localStorage now contains:', stored);
+}
+
+/**
+ * Clear stored game info
+ */
+export function clearActiveGame() {
+    localStorage.removeItem('activeGame');
+    console.log('🗑️ Cleared active game storage');
+}
+
+/**
+ * Get stored game info
+ */
+export function getActiveGame(): { gameId: string, playerId: string, gameMode: string, timestamp: number } | null {
+    try {
+        const stored = localStorage.getItem('activeGame');
+        if (!stored) return null;
+        
+        const gameInfo = JSON.parse(stored);
+        
+        // Check if game info is too old (> 5 minutes = stale)
+        const age = Date.now() - gameInfo.timestamp;
+        if (age > 5 * 60 * 1000) {
+            clearActiveGame();
+            return null;
+        }
+        
+        return gameInfo;
+    } catch (error) {
+        console.error('Error reading active game:', error);
+        return null;
+    }
+}
+
 export function showGameScreen() {
     showSection('game');
     console.log('Game screen is shown');
@@ -113,6 +174,12 @@ export async function startGame(
     
     appState.currentGameId = gameId;
     appState.currentGameMode = gameMode;
+    
+    console.log('🎮 startGame called with:', { gameId, playerId, gameMode });
+    
+    console.log('💾 About to store active game...');
+    storeActiveGame(gameId, playerId, gameMode);
+    console.log('💾 Stored active game');
     
     if (tournamentId) {
         appState.currentTournamentId = tournamentId;
@@ -412,6 +479,8 @@ export async function cancelMatchmaking() {
 }
 
 export function cleanupCurrentGame() {
+    console.log('🧹 cleanupCurrentGame called, isPageUnloading:', isPageUnloading);
+    
     if (appState.currentGame) {
         console.log('Disposing current game...');
         try {
@@ -423,6 +492,14 @@ export function cleanupCurrentGame() {
             appState.currentGame = null;
             console.log('Current game reference cleared');
         }
+    }
+    
+    // ✅ ONLY clear localStorage if NOT during page unload
+    if (!isPageUnloading) {
+        console.log('🗑️ Clearing localStorage (normal cleanup)');
+        clearActiveGame();
+    } else {
+        console.log('⚠️ Skipping localStorage clear (page unloading - might reconnect)');
     }
 }
 

@@ -3,7 +3,7 @@
 export interface TournamentPlayer {
     id: string;
     nickname: string;
-    rating: number;
+    rankPoints: number;
     avatarUrl?: string;
 }
 

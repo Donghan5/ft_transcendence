@@ -34,7 +34,8 @@ export class PongGame3D {
     private disposed: boolean = false;
     private resizeHandler: () => void;
     private previousBallPosition: Vector3 | null = null;
-
+    private pauseOverlay: HTMLElement | null = null;
+    private pauseCountdownInterval: any = null;
 
     constructor(canvas: HTMLCanvasElement, gameId: string, playerId: string, gameMode: string, playerNickname: string) {
         this.engine = new Engine(canvas, true);
@@ -72,6 +73,108 @@ export class PongGame3D {
 
         this.resizeHandler = () => this.engine.resize();
         window.addEventListener('resize', this.resizeHandler);
+    }
+
+    /**
+     * Show pause overlay when opponent disconnects
+     */
+    private showPauseOverlay(message: string, remainingTime: number): void {
+        this.removePauseOverlay();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'pauseOverlay';
+        overlay.className = 'fixed inset-0 bg-black/80 flex flex-col items-center justify-center z-[11000] font-anton';
+        overlay.style.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.05) 10px, rgba(255,255,255,.05) 20px)';
+
+        overlay.innerHTML = `
+            <div class="text-center">
+                <div class="bg-white border-[8px] border-black p-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-12">
+                    <h1 class="text-5xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#ff4444]">
+                        PLAYER DISCONNECTED
+                    </h1>
+                </div>
+                
+                <div class="bg-red-500 border-[8px] border-black p-8 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] rotate-1">
+                    <div id="pauseCountdown" class="text-[10rem] text-white font-bold [text-shadow:6px_6px_0_black] leading-none">
+                        ${remainingTime}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+        this.pauseOverlay = overlay;
+
+        let currentTime = remainingTime;
+        this.pauseCountdownInterval = setInterval(() => {
+            currentTime--;
+            const countdownEl = document.getElementById('pauseCountdown');
+            if (countdownEl) {
+                countdownEl.textContent = String(currentTime);
+                countdownEl.style.transform = 'scale(1.1)';
+                setTimeout(() => countdownEl.style.transform = 'scale(1)', 150);
+            }
+            if (currentTime <= 0) this.removePauseOverlay();
+        }, 1000);
+    }
+
+    /**
+     * Remove pause overlay
+     */
+    private removePauseOverlay(): void {
+        if (this.pauseCountdownInterval) {
+            clearInterval(this.pauseCountdownInterval);
+            this.pauseCountdownInterval = null;
+        }
+        
+        if (this.pauseOverlay) {
+            this.pauseOverlay.remove();
+            this.pauseOverlay = null;
+        }
+    }
+
+    /**
+     * Show resume countdown
+     */
+    private showResumeCountdown(countdown: number): void {
+        this.removePauseOverlay();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'resumeOverlay';
+        overlay.className = 'fixed inset-0 bg-black/75 flex flex-col items-center justify-center z-[11000] font-anton';
+        overlay.style.backgroundImage = 'repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,.05) 10px, rgba(255,255,255,.05) 20px)';
+
+        overlay.innerHTML = `
+            <div class="text-center">
+                <div class="bg-white border-[8px] border-black p-12 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] -rotate-2 mb-12">
+                    <h1 class="text-5xl text-black uppercase tracking-wider m-0 [text-shadow:4px_4px_0_#4CAF50]">
+                        RESUMING
+                    </h1>
+                </div>
+                
+                <div class="bg-green-500 border-[8px] border-black p-8 px-16 shadow-[12px_12px_0_rgba(0,0,0,0.5)] rotate-1">
+                    <div id="resumeCountdown" class="text-[10rem] text-white font-bold [text-shadow:6px_6px_0_black] leading-none">
+                        ${countdown}
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(overlay);
+
+        let current = countdown;
+        const countdownInterval = setInterval(() => {
+            current--;
+            const countdownEl = document.getElementById('resumeCountdown');
+            if (countdownEl && current > 0) {
+                countdownEl.textContent = String(current);
+                countdownEl.style.transform = 'scale(1.1)';
+                setTimeout(() => countdownEl.style.transform = 'scale(1)', 150);
+            } else {
+                clearInterval(countdownInterval);
+                document.getElementById('resumeOverlay')?.remove();
+            }
+        }, 1000);
     }
 
     private setupConnectionHandlers(): void {
@@ -116,13 +219,36 @@ export class PongGame3D {
         this.connection.on('connectionLost', () => {
             this.uiManager.hideWaitingForOpponent();
         });
+
+        this.connection.on('gamePaused', (data) => {
+            console.log('🛑 Game paused:', data);
+            this.showPauseOverlay(data.message, data.remainingTime);
+        });
+
+        this.connection.on('gameResumed', (data) => {
+            console.log('▶️ Game resuming:', data);
+            this.showResumeCountdown(data.countdown);
+        });
+
+        this.connection.on('reconnected', (data) => {
+            console.log('🔄 Reconnected to game:', data);
+        });
+
+        this.connection.on('session_replaced', (data) => {
+            console.log('⚠️ Session replaced:', data.message);
+            alert(data.message);
+            // Clean up and redirect
+            this.dispose();
+            window.location.href = '/login';
+        });
     }
 
     private onGameEnd(data: { winnerNickname: string, winnerId: string, finalScore: any }): void {
         if (this.gameEndHandled) return;
         this.gameEndHandled = true;
-        this.connection.disconnect();
 
+        this.removePauseOverlay();
+        this.connection.disconnect();
         this.uiManager.dispose();
 
         const modal = document.getElementById('gameOverModal');
@@ -225,7 +351,7 @@ export class PongGame3D {
     }
 
     private createComicTextEffect(effectPosition: Vector3): void {
-        console.log('[DEBUG] createComicTextEffect called');
+        // console.log('[DEBUG] createComicTextEffect called');
         const texts = ["POW!", "BAM!", "BOOM!", "WHAM!", "ZAP!", "SMASH!"];
         const randomText = texts[Math.floor(Math.random() * texts.length)];
         
@@ -234,7 +360,7 @@ export class PongGame3D {
         textPlane.position.y += 1.5;
         textPlane.billboardMode = Mesh.BILLBOARDMODE_ALL;
         
-        console.log('[DEBUG] Text plane created at position:', textPlane.position);
+        // console.log('[DEBUG] Text plane created at position:', textPlane.position);
         const dynamicTexture = new DynamicTexture("comicTexture", 256, this.scene, true);
         dynamicTexture.hasAlpha = true;
         const ctx = dynamicTexture.getContext() as CanvasRenderingContext2D;
@@ -250,7 +376,7 @@ export class PongGame3D {
         ctx.fillText(randomText, 128, 128);
         dynamicTexture.update();
         
-        console.log('[DEBUG] Dynamic texture updated with text:', randomText);
+        // console.log('[DEBUG] Dynamic texture updated with text:', randomText);
         const textMat = new StandardMaterial("comicTextMat", this.scene);
         textMat.diffuseTexture = dynamicTexture;
         textMat.opacityTexture = dynamicTexture;
@@ -260,7 +386,7 @@ export class PongGame3D {
         textMat.useAlphaFromDiffuseTexture = true;
         textPlane.material = textMat;
         
-        console.log('[DEBUG] Material applied, initial alpha:', textMat.alpha);
+        // console.log('[DEBUG] Material applied, initial alpha:', textMat.alpha);
         const easingFunc = new ElasticEase(2, 3);
         easingFunc.setEasingMode(EasingFunction.EASINGMODE_EASEOUT);
         
@@ -312,28 +438,28 @@ export class PongGame3D {
         rotAnim.setEasingFunction(easingFunc);
         
         textPlane.animations = [scaleAnim, alphaAnim, rotAnim];
-        console.log('[DEBUG] Animations assigned to textPlane:', textPlane.animations.length);
+        // console.log('[DEBUG] Animations assigned to textPlane:', textPlane.animations.length);
         
         const animation = this.scene.beginAnimation(textPlane, 0, 30, false, 1.0, () => {
-            console.log('[DEBUG] Comic text animation completed, disposing resources');
+            // console.log('[DEBUG] Comic text animation completed, disposing resources');
             textPlane.dispose();
             dynamicTexture.dispose();
             textMat.dispose();
         });
         
-        let debugFrameCount = 0;
-        const debugObserver = this.scene.onBeforeRenderObservable.add(() => {
-            if (textPlane.isDisposed() || debugFrameCount >= 30) {
-                this.scene.onBeforeRenderObservable.remove(debugObserver);
-                return;
-            }
-            console.log(`[DEBUG] Animation progress: scale=${textPlane.scaling.x.toFixed(2)}, alpha=${textMat.alpha.toFixed(2)}, rotation.z=${textPlane.rotation.z.toFixed(2)}`);
-            debugFrameCount++;
-        });
+        // let debugFrameCount = 0;
+        // const debugObserver = this.scene.onBeforeRenderObservable.add(() => {
+        //     if (textPlane.isDisposed() || debugFrameCount >= 30) {
+        //         this.scene.onBeforeRenderObservable.remove(debugObserver);
+        //         return;
+        //     }
+        //     console.log(`[DEBUG] Animation progress: scale=${textPlane.scaling.x.toFixed(2)}, alpha=${textMat.alpha.toFixed(2)}, rotation.z=${textPlane.rotation.z.toFixed(2)}`);
+        //     debugFrameCount++;
+        // });
         
         setTimeout(() => {
             if (!textPlane.isDisposed()) {
-                console.warn('[DEBUG] Fallback cleanup triggered for comic text');
+                // console.warn('[DEBUG] Fallback cleanup triggered for comic text');
                 textPlane.dispose();
                 dynamicTexture.dispose();
                 textMat.dispose();
@@ -447,6 +573,7 @@ export class PongGame3D {
 
         this.scene.dispose();
         this.engine.dispose();
+        this.removePauseOverlay();
     }
 }
 

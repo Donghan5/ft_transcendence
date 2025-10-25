@@ -133,8 +133,232 @@ export class ChatWidget {
     }
   }
 
+  /**
+   * Handles real-time profile updates (anonymization, deletion, nickname changes)
+   */
+  private handleProfileUpdate(payload: any): void {
+    const { userId, changeType, nickname, anonymousNickname } = payload;
+    
+    console.log('💬 Chat: Profile update received', { userId, changeType });
+    
+    // Update nickname in conversations list
+    const conversationEl = document.querySelector(`[data-user-id="${userId}"]`);
+    if (conversationEl) {
+      const nicknameSpan = conversationEl.querySelector('.font-black');
+      if (nicknameSpan) {
+        if (changeType === 'anonymize' && anonymousNickname) {
+          nicknameSpan.textContent = anonymousNickname;
+        } else if (changeType === 'nickname' && nickname) {
+          nicknameSpan.textContent = nickname;
+        }
+      }
+    }
+    
+    // If this is the currently open chat, handle it specially
+    if (this.currentChatUserId === userId) {
+      if (changeType === 'anonymize') {
+        this.handleUserAnonymized(userId, anonymousNickname);
+      } else if (changeType === 'delete') {
+        this.handleUserDeleted(userId);
+      } else if (changeType === 'nickname' && nickname) {
+        // Update nickname in chat header
+        this.currentChatUserNickname = nickname;
+        const chatTitle = document.getElementById('chat-title');
+        if (chatTitle) {
+          chatTitle.textContent = nickname;
+        }
+      }
+    }
+    
+    // Refresh conversation list to show updated info
+    if (this.currentView === 'conversations') {
+      this.loadConversations();
+    }
+  }
+
+  private resetChatInputState(): void {
+    const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+    const sendBtn = document.getElementById('chat-send-btn');
+    const gameBtn = document.getElementById('game-btn');
+    const blockBtn = document.getElementById('block-btn');
+    
+    if (chatInput) {
+      chatInput.disabled = false;
+      chatInput.placeholder = 'Type message...';
+      chatInput.classList.remove('bg-gray-100', 'cursor-not-allowed');
+    }
+    
+    if (sendBtn) {
+      (sendBtn as HTMLButtonElement).disabled = false;
+      sendBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+    
+    if (gameBtn) {
+      (gameBtn as HTMLButtonElement).disabled = false;
+      gameBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+    
+    if (blockBtn) {
+      (blockBtn as HTMLButtonElement).disabled = false;
+      blockBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+  }
+
+  private async checkIfUserAnonymized(userId: number): Promise<void> {
+    try {
+      const response = await fetch(`/api/user/profile-by-id/${userId}`, { 
+        credentials: 'include' 
+      });
+      
+      if (!response.ok) {
+        console.warn('Could not fetch user profile');
+        return;
+      }
+      
+      const data = await response.json();
+      
+      if (data.user && data.user.auth_provider === 'anonymized') {
+        console.log('User is anonymized, disabling chat');
+        this.disableChatForAnonymizedUser(data.user.nickname);
+      }
+    } catch (error) {
+      console.error('Error checking if user is anonymized:', error);
+    }
+  }
+
+  private disableChatForAnonymizedUser(anonymousNickname: string): void {
+    const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+    const sendBtn = document.getElementById('chat-send-btn');
+    const gameBtn = document.getElementById('game-btn');
+    const blockBtn = document.getElementById('block-btn');
+    const chatTitle = document.getElementById('chat-title');
+    
+    if (chatTitle) {
+      chatTitle.textContent = anonymousNickname;
+    }
+    
+    if (chatInput) {
+      chatInput.disabled = true;
+      chatInput.placeholder = 'User is anonymized - chat is read-only';
+      chatInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+    }
+    
+    if (sendBtn) {
+      (sendBtn as HTMLButtonElement).disabled = true;
+      sendBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    
+    if (gameBtn) {
+      (gameBtn as HTMLButtonElement).disabled = true;
+      gameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    
+    if (blockBtn) {
+      (blockBtn as HTMLButtonElement).disabled = true;
+      blockBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    }
+    
+    const container = document.getElementById('chat-messages');
+    if (container && container.children.length > 0) {
+      const lastMessage = container.lastElementChild;
+      const isSystemMsg = lastMessage?.classList.contains('text-center');
+      
+      if (!isSystemMsg || !lastMessage?.textContent?.includes('anonymized')) {
+        this.addSystemMsg('⚠️ This user has anonymized their account. Chat is read-only.');
+      }
+    }
+  }
+
+  /**
+   * Handles when a user gets anonymized while chat is open
+   */
+  private handleUserAnonymized(userId: number, anonymousNickname: string): void {
+    console.log('💬 User anonymized in real-time:', userId, anonymousNickname);
+    
+    // Only disable if this is the CURRENTLY OPEN chat
+    if (this.currentChatUserId !== userId) {
+      console.log('Anonymized user is not the current chat, ignoring');
+      return;
+    }
+    
+    this.currentChatUserNickname = anonymousNickname;
+    this.disableChatForAnonymizedUser(anonymousNickname);
+    
+    showNotification('User has been anonymized - chat is read-only', 'info');
+  }
+
+  /**
+   * Handles when a user gets deleted while chat is open
+   */
+  private handleUserDeleted(userId: number): void {
+    console.log('💬 User deleted in real-time:', userId);
+    
+    // If we're viewing this user's chat, close it
+    if (this.currentChatUserId === userId) {
+      // Add system message
+      this.addSystemMsg('⚠️ This user has deleted their account. Chat is no longer available.');
+      
+      // Disable all interactions
+      const chatInput = document.getElementById('chat-input') as HTMLInputElement;
+      const sendBtn = document.getElementById('chat-send-btn');
+      const gameBtn = document.getElementById('game-btn');
+      const blockBtn = document.getElementById('block-btn');
+      
+      if (chatInput) {
+        chatInput.disabled = true;
+        chatInput.value = '';
+        chatInput.placeholder = 'User deleted - chat unavailable';
+        chatInput.classList.add('bg-gray-100', 'cursor-not-allowed');
+      }
+      
+      if (sendBtn) {
+        (sendBtn as HTMLButtonElement).disabled = true;
+        sendBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+      
+      if (gameBtn) {
+        (gameBtn as HTMLButtonElement).disabled = true;
+        gameBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+      
+      if (blockBtn) {
+        (blockBtn as HTMLButtonElement).disabled = true;
+        blockBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+      
+      // Update chat title
+      const chatTitle = document.getElementById('chat-title');
+      if (chatTitle) {
+        chatTitle.textContent = '[Deleted User]';
+      }
+      
+      // Show notification
+      showNotification('User has deleted their account', 'info');
+      
+      // Auto-close after a delay to show the message
+      setTimeout(() => {
+        this.goBack();
+      }, 3000);
+    }
+    
+    // Remove from conversations list
+    const conversationEl = document.querySelector(`[data-user-id="${userId}"]`);
+    if (conversationEl) {
+      conversationEl.remove();
+    }
+    
+    // Refresh conversation list
+    if (this.currentView === 'conversations') {
+      this.loadConversations();
+    }
+  }
+
   private handleWebSocketMessage(data: any): void {
     switch (data.type) {
+      case 'friend_profile_updated':
+      case 'profile_updated':
+        this.handleProfileUpdate(data.payload);
+        break;
       case 'online_users':
         this.updateOnlineUsers(data.users);
         break;
@@ -254,10 +478,6 @@ export class ChatWidget {
         </div>
 
         <div id="conversations-view" class="flex-1 flex flex-col overflow-hidden pl-[40px]">
-          <div class="p-3 bg-white border-b-thick flex-shrink-0">
-            <input type="text" id="conv-search" placeholder="SEARCH..." 
-              class="w-full px-4 py-2 border-thick outline-none bg-yellow-50 focus:bg-white transition font-black uppercase" />
-          </div>
           <div id="conversations-list" class="flex-1 overflow-y-auto p-2"></div>
         </div>
 
@@ -278,9 +498,9 @@ export class ChatWidget {
           </div>
           <div class="p-4 bg-white border-t-thick flex gap-2 items-center flex-shrink-0">
             <button id="game-btn" class="p-3 text-lg bg-yellow-300 border-thick hover:scale-110 transition shadow-sharp" title="Invite to play">🎮</button>
-            <input type="text" id="chat-input" placeholder="TYPE MESSAGE..." 
-              class="flex-1 px-4 py-3 border-thick outline-none bg-yellow-50 focus:bg-white transition font-black uppercase" />
-            <button id="chat-send-btn" class="w-12 h-12 bg-pink-500 border-thick text-white text-xl hover:scale-105 transition flex-shrink-0 shadow-sharp font-black">→</button>
+              <input type="text" id="chat-input" placeholder="Type message..." 
+                class="flex-1 px-4 py-3 border-thick outline-none bg-yellow-50 focus:bg-white transition font-black" />
+              <button id="chat-send-btn" class="w-12 h-12 bg-pink-500 border-thick text-white text-xl hover:scale-105 transition flex-shrink-0 shadow-sharp font-black">→</button>
           </div>
         </div>
 
@@ -425,7 +645,7 @@ export class ChatWidget {
 
   private sendGameInvite(): void {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      showNotification('Connection lost!', 'error'); // CHANGED
+      showNotification('Connection lost!', 'error');
       return;
     }
   
@@ -433,7 +653,7 @@ export class ChatWidget {
 
     //Vérifier si une invitation est déjà en attente
     if (this.pendingInvites.has(this.currentChatUserId)) {
-      alert('An invitation is already pending with this player. Please wait for their response.');
+      showNotification('An invitation is already pending!', 'error');
       return;
     }
     
@@ -444,7 +664,8 @@ export class ChatWidget {
     
     if (now - lastInviteTime < cooldownTime) {
       const remainingSeconds = Math.ceil((cooldownTime - (now - lastInviteTime)) / 1000);
-      alert(`Please wait ${remainingSeconds} seconds before sending another invitation to this player.`);
+      // alert(`Please wait ${remainingSeconds} seconds before sending another invitation to this player.`);
+      showNotification(`Please wait ${remainingSeconds} seconds!`, 'error');
       return;
     }
 
@@ -579,7 +800,7 @@ export class ChatWidget {
             <span class="online-indicator absolute bottom-0 right-0 w-3 h-3 ${isOnline ? 'bg-green-500' : 'bg-gray-400'} border-2 border-white"></span>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="font-black text-black truncate uppercase">${this.esc(c.nickname)}</div>
+            <div class="font-black text-black truncate">${this.esc(c.nickname)}</div>
             <div class="text-sm text-gray-600 truncate font-bold">${c.last_message ? this.esc(c.last_message) : 'Start conversation'}</div>
           </div>
           ${c.unread_count > 0 ? `<span class="flex-shrink-0 bg-pink-500 text-white text-xs font-black px-2 py-1 border-2 border-black min-w-[20px] text-center">${c.unread_count}</span>` : ''}
@@ -604,7 +825,7 @@ export class ChatWidget {
           ? 'bg-gradient-to-r from-pink-500 to-pink-400 text-white' 
           : 'bg-white text-gray-800'
       }">
-        <div class="text-xs font-black opacity-80 mb-1 uppercase">${this.esc(sender)}</div>
+        <div class="text-xs font-black opacity-80 mb-1">${this.esc(sender)}</div>
         <div class="text-sm leading-relaxed break-words font-bold">${this.esc(text)}</div>
       </div>
       <div class="text-xs text-gray-500 px-2 font-bold">${time}</div>
@@ -615,11 +836,17 @@ export class ChatWidget {
   }
 
   private addSystemMsg(text: string): void {
-    const container = document.getElementById('chat-messages')!;
-    const div = document.createElement('div');
-    div.className = 'text-center text-sm text-gray-600 py-2 font-bold uppercase';
-    div.textContent = text;
-    container.appendChild(div);
+    const container = document.getElementById('chat-messages');
+    if (!container) return;
+    
+    const msgDiv = document.createElement('div');
+    msgDiv.className = 'flex justify-center my-2';
+    msgDiv.innerHTML = `
+      <div class="bg-gray-100 border-thick px-4 py-2 text-sm text-gray-600 font-bold uppercase text-center max-w-xs">
+        ${this.esc(text)}
+      </div>
+    `;
+    container.appendChild(msgDiv);
     container.scrollTop = container.scrollHeight;
   }
 
@@ -694,7 +921,11 @@ export class ChatWidget {
     if (backBtn) backBtn.classList.add('hidden');
     
     const blockedBtn = document.getElementById('blocked-btn');
-    if (blockedBtn) blockedBtn.classList.remove('hidden');
+    if (blockedBtn) {
+      blockedBtn.classList.remove('hidden');
+      blockedBtn.innerHTML = 'Block';
+      blockedBtn.title = 'Blocked users';
+    }
     
     await this.loadConversations();
     
@@ -704,16 +935,20 @@ export class ChatWidget {
   }
 
   private showBlockedView(): void {
-    this.currentView = 'blocked';
-    this.hideAllViews();
-    document.getElementById('blocked-view')!.classList.remove('hidden');
-    document.getElementById('blocked-view')!.classList.add('flex');
-    document.getElementById('chat-back-btn')!.classList.remove('hidden');
-    document.getElementById('chat-title')!.textContent = 'Blocked Users';
-    const blockedBtn = document.getElementById('blocked-btn')!;
-    blockedBtn.innerHTML = 'BACK';
-    blockedBtn.title = 'Back to messages';
-    this.loadBlockedUsers();
+      this.currentView = 'blocked';
+      this.hideAllViews();
+      document.getElementById('blocked-view')!.classList.remove('hidden');
+      document.getElementById('blocked-view')!.classList.add('flex');
+      
+      document.getElementById('chat-back-btn')!.classList.remove('hidden');
+      
+      const blockedBtn = document.getElementById('blocked-btn');
+      if (blockedBtn) {
+        blockedBtn.classList.add('hidden');
+      }
+      
+      document.getElementById('chat-title')!.textContent = 'Blocked Users';
+      this.loadBlockedUsers();
   }
   
   private toggleBlockedView(): void {
@@ -725,26 +960,30 @@ export class ChatWidget {
   }
 
   private async showChatView(userId: number, nickname: string): Promise<void> {
-    this.currentView = 'chat';
-    this.currentChatUserId = userId;
-    this.currentChatUserNickname = nickname;
-    await this.checkIfBlocked(userId);
-    
-    this.hideAllViews();
-    document.getElementById('chat-view')!.classList.remove('hidden');
-    document.getElementById('chat-view')!.classList.add('flex');
-    document.getElementById('chat-back-btn')!.classList.remove('hidden');
-    document.getElementById('chat-title')!.textContent = nickname;
-    
-    const blockedBtn = document.getElementById('blocked-btn');
-    if (blockedBtn) blockedBtn.classList.add('hidden');
-    
-    this.updateBlockButton();
-    await this.loadMessageHistory(userId);
-    
-    setTimeout(() => {
-      this.updateBadge();
-    }, 200);
+      this.currentView = 'chat';
+      this.currentChatUserId = userId;
+      this.currentChatUserNickname = nickname;
+      await this.checkIfBlocked(userId);
+      
+      this.hideAllViews();
+      document.getElementById('chat-view')!.classList.remove('hidden');
+      document.getElementById('chat-view')!.classList.add('flex');
+      document.getElementById('chat-back-btn')!.classList.remove('hidden');
+      document.getElementById('chat-title')!.textContent = nickname;
+      
+      const blockedBtn = document.getElementById('blocked-btn');
+      if (blockedBtn) blockedBtn.classList.add('hidden');
+      
+      this.resetChatInputState();
+      
+      this.updateBlockButton();
+      await this.loadMessageHistory(userId);
+      
+      await this.checkIfUserAnonymized(userId);
+      
+      setTimeout(() => {
+        this.updateBadge();
+      }, 200);
   }
   
   private async checkIfBlocked(userId: number): Promise<void> {

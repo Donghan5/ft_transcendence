@@ -153,8 +153,8 @@ services:
     ports: ["3000:3000"]
     restart: unless-stopped
     networks: [ts_transcendence]
-    # depends_on:
-    #   - logstash
+    depends_on:
+      - logstash
 
   # ─────────────────── Nginx Gateway
   nginx:

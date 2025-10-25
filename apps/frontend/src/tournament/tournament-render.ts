@@ -359,7 +359,7 @@ export function renderPlayersView(tournament: Tournament): string {
                                 ${player.nickname}
                             </h3>
                         </div>
-                        <p class="text-lg font-bold">Rating: ${player.rating}</p>
+                        <p class="text-lg font-bold">Rating: ${player.rankPoints}</p>
                     </div>
                 `).join('')}
                 ${Array.from({length: 4 - tournament.players.length}, (_, i) => `
@@ -462,7 +462,7 @@ export function renderWinnerDisplay(winner: TournamentPlayer): string {
                             </span>
                         </div>
                         <div class="mt-2 bg-black border-3 border-white inline-block px-4 py-1">
-                            <p class="text-xl font-black text-yellow-300">RATING: ${winner.rating}</p>
+                            <p class="text-xl font-black text-yellow-300">RATING: ${winner.rankPoints}</p>
                         </div>
                     </div>
                 </div>

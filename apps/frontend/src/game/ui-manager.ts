@@ -55,15 +55,15 @@ export class GameUIManager {
         const isLocalPlay = this.gameMode === 'LOCAL_PVP' || this.gameMode === 'quick';
         const isSpectator = this.gameMode === 'spectator';
         
-        console.log(`[COUNTDOWN DEBUG] gameMode="${this.gameMode}", isLocalPlay=${isLocalPlay}, isSpectator=${isSpectator}, playerSide="${playerSide}"`);
+        // console.log(`[COUNTDOWN DEBUG] gameMode="${this.gameMode}", isLocalPlay=${isLocalPlay}, isSpectator=${isSpectator}, playerSide="${playerSide}"`);
         
         if (isLocalPlay && playerSide !== 'both') {
-            console.log('[COUNTDOWN] Forcing playerSide to "both" for local play');
+            // console.log('[COUNTDOWN] Forcing playerSide to "both" for local play');
             playerSide = 'both';
         }
         
         if (count === 0) {
-            console.log('[COUNTDOWN] Count is 0, hiding countdown (no GO!)');
+            // console.log('[COUNTDOWN] Count is 0, hiding countdown (no GO!)');
             this.hideCountdownSpotlight();
             return;
         }

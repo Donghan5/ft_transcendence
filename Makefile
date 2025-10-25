@@ -44,7 +44,6 @@ down:
 	docker-compose down --remove-orphans
 
 clean: down
-	@echo "Removing all stopped containers, networks, images, and volumes..."
 
 fclean: clean
 	docker-compose rm -fsv
@@ -63,21 +62,6 @@ ps:
 
 sh:    # example usage: make sh c=backend
 	docker-compose exec $(c) sh
-
-debug:
-	docker-compose logs --tail=200 $(c)
-	docker-compose exec $(c) sh -c 'echo -e "\n=== ENV ==="; env; echo -e "\n=== PROC ==="; ps aux'
-
-test: fclean
-	@echo "Rebuilding backend container with the latest code..."
-	@docker-compose build --no-cache backend
-	@docker-compose up -d --no-deps backend
-    
-	@echo "Building all projects inside the container..."
-	@docker-compose exec -w /usr/src/app backend npm run build --workspace=ft-transcendence-backend
-    
-	@echo "Running tests in backend..."
-	@docker-compose exec -e NODE_ENV=test -w /usr/src/app/apps/backend backend npm test
 
 check-env:
 	@if [ ! -f .env ]; then \
@@ -104,17 +88,4 @@ kibana-open:
 	@echo "Password: $${ELASTIC_PASSWORD}"
 	@open http://localhost:5601 2>/dev/null || xdg-open http://localhost:5601 2>/dev/null || echo "Open http://localhost:5601"
 
-web-game: check-env
-	$(eval APP_URL := https://transcendence.${LOCAL_IP}.nip.io:8443)
-
-	@echo "Please verify, the dependency of backend"
-	docker-compose up --build -d
-	
-	@sleep 1
-	
-	@echo "Application should be ready at: $(APP_URL)"
-	@echo "Attempting to open in your browser..."
-	
-	@open $(APP_URL) 2>/dev/null || xdg-open $(APP_URL) 2>/dev/null || echo "Could not open browser automatically. Please navigate to the URL above."
-
-.PHONY: all start build up down clean fclean re logs ps sh debug test check-env kibana-open web-game
+.PHONY: all start build up down clean fclean re logs ps sh check-env kibana-open 

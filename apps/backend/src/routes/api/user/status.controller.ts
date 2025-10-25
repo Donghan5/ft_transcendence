@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { OnlineStatusManager } from '../../../core/status/online-status-manager';
+import { SessionManager } from '../../../core/session/session-manager';
 
 async function verifyJwt(request: FastifyRequest, reply: FastifyReply) {
     try {
@@ -34,32 +35,47 @@ export default async function statusRoute(fastify: FastifyInstance) {
             const decoded = jwt.verify(token, process.env.JWT_SECRET!) as { userId: number };
             const userId = decoded.userId;
 
-            fastify.log.info(`User ${userId} connected to WebSocket`);
+            const sessionManager = SessionManager.getInstance();
+            sessionManager.registerSession(userId, connection as any);
 
+            console.log(`User ${userId} connected to status WebSocket`);
             statusManager.setUserOnline(userId, connection as any);
 
-            connection.on('close', () => {
-                fastify.log.info(`User ${userId} disconnected from WebSocket`);
-            });
+            // Friends are automatically notified by setUserOnline()
 
-            connection.on('error', (error) => {
-                fastify.log.error(`WebSocket error for user ${userId}:`, error); 
-            });
-
-            connection.on('message', (message) => {
+            connection.on('message', (rawMessage) => {
                 try {
-                    const data = JSON.parse(message.toString());
-                    if (data.type === 'ping') {
-                        statusManager.updateUserLastSeen(userId);
-                        connection.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+                    const message = JSON.parse(rawMessage.toString());
+                    
+                    if (message.type === 'ping') {
+                        if ((connection as any).readyState === 1) {
+                            (connection as any).send(JSON.stringify({ 
+                                type: 'pong', 
+                                timestamp: Date.now() 
+                            }));
+                        }
                     }
                 } catch (error) {
-                    fastify.log.error(`Error parsing message from user ${userId}:`, error);
+                    console.error('Error processing status message:', error);
                 }
             });
 
+            connection.on('close', () => {
+                console.log(`User ${userId} disconnected from status WebSocket`);
+                statusManager.setUserOffline(userId);
+                sessionManager.removeSession(userId);
+                
+                // Friends are automatically notified by setUserOffline()
+            });
+
+            connection.on('error', (error) => {
+                console.error(`Status WebSocket error for user ${userId}:`, error);
+                statusManager.setUserOffline(userId);
+                sessionManager.removeSession(userId);
+            });
+
         } catch (error) {
-            fastify.log.error(`Invalid token for WebSocket connection:`, error);
+            console.error('JWT verification failed:', error);
             connection.close();
         }
     });
